@@ -1,0 +1,25 @@
+sources :
+  cine; vhs
+
+cessionnaires :
+  jeanmichelreal; djridou
+
+source cine :
+  emet cessionnaire djridou taux .15
+  et emet cessionnaire jeanmichelreal taux .10
+  puis emet section 1
+
+source vhs :
+  emet cessionnaire jeanmichelreal jusqua $100.50
+  puis emet section 1.3
+
+section 1:
+    emet cessionnaire jeanmichelreal taux .30
+    et emet cessionnaire djridou taux .05
+    puis emet section 1.3
+  jusqua $50
+  puis emet section 1.3
+
+section 1.3:
+  emet cessionnaire jeanmichelreal
+

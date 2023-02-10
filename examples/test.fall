@@ -1,0 +1,14 @@
+sources :
+  cine; truc
+
+cessionnaires :
+  a; b; c
+
+source cine :
+ emet cessionnaire a jusqua $50
+ puis emet cessionnaire b
+
+source truc :
+ emet cessionnaire a taux .5
+ et emet cessionnaire b taux .25
+ puis emet cessionnaire c
