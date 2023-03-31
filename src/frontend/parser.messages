@@ -1,0 +1,893 @@
+program: VERS
+##
+## Ends in an error in state: 0.
+##
+## program' -> . program [ # ]
+##
+## The known suffix of the stack is as follows:
+##
+##
+
+Expected section or declaration.
+
+program: SORTIE VERS
+##
+## Ends in an error in state: 1.
+##
+## output_decl -> SORTIE . LIDENT [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## SORTIE
+##
+#
+program: REMUNERATION APRES EVENEMENT VERS
+##
+## Ends in an error in state: 44.
+##
+## event_expr -> EVENEMENT . LIDENT [ SORTIE SECTION REMUNERATION QUOTEPART QUAND OU FIN EVENEMENT ET EOF ENTREE CONTEXTE CONSTANTE BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## EVENEMENT
+##
+#
+program: REMUNERATION VERS VERS
+##
+## Ends in an error in state: 60.
+##
+## strict_destinataire -> VERS . LIDENT option(lane) [ SOURCE SORTIE SECTION REMUNERATION QUOTEPART QUAND POUR FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## VERS
+##
+#
+program: EVENEMENT VERS
+##
+## Ends in an error in state: 91.
+##
+## event_decl -> EVENEMENT . LIDENT ATTEINT QUAND event_expr [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## EVENEMENT
+##
+
+Expected lowercase identifier.
+
+program: SECTION VERS
+##
+## Ends in an error in state: 3.
+##
+## section -> SECTION . UIDENT list(context) list(event_guard) list(toplevel_decl) FIN option(UIDENT) [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## SECTION
+##
+
+Expected uppercase identifier.
+
+program: SECTION UIDENT VERS
+##
+## Ends in an error in state: 4.
+##
+## section -> SECTION UIDENT . list(context) list(event_guard) list(toplevel_decl) FIN option(UIDENT) [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## SECTION UIDENT
+##
+
+Expected contextualisation, an event guard, a sub-section, or a declaration.
+
+program: REMUNERATION POUR VERS
+##
+## Ends in an error in state: 5.
+##
+## context -> POUR . UIDENT nonempty_list(UIDENT) [ SOURCE SORTIE SECTION REMUNERATION QUOTEPART QUAND POUR FIN EVENEMENT ENTREE CONTEXTE CONSTANTE BONUS AVANT APRES ]
+## context -> POUR . TOUT UIDENT [ SOURCE SORTIE SECTION REMUNERATION QUOTEPART QUAND POUR FIN EVENEMENT ENTREE CONTEXTE CONSTANTE BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## POUR
+##
+#
+program: REMUNERATION POUR UIDENT VERS
+##
+## Ends in an error in state: 6.
+##
+## context -> POUR UIDENT . nonempty_list(UIDENT) [ SOURCE SORTIE SECTION REMUNERATION QUOTEPART QUAND POUR FIN EVENEMENT ENTREE CONTEXTE CONSTANTE BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## POUR UIDENT
+##
+#
+program: REMUNERATION POUR TOUT VERS
+##
+## Ends in an error in state: 10.
+##
+## context -> POUR TOUT . UIDENT [ SOURCE SORTIE SECTION REMUNERATION QUOTEPART QUAND POUR FIN EVENEMENT ENTREE CONTEXTE CONSTANTE BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## POUR TOUT
+##
+
+Expected context cases of a given context type, either for all cases or by listing them.
+Examples:
+ - pour Support Salles VOD
+ - pour tout Support
+
+program: REMUNERATION POUR UIDENT UIDENT VERS
+##
+## Ends in an error in state: 7.
+##
+## nonempty_list(UIDENT) -> UIDENT . [ TYPE SOURCE SORTIE SECTION REMUNERATION QUOTEPART QUAND POUR FIN EVENEMENT ENTREE CONTEXTE CONSTANTE BONUS AVANT APRES ]
+## nonempty_list(UIDENT) -> UIDENT . nonempty_list(UIDENT) [ TYPE SOURCE SORTIE SECTION REMUNERATION QUOTEPART QUAND POUR FIN EVENEMENT ENTREE CONTEXTE CONSTANTE BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## UIDENT
+##
+#
+program: REMUNERATION VERS LIDENT SORTIE
+##
+## Ends in an error in state: 65.
+##
+## remuneration -> REMUNERATION option(destinataire) . context_expr [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## REMUNERATION option(destinataire)
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 61, spurious reduction of production option(lane) ->
+## In state 62, spurious reduction of production strict_destinataire -> VERS LIDENT option(lane)
+## In state 64, spurious reduction of production destinataire -> strict_destinataire
+## In state 90, spurious reduction of production option(destinataire) -> destinataire
+##
+#
+program: REMUNERATION POUR TOUT UIDENT SORTIE
+##
+## Ends in an error in state: 66.
+##
+## context_expr -> list(context) . sourced_expr [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## list(context)
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 87, spurious reduction of production list(context) ->
+## In state 88, spurious reduction of production list(context) -> context list(context)
+##
+
+Expected more context, or a redistribution expression.
+
+program: SECTION UIDENT POUR TOUT UIDENT SOURCE
+##
+## Ends in an error in state: 12.
+##
+## section -> SECTION UIDENT list(context) . list(event_guard) list(toplevel_decl) FIN option(UIDENT) [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## SECTION UIDENT list(context)
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 87, spurious reduction of production list(context) ->
+## In state 88, spurious reduction of production list(context) -> context list(context)
+##
+
+Expected more context, or an event guard, or a declaration.
+
+program: REMUNERATION QUAND VERS
+##
+## Ends in an error in state: 13.
+##
+## event_guard -> QUAND . event_expr [ SORTIE SECTION REMUNERATION QUOTEPART QUAND FIN EVENEMENT ENTREE CONTEXTE CONSTANTE BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## QUAND
+##
+#
+program: REMUNERATION APRES EVENEMENT LIDENT OU VERS
+##
+## Ends in an error in state: 50.
+##
+## event_expr -> event_expr OU . event_expr [ SORTIE SECTION REMUNERATION QUOTEPART QUAND OU FIN EVENEMENT ET EOF ENTREE CONTEXTE CONSTANTE BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## event_expr OU
+##
+#
+program: REMUNERATION APRES EVENEMENT LIDENT ET VERS
+##
+## Ends in an error in state: 52.
+##
+## event_expr -> event_expr ET . event_expr [ SORTIE SECTION REMUNERATION QUOTEPART QUAND OU FIN EVENEMENT ET EOF ENTREE CONTEXTE CONSTANTE BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## event_expr ET
+##
+#
+program: REMUNERATION AVANT VERS
+##
+## Ends in an error in state: 54.
+##
+## event_guard -> AVANT . event_expr [ SORTIE SECTION REMUNERATION QUOTEPART QUAND FIN EVENEMENT ENTREE CONTEXTE CONSTANTE BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## AVANT
+##
+#
+program: REMUNERATION APRES VERS
+##
+## Ends in an error in state: 56.
+##
+## event_guard -> APRES . event_expr [ SORTIE SECTION REMUNERATION QUOTEPART QUAND FIN EVENEMENT ENTREE CONTEXTE CONSTANTE BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## APRES
+##
+
+Expected an event expression.
+
+program: REMUNERATION APRES LPAR VERS
+##
+## Ends in an error in state: 15.
+##
+## formula -> LPAR . formula RPAR [ VERS TOTALISE SORTIE SECTION RPAR REMUNERATION QUOTEPART QUAND PLUS PAR OU MULT MINUS FIN EVENEMENT ET EQ EOF ENTREE DIV CONTEXTE CONSTANTE BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## LPAR
+##
+#
+program: REMUNERATION APRES DATE PLUS VERS
+##
+## Ends in an error in state: 29.
+##
+## formula -> formula PLUS . formula [ VERS TOTALISE SORTIE SECTION RPAR REMUNERATION QUOTEPART QUAND PLUS PAR OU MULT MINUS FIN EVENEMENT ET EQ EOF ENTREE DIV CONTEXTE CONSTANTE BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## formula PLUS
+##
+#
+program: REMUNERATION APRES DATE MULT VERS
+##
+## Ends in an error in state: 31.
+##
+## formula -> formula MULT . formula [ VERS TOTALISE SORTIE SECTION RPAR REMUNERATION QUOTEPART QUAND PLUS PAR OU MULT MINUS FIN EVENEMENT ET EQ EOF ENTREE DIV CONTEXTE CONSTANTE BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## formula MULT
+##
+#
+program: REMUNERATION APRES DATE DIV VERS
+##
+## Ends in an error in state: 37.
+##
+## formula -> formula DIV . formula [ VERS TOTALISE SORTIE SECTION RPAR REMUNERATION QUOTEPART QUAND PLUS PAR OU MULT MINUS FIN EVENEMENT ET EQ EOF ENTREE DIV CONTEXTE CONSTANTE BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## formula DIV
+##
+#
+program: REMUNERATION APRES DATE MINUS VERS
+##
+## Ends in an error in state: 42.
+##
+## formula -> formula MINUS . formula [ VERS TOTALISE SORTIE SECTION RPAR REMUNERATION QUOTEPART QUAND PLUS PAR OU MULT MINUS FIN EVENEMENT ET EQ EOF ENTREE DIV CONTEXTE CONSTANTE BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## formula MINUS
+##
+#
+program: REMUNERATION BONUS VERS
+##
+## Ends in an error in state: 77.
+##
+## simple_expr -> BONUS . formula option(strict_destinataire) [ SORTIE SECTION REMUNERATION QUOTEPART FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE BONUS ]
+##
+## The known suffix of the stack is as follows:
+## BONUS
+##
+
+Expected a formula.
+
+program: REMUNERATION APRES INT ANS UIDENT
+##
+## Ends in an error in state: 19.
+##
+## duration_year -> INT ANS . option(duration_month) [ VERS TOTALISE SORTIE SECTION RPAR REMUNERATION QUOTEPART QUAND PLUS PAR OU MULT MINUS FIN EVENEMENT ET EQ EOF ENTREE DIV CONTEXTE CONSTANTE BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## INT ANS
+##
+
+Malformed event expression. Expected a date (literal or computed) or an equality test.
+
+program: REMUNERATION APRES INT ANS INT VERS
+##
+## Ends in an error in state: 20.
+##
+## duration_month -> INT . MOIS [ VERS TOTALISE SORTIE SECTION RPAR REMUNERATION QUOTEPART QUAND PLUS PAR OU MULT MINUS FIN EVENEMENT ET EQ EOF ENTREE DIV CONTEXTE CONSTANTE BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## INT
+##
+
+Malformed duration. Expected a time unit.
+
+program: REMUNERATION APRES LPAR DATE MOIS
+##
+## Ends in an error in state: 26.
+##
+## formula -> formula . TOTALISE [ TOTALISE RPAR PLUS PAR MULT MINUS DIV ]
+## formula -> formula . lane [ TOTALISE RPAR PLUS PAR MULT MINUS DIV ]
+## formula -> formula . PLUS formula [ TOTALISE RPAR PLUS PAR MULT MINUS DIV ]
+## formula -> formula . MINUS formula [ TOTALISE RPAR PLUS PAR MULT MINUS DIV ]
+## formula -> formula . MULT formula [ TOTALISE RPAR PLUS PAR MULT MINUS DIV ]
+## formula -> formula . DIV formula [ TOTALISE RPAR PLUS PAR MULT MINUS DIV ]
+## formula -> LPAR formula . RPAR [ VERS TOTALISE SORTIE SECTION RPAR REMUNERATION QUOTEPART QUAND PLUS PAR OU MULT MINUS FIN EVENEMENT ET EQ EOF ENTREE DIV CONTEXTE CONSTANTE BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## LPAR formula
+##
+
+Malformed formula. Might miss a closing parenthesis.
+
+program: REMUNERATION PAR VERS
+##
+## Ends in an error in state: 39.
+##
+## lane -> PAR . COULOIR LIDENT [ VERS TOTALISE SOURCE SORTIE SECTION RPAR REMUNERATION QUOTEPART QUAND POUR PLUS PAR OU MULT MINUS FIN EVENEMENT ET EQ EOF ENTREE DIV CONTEXTE CONSTANTE BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## PAR
+##
+#
+program: REMUNERATION PAR COULOIR VERS
+##
+## Ends in an error in state: 40.
+##
+## lane -> PAR COULOIR . LIDENT [ VERS TOTALISE SOURCE SORTIE SECTION RPAR REMUNERATION QUOTEPART QUAND POUR PLUS PAR OU MULT MINUS FIN EVENEMENT ET EQ EOF ENTREE DIV CONTEXTE CONSTANTE BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## PAR COULOIR
+##
+
+Malformed lane. An a well-formed example:
+ - par couloir my_lane_name
+
+program: REMUNERATION APRES DATE MOIS
+##
+## Ends in an error in state: 46.
+##
+## event_expr -> formula . EQ formula [ SORTIE SECTION REMUNERATION QUOTEPART QUAND OU FIN EVENEMENT ET EOF ENTREE CONTEXTE CONSTANTE BONUS AVANT APRES ]
+## formula -> formula . TOTALISE [ TOTALISE PLUS PAR MULT MINUS EQ DIV ]
+## formula -> formula . lane [ TOTALISE PLUS PAR MULT MINUS EQ DIV ]
+## formula -> formula . PLUS formula [ TOTALISE PLUS PAR MULT MINUS EQ DIV ]
+## formula -> formula . MINUS formula [ TOTALISE PLUS PAR MULT MINUS EQ DIV ]
+## formula -> formula . MULT formula [ TOTALISE PLUS PAR MULT MINUS EQ DIV ]
+## formula -> formula . DIV formula [ TOTALISE PLUS PAR MULT MINUS EQ DIV ]
+##
+## The known suffix of the stack is as follows:
+## formula
+##
+
+Malformed event expression. Expected either '=', or a formula operator.
+
+program: REMUNERATION APRES DATE EQ VERS
+##
+## Ends in an error in state: 47.
+##
+## event_expr -> formula EQ . formula [ SORTIE SECTION REMUNERATION QUOTEPART QUAND OU FIN EVENEMENT ET EOF ENTREE CONTEXTE CONSTANTE BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## formula EQ
+##
+
+Malformed event expression. Expected a formula.
+
+program: REMUNERATION APRES DATE EQ DATE MOIS
+##
+## Ends in an error in state: 48.
+##
+## event_expr -> formula EQ formula . [ SORTIE SECTION REMUNERATION QUOTEPART QUAND OU FIN EVENEMENT ET EOF ENTREE CONTEXTE CONSTANTE BONUS AVANT APRES ]
+## formula -> formula . TOTALISE [ TOTALISE SORTIE SECTION REMUNERATION QUOTEPART QUAND PLUS PAR OU MULT MINUS FIN EVENEMENT ET EOF ENTREE DIV CONTEXTE CONSTANTE BONUS AVANT APRES ]
+## formula -> formula . lane [ TOTALISE SORTIE SECTION REMUNERATION QUOTEPART QUAND PLUS PAR OU MULT MINUS FIN EVENEMENT ET EOF ENTREE DIV CONTEXTE CONSTANTE BONUS AVANT APRES ]
+## formula -> formula . PLUS formula [ TOTALISE SORTIE SECTION REMUNERATION QUOTEPART QUAND PLUS PAR OU MULT MINUS FIN EVENEMENT ET EOF ENTREE DIV CONTEXTE CONSTANTE BONUS AVANT APRES ]
+## formula -> formula . MINUS formula [ TOTALISE SORTIE SECTION REMUNERATION QUOTEPART QUAND PLUS PAR OU MULT MINUS FIN EVENEMENT ET EOF ENTREE DIV CONTEXTE CONSTANTE BONUS AVANT APRES ]
+## formula -> formula . MULT formula [ TOTALISE SORTIE SECTION REMUNERATION QUOTEPART QUAND PLUS PAR OU MULT MINUS FIN EVENEMENT ET EOF ENTREE DIV CONTEXTE CONSTANTE BONUS AVANT APRES ]
+## formula -> formula . DIV formula [ TOTALISE SORTIE SECTION REMUNERATION QUOTEPART QUAND PLUS PAR OU MULT MINUS FIN EVENEMENT ET EOF ENTREE DIV CONTEXTE CONSTANTE BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## formula EQ formula
+##
+#
+program: REMUNERATION QUAND EVENEMENT LIDENT VERS
+##
+## Ends in an error in state: 84.
+##
+## expression -> event_guard . expression [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## event_guard
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 49, spurious reduction of production event_guard -> QUAND event_expr
+##
+#
+program: REMUNERATION APRES EVENEMENT LIDENT OU EVENEMENT LIDENT VERS
+##
+## Ends in an error in state: 51.
+##
+## event_expr -> event_expr . ET event_expr [ SORTIE SECTION REMUNERATION QUOTEPART QUAND OU FIN EVENEMENT ET EOF ENTREE CONTEXTE CONSTANTE BONUS AVANT APRES ]
+## event_expr -> event_expr . OU event_expr [ SORTIE SECTION REMUNERATION QUOTEPART QUAND OU FIN EVENEMENT ET EOF ENTREE CONTEXTE CONSTANTE BONUS AVANT APRES ]
+## event_expr -> event_expr OU event_expr . [ SORTIE SECTION REMUNERATION QUOTEPART QUAND OU FIN EVENEMENT ET EOF ENTREE CONTEXTE CONSTANTE BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## event_expr OU event_expr
+##
+#
+program: EVENEMENT LIDENT ATTEINT QUAND EVENEMENT LIDENT VERS
+##
+## Ends in an error in state: 95.
+##
+## event_decl -> EVENEMENT LIDENT ATTEINT QUAND event_expr . [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+## event_expr -> event_expr . ET event_expr [ SORTIE SECTION REMUNERATION OU FIN EVENEMENT ET EOF ENTREE CONTEXTE CONSTANTE ]
+## event_expr -> event_expr . OU event_expr [ SORTIE SECTION REMUNERATION OU FIN EVENEMENT ET EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## EVENEMENT LIDENT ATTEINT QUAND event_expr
+##
+
+Unexpected word after event expression.
+
+program: REMUNERATION UIDENT
+##
+## Ends in an error in state: 59.
+##
+## remuneration -> REMUNERATION . option(destinataire) context_expr [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## REMUNERATION
+##
+
+Expected some context, or a destination, or a redistribution expression.
+
+program: REMUNERATION VERS LIDENT VERS
+##
+## Ends in an error in state: 61.
+##
+## strict_destinataire -> VERS LIDENT . option(lane) [ SOURCE SORTIE SECTION REMUNERATION QUOTEPART QUAND POUR FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## VERS LIDENT
+##
+
+Unexpected word after destination.
+
+program: REMUNERATION SOURCE VERS
+##
+## Ends in an error in state: 67.
+##
+## source -> SOURCE . LIDENT option(lane) [ QUOTEPART QUAND BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## SOURCE
+##
+#
+program: REMUNERATION SOURCE LIDENT VERS
+##
+## Ends in an error in state: 68.
+##
+## source -> SOURCE LIDENT . option(lane) [ QUOTEPART QUAND BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## SOURCE LIDENT
+##
+
+Malformed source flow. Well-formed example:
+ - source my_source
+ - source my_source par couloir my_lane
+
+program: REMUNERATION SOURCE LIDENT PAR COULOIR LIDENT VERS
+##
+## Ends in an error in state: 72.
+##
+## sourced_expr -> option(source) . expression [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## option(source)
+##
+
+Expected redistribution expression.
+
+program: REMUNERATION QUOTEPART VERS
+##
+## Ends in an error in state: 73.
+##
+## simple_expr -> QUOTEPART . formula option(strict_destinataire) [ SORTIE SECTION REMUNERATION QUOTEPART FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE BONUS ]
+##
+## The known suffix of the stack is as follows:
+## QUOTEPART
+##
+
+Malformed redistribution statement. Such statements have the form:
+ - quotepart [some formula] [optional destination]
+ - bonus [some formula] [optional destination]
+
+program: REMUNERATION QUOTEPART DATE MOIS
+##
+## Ends in an error in state: 74.
+##
+## formula -> formula . TOTALISE [ VERS TOTALISE SORTIE SECTION REMUNERATION QUOTEPART PLUS PAR MULT MINUS FIN EVENEMENT EOF ENTREE DIV CONTEXTE CONSTANTE BONUS ]
+## formula -> formula . lane [ VERS TOTALISE SORTIE SECTION REMUNERATION QUOTEPART PLUS PAR MULT MINUS FIN EVENEMENT EOF ENTREE DIV CONTEXTE CONSTANTE BONUS ]
+## formula -> formula . PLUS formula [ VERS TOTALISE SORTIE SECTION REMUNERATION QUOTEPART PLUS PAR MULT MINUS FIN EVENEMENT EOF ENTREE DIV CONTEXTE CONSTANTE BONUS ]
+## formula -> formula . MINUS formula [ VERS TOTALISE SORTIE SECTION REMUNERATION QUOTEPART PLUS PAR MULT MINUS FIN EVENEMENT EOF ENTREE DIV CONTEXTE CONSTANTE BONUS ]
+## formula -> formula . MULT formula [ VERS TOTALISE SORTIE SECTION REMUNERATION QUOTEPART PLUS PAR MULT MINUS FIN EVENEMENT EOF ENTREE DIV CONTEXTE CONSTANTE BONUS ]
+## formula -> formula . DIV formula [ VERS TOTALISE SORTIE SECTION REMUNERATION QUOTEPART PLUS PAR MULT MINUS FIN EVENEMENT EOF ENTREE DIV CONTEXTE CONSTANTE BONUS ]
+## simple_expr -> QUOTEPART formula . option(strict_destinataire) [ SORTIE SECTION REMUNERATION QUOTEPART FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE BONUS ]
+##
+## The known suffix of the stack is as follows:
+## QUOTEPART formula
+##
+#
+program: REMUNERATION BONUS DATE MOIS
+##
+## Ends in an error in state: 78.
+##
+## formula -> formula . TOTALISE [ VERS TOTALISE SORTIE SECTION REMUNERATION QUOTEPART PLUS PAR MULT MINUS FIN EVENEMENT EOF ENTREE DIV CONTEXTE CONSTANTE BONUS ]
+## formula -> formula . lane [ VERS TOTALISE SORTIE SECTION REMUNERATION QUOTEPART PLUS PAR MULT MINUS FIN EVENEMENT EOF ENTREE DIV CONTEXTE CONSTANTE BONUS ]
+## formula -> formula . PLUS formula [ VERS TOTALISE SORTIE SECTION REMUNERATION QUOTEPART PLUS PAR MULT MINUS FIN EVENEMENT EOF ENTREE DIV CONTEXTE CONSTANTE BONUS ]
+## formula -> formula . MINUS formula [ VERS TOTALISE SORTIE SECTION REMUNERATION QUOTEPART PLUS PAR MULT MINUS FIN EVENEMENT EOF ENTREE DIV CONTEXTE CONSTANTE BONUS ]
+## formula -> formula . MULT formula [ VERS TOTALISE SORTIE SECTION REMUNERATION QUOTEPART PLUS PAR MULT MINUS FIN EVENEMENT EOF ENTREE DIV CONTEXTE CONSTANTE BONUS ]
+## formula -> formula . DIV formula [ VERS TOTALISE SORTIE SECTION REMUNERATION QUOTEPART PLUS PAR MULT MINUS FIN EVENEMENT EOF ENTREE DIV CONTEXTE CONSTANTE BONUS ]
+## simple_expr -> BONUS formula . option(strict_destinataire) [ SORTIE SECTION REMUNERATION QUOTEPART FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE BONUS ]
+##
+## The known suffix of the stack is as follows:
+## BONUS formula
+##
+
+Unexpected word after redistribution formula.
+
+program: REMUNERATION BONUS DATE VERS LIDENT SOURCE
+##
+## Ends in an error in state: 80.
+##
+## nonempty_list(simple_expr) -> simple_expr . [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+## nonempty_list(simple_expr) -> simple_expr . nonempty_list(simple_expr) [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## simple_expr
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 61, spurious reduction of production option(lane) ->
+## In state 62, spurious reduction of production strict_destinataire -> VERS LIDENT option(lane)
+## In state 75, spurious reduction of production option(strict_destinataire) -> strict_destinataire
+## In state 79, spurious reduction of production simple_expr -> BONUS formula option(strict_destinataire)
+##
+
+Unexpected word after redistribution statement.
+
+program: REMUNERATION POUR TOUT UIDENT VERS
+##
+## Ends in an error in state: 87.
+##
+## list(context) -> context . list(context) [ SOURCE SORTIE SECTION REMUNERATION QUOTEPART QUAND FIN EVENEMENT ENTREE CONTEXTE CONSTANTE BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## context
+##
+
+Unexpected word after context.
+
+program: EVENEMENT LIDENT VERS
+##
+## Ends in an error in state: 92.
+##
+## event_decl -> EVENEMENT LIDENT . ATTEINT QUAND event_expr [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## EVENEMENT LIDENT
+##
+#
+program: EVENEMENT LIDENT ATTEINT VERS
+##
+## Ends in an error in state: 93.
+##
+## event_decl -> EVENEMENT LIDENT ATTEINT . QUAND event_expr [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## EVENEMENT LIDENT ATTEINT
+##
+#
+program: EVENEMENT LIDENT ATTEINT QUAND VERS
+##
+## Ends in an error in state: 94.
+##
+## event_decl -> EVENEMENT LIDENT ATTEINT QUAND . event_expr [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## EVENEMENT LIDENT ATTEINT QUAND
+##
+
+Malformed event declaration. Well-formed examples:
+- evenement my_event atteint quand my_money = 100
+- evenement my_event atteint quand 2023/12/25
+
+program: ENTREE VERS
+##
+## Ends in an error in state: 96.
+##
+## input_decl -> ENTREE . option(CALCULABLE) LIDENT option(input_context) input_type [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## ENTREE
+##
+#
+program: ENTREE CALCULABLE VERS
+##
+## Ends in an error in state: 98.
+##
+## input_decl -> ENTREE option(CALCULABLE) . LIDENT option(input_context) input_type [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## ENTREE option(CALCULABLE)
+##
+#
+program: ENTREE LIDENT VERS
+##
+## Ends in an error in state: 99.
+##
+## input_decl -> ENTREE option(CALCULABLE) LIDENT . option(input_context) input_type [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## ENTREE option(CALCULABLE) LIDENT
+##
+#
+program: ENTREE LIDENT CONTEXTUALISEE VERS
+##
+## Ends in an error in state: 100.
+##
+## input_context -> CONTEXTUALISEE . PAR nonempty_list(UIDENT) [ TYPE ]
+##
+## The known suffix of the stack is as follows:
+## CONTEXTUALISEE
+##
+#
+program: ENTREE LIDENT CONTEXTUALISEE PAR VERS
+##
+## Ends in an error in state: 101.
+##
+## input_context -> CONTEXTUALISEE PAR . nonempty_list(UIDENT) [ TYPE ]
+##
+## The known suffix of the stack is as follows:
+## CONTEXTUALISEE PAR
+##
+#
+program: ENTREE LIDENT CONTEXTUALISEE PAR UIDENT SOURCE
+##
+## Ends in an error in state: 103.
+##
+## input_decl -> ENTREE option(CALCULABLE) LIDENT option(input_context) . input_type [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## ENTREE option(CALCULABLE) LIDENT option(input_context)
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 7, spurious reduction of production nonempty_list(UIDENT) -> UIDENT
+## In state 102, spurious reduction of production input_context -> CONTEXTUALISEE PAR nonempty_list(UIDENT)
+## In state 112, spurious reduction of production option(input_context) -> input_context
+##
+
+Malformed input declaration. An input is declared with an optional computable
+flag, a name, an optionnal context association, and a type.
+Well-formed examples:
+- entree my_input type entier
+- entree calculable my_input contextualisee par My_context_type type flux argent
+
+program: ENTREE LIDENT TYPE VERS
+##
+## Ends in an error in state: 104.
+##
+## input_type -> TYPE . typ [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## TYPE
+##
+#
+program: ENTREE LIDENT TYPE FLUX VERS
+##
+## Ends in an error in state: 106.
+##
+## typ -> FLUX . typ [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## FLUX
+##
+
+Expected a type identifier. It can be:
+- entier
+- rationnel
+- argent
+- flux [one of the above]
+
+program: CONTEXTE VERS
+##
+## Ends in an error in state: 113.
+##
+## context_decl -> CONTEXTE . UIDENT COLON nonempty_list(context_case) [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## CONTEXTE
+##
+#
+program: CONTEXTE UIDENT VERS
+##
+## Ends in an error in state: 114.
+##
+## context_decl -> CONTEXTE UIDENT . COLON nonempty_list(context_case) [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## CONTEXTE UIDENT
+##
+#
+program: CONTEXTE UIDENT COLON VERS
+##
+## Ends in an error in state: 115.
+##
+## context_decl -> CONTEXTE UIDENT COLON . nonempty_list(context_case) [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## CONTEXTE UIDENT COLON
+##
+#
+program: CONTEXTE UIDENT COLON MINUS VERS
+##
+## Ends in an error in state: 116.
+##
+## context_case -> MINUS . UIDENT [ SORTIE SECTION REMUNERATION MINUS FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## MINUS
+##
+#
+program: CONTEXTE UIDENT COLON MINUS UIDENT VERS
+##
+## Ends in an error in state: 119.
+##
+## nonempty_list(context_case) -> context_case . [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+## nonempty_list(context_case) -> context_case . nonempty_list(context_case) [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## context_case
+##
+
+Malformed context type declaration. Example:
+contexte My_context_type :
+ - my_case_1
+ - my_case_2
+
+program: CONSTANTE VERS
+##
+## Ends in an error in state: 121.
+##
+## constant_decl -> CONSTANTE . LIDENT COLON literal [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## CONSTANTE
+##
+#
+program: CONSTANTE LIDENT VERS
+##
+## Ends in an error in state: 122.
+##
+## constant_decl -> CONSTANTE LIDENT . COLON literal [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## CONSTANTE LIDENT
+##
+#
+program: CONSTANTE LIDENT COLON VERS
+##
+## Ends in an error in state: 123.
+##
+## constant_decl -> CONSTANTE LIDENT COLON . literal [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## CONSTANTE LIDENT COLON
+##
+
+Malformed constant declaration. Example:
+- constante my_const : 99.99
+
+program: SORTIE LIDENT MOIS
+##
+## Ends in an error in state: 125.
+##
+## list(toplevel_decl) -> toplevel_decl . list(toplevel_decl) [ FIN EOF ]
+##
+## The known suffix of the stack is as follows:
+## toplevel_decl
+##
+
+Unexpected word after declaration.
+
+program: SECTION UIDENT SORTIE LIDENT EOF
+##
+## Ends in an error in state: 134.
+##
+## section -> SECTION UIDENT list(context) list(event_guard) list(toplevel_decl) . FIN option(UIDENT) [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## SECTION UIDENT list(context) list(event_guard) list(toplevel_decl)
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 125, spurious reduction of production list(toplevel_decl) ->
+## In state 129, spurious reduction of production list(toplevel_decl) -> toplevel_decl list(toplevel_decl)
+##
+
+Missing keyword 'fin' to close section.
+
+program: SECTION UIDENT FIN VERS
+##
+## Ends in an error in state: 135.
+##
+## section -> SECTION UIDENT list(context) list(event_guard) list(toplevel_decl) FIN . option(UIDENT) [ SORTIE SECTION REMUNERATION FIN EVENEMENT EOF ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## SECTION UIDENT list(context) list(event_guard) list(toplevel_decl) FIN
+##
+
+Unexpected word after section.
+
+program: SECTION UIDENT APRES EVENEMENT LIDENT VERS
+##
+## Ends in an error in state: 138.
+##
+## list(event_guard) -> event_guard . list(event_guard) [ SORTIE SECTION REMUNERATION FIN EVENEMENT ENTREE CONTEXTE CONSTANTE ]
+##
+## The known suffix of the stack is as follows:
+## event_guard
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 57, spurious reduction of production event_guard -> APRES event_expr
+##
+
+Expected event guard or a declaration.
+
+program: SORTIE LIDENT FIN
+##
+## Ends in an error in state: 141.
+##
+## program -> list(toplevel_decl) . EOF [ # ]
+##
+## The known suffix of the stack is as follows:
+## list(toplevel_decl)
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 125, spurious reduction of production list(toplevel_decl) ->
+## In state 129, spurious reduction of production list(toplevel_decl) -> toplevel_decl list(toplevel_decl)
+##
+
+Unexpected word after declaration.

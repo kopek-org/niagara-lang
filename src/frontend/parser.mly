@@ -2,16 +2,20 @@
 
 %}
 
-%token REMUNERATION QUOTEPART BONUS SOURCE TOTALISE ANS ENTREE CALCULABLE CONTEXTUALISEE PAR TYPE ENTIER RATIONNEL ARGENT FLUX SORTIE POUR COULOIR EVENEMENT ET OU AVANT APRES QUAND CONTEXTE TOUT CONSTANTE SECTION FIN LPAR RPAR VERS ATTEINT
-%token PLUS MINUS MULT DIV EQ COLON EOF
+%token REMUNERATION QUOTEPART BONUS SOURCE TOTALISE ANS MOIS ENTREE CALCULABLE
+%token CONTEXTUALISEE PAR TYPE ENTIER RATIONNEL ARGENT FLUX SORTIE POUR COULOIR
+%token EVENEMENT ET OU AVANT APRES QUAND CONTEXTE TOUT CONSTANTE SECTION FIN
+%token LPAR RPAR VERS ATTEINT PLUS MINUS MULT DIV EQ COLON EOF
 %token<float> FLOAT
 %token<int> INT MONEY
 %token<string> LIDENT UIDENT
+%token<CalendarLib.Date.t> DATE
 
-%token TODO1 TODO2
-
+%nonassoc TOTALISE PAR
 %left PLUS MINUS OU
 %left MULT DIV ET
+
+%on_error_reduce literal formula event_guard
 
 %start<unit> program
 
@@ -27,14 +31,14 @@ simple_expr:
 | BONUS formula strict_destinataire? { () }
 
 expression:
-| simple_expr+ { () }
+| simple_expr { () }
 | event_guard expression { () }
 
 sourced_expr:
-| source? expression { () }
+| source? expression+ { () }
 
 source:
-| SOURCE flow_expr { () }
+| SOURCE LIDENT lane? { () }
 
 context_expr:
 | context* sourced_expr { () }
@@ -44,7 +48,8 @@ context_expr:
 formula:
 | literal { () }
 | LIDENT { () }
-| flow_expr TOTALISE? { () }
+| formula TOTALISE { () }
+| formula lane { () }
 | formula binop formula { () }
 | LPAR formula RPAR { () }
 
@@ -59,13 +64,17 @@ literal:
 | FLOAT { () }
 | MONEY { () }
 | duration { () }
-| date { () }
+| DATE { () }
 
 duration:
-| TODO1 { () }
+| duration_year { () }
+| duration_month { () }
 
-date:
-| TODO2 { () }
+duration_year:
+| INT ANS duration_month? { () }
+
+duration_month:
+| INT MOIS { () }
 
 // Flow and IO
 
@@ -97,9 +106,6 @@ strict_destinataire:
 lane:
 | PAR COULOIR LIDENT { () }
 
-flow_expr:
-| UIDENT lane? { () }
-
 // Event
 
 event_decl:
@@ -110,7 +116,6 @@ event_expr:
 | formula EQ formula { () }
 | event_expr ET event_expr { () }
 | event_expr OU event_expr { () }
-
 
 event_guard:
 | AVANT event_expr { () }

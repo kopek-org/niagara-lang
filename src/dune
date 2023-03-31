@@ -1,11 +1,6 @@
-(menhir (modules parser)
-        (flags --explain))
-
-(ocamllex lexer)
 
 (executable
   (name main)
-  (package niagara)
-  (public_name niagara)
-
-)
+  (libraries
+  sedlex
+  frontend))
