@@ -3,6 +3,10 @@ opam-version: "2.0"
 synopsis: "A compiler for cinema revenue distribution language"
 depends: [
   "dune" {>= "2.9"}
+  "ocaml" {>= "4.13"}
+  "sedlex" {>= "3.0"}
+  "menhir"
+  "calendar" {>= "3.0"}
   "odoc" {with-doc}
 ]
 build: [
