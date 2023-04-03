@@ -4,17 +4,26 @@
     {
       "label": "build",
       "type": "shell",
-      "command": "niagara ${file}",
+      "command": "niagara ${file} || true",
       "problemMatcher": {
-        "pattern": {
-          "regexp": "^\\[(error|warning)\\] (.*) in file (.*), line (\\d+) chars (\\d+)-(\\d+):$",
-          "file": 3,
-          "line": 4,
-          "column": 5,
-          "endColumn": 6,
-          "severity": 1,
-          "message": 2
-        }
+        "owner": "niagara",
+        "fileLocation":"absolute",
+        "pattern": [
+          {
+            "regexp": "^\\[(error|warning)\\] (.*) in file (.*), line (\\d+) chars (\\d+)-(\\d+):$",
+            "file": 3,
+            "line": 4,
+            "endLine": 4,
+            "column": 5,
+            "endColumn": 6,
+            "severity": 1,
+            "message": 2
+          },
+          {
+            "regexp": "^(.*)$",
+            "message": 1
+          }
+        ]
       }
     }
   ]
