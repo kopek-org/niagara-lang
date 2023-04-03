@@ -5,7 +5,4 @@
 
 (executable
   (name main)
-  (package niagara)
-  (public_name niagara)
-
 )
