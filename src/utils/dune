@@ -1,0 +1,6 @@
+(library
+  (name utils)
+  (wrapped false)
+  (libraries
+    opam-core)
+)

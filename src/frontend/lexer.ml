@@ -2,13 +2,10 @@ open Parser
 open Sedlexing
 open CalendarLib
 
-
-let lexer_error msg last_lexeme _pos =
-  (* TODO *)
-  Format.kasprintf failwith msg last_lexeme
-
-let unknown_token_error last_lexeme =
-  lexer_error "Parsing error after \"%s\", unknown token." last_lexeme
+let unknown_token_error lexbuf =
+  Errors.raise_error "Parsing error"
+    ~with_pos:(Sedlexing.lexing_positions lexbuf)
+    ~span:"unknown token"
 
 let keywords =
   [
@@ -81,7 +78,6 @@ let reading_code = ref false
 
 let rec code ~is_in_text lexbuf =
   if not !reading_code then in_text lexbuf else
-  let last_lexeme = Utf8.lexeme lexbuf in
   match%sedlex lexbuf with
   | Plus white_space | comment -> code ~is_in_text lexbuf
   | date -> DATE (parse_date (Utf8.lexeme lexbuf))
@@ -107,12 +103,13 @@ let rec code ~is_in_text lexbuf =
   | "```" ->
     if is_in_text
     then (reading_code := false; in_text lexbuf)
-    else unknown_token_error last_lexeme ()
+    else unknown_token_error lexbuf
   | eof ->
     if is_in_text
-    then lexer_error "Unclosed code section after %s" last_lexeme ()
+    then Errors.raise_error "Unclosed code section at end of file"
+        ~with_pos:(Sedlexing.lexing_positions lexbuf)
     else EOF
-  | _ -> unknown_token_error last_lexeme ()
+  | _ -> unknown_token_error lexbuf
 
 and in_text lexbuf =
   if !reading_code then code ~is_in_text:true lexbuf else

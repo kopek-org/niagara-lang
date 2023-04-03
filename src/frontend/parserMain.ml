@@ -1,10 +1,3 @@
-let print_pos fmt (s, e) =
-  let open Lexing in
-  Printf.fprintf fmt "in file %s, line %d chars %d-%d" s.pos_fname
-    s.pos_lnum
-    (s.pos_cnum - s.pos_bol)
-    (e.pos_cnum - s.pos_bol)
-
 module I = Parser.MenhirInterpreter
 
 let accept _program = Printf.printf "OK\n%!"
@@ -12,10 +5,8 @@ let accept _program = Printf.printf "OK\n%!"
 let fail checkpoint =
   match checkpoint with
   | I.HandlingError env ->
-    Printf.eprintf "Parsing error in %a:\n%s%!"
-      print_pos (I.positions env)
-      (ParserErrors.message (I.current_state_number env));
-    exit 1
+    Errors.raise_error "Parsing error" ~with_pos:(I.positions env)
+      ~span:(ParserErrors.message (I.current_state_number env))
   | _ -> assert false
 
 let parse_program filename =

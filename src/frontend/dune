@@ -6,6 +6,7 @@
 (library
   (name frontend)
   (libraries
+  utils
   sedlex
   menhirLib
   calendar)
