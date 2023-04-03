@@ -1,0 +1,21 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "type": "shell",
+      "command": "niagara ${file}",
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^\\[(error|warning)\\] (.*) in file (.*), line (\\d+) chars (\\d+)-(\\d+):$",
+          "file": 3,
+          "line": 4,
+          "column": 5,
+          "endColumn": 6,
+          "severity": 1,
+          "message": 2
+        }
+      }
+    }
+  ]
+}
