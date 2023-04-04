@@ -20,8 +20,10 @@
             "message": 2
           },
           {
-            "regexp": "^(.*)$",
-            "message": 1
+            "regexp": "^[^\\[].*",
+            "message": 0,
+            "loop": true
+
           }
         ]
       }
