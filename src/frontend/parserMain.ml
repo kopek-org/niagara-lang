@@ -1,6 +1,6 @@
 module I = Parser.MenhirInterpreter
 
-let accept _program = Printf.printf "OK\n%!"
+let accept program = program
 
 let fail checkpoint =
   match checkpoint with
@@ -21,5 +21,8 @@ let parse_program filename =
   let init_checkpoint =
     Parser.Incremental.program (fst @@ Sedlexing.lexing_positions lexbuf)
   in
-  I.loop_handle accept fail (Sedlexing.with_tokenizer lexer lexbuf) init_checkpoint;
-  close_in file_chan
+  let program =
+    I.loop_handle accept fail (Sedlexing.with_tokenizer lexer lexbuf) init_checkpoint
+  in
+  close_in file_chan;
+  program

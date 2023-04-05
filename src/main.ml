@@ -5,4 +5,5 @@ let () =
     exit 1
   end;
   let file = Sys.argv.(1) in
-  Frontend.ParserMain.parse_program file
+  let _program = Frontend.ParserMain.parse_program file in
+  Printf.printf "OK\n%!"
