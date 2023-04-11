@@ -12,7 +12,8 @@ let keywords =
     "remuneration", REMUNERATION;
     "quotepart", QUOTEPART;
     "bonus", BONUS;
-    "source", SOURCE;
+    "sur", SUR;
+    "assiette", ASSIETTE;
     "totalise", TOTALISE;
     "ans", ANS;
     "mois", MOIS;
@@ -24,7 +25,7 @@ let keywords =
     "entier", ENTIER;
     "rationnel", RATIONNEL;
     "argent", ARGENT;
-    "flux", FLUX;
+    (* "flux", FLUX; *)
     "sortie", SORTIE;
     "vers", VERS;
     "pour", POUR;

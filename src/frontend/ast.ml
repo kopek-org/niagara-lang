@@ -4,7 +4,7 @@ type base_type =
   | Money
 
 type typ =
-  | Sample of base_type
+  | Instant of base_type
   | Flow of base_type
   | Duration
   | Date
@@ -30,7 +30,7 @@ type formula =
   | Binop of binop * formula * formula
 
 type flow_expr =
-  | Destination of string * string option
+  | Destination of string * string option * bool
   | Lane of string
 
 type redistribution =
@@ -50,7 +50,10 @@ type guard =
   | After of event_expr
   | When of event_expr
 
-type guarded_redistrib = guard list * redistrib_with_dest
+type guarded_redistrib =
+  | Guarded of guard * guarded_redistrib
+  | Redist of redistrib_with_dest
+  | Seq of guarded_redistrib list
 
 type context =
   | Forall of string
@@ -60,7 +63,7 @@ type remuneration_decl = {
   rem_default_output : flow_expr option;
   rem_context : context list;
   rem_source : flow_expr option;
-  rem_guarded_redistrib : guarded_redistrib list;
+  rem_guarded_redistrib : guarded_redistrib;
 }
 
 type event_decl = {
@@ -82,7 +85,7 @@ type input_decl = {
   input_name : string;
   input_computable : bool;
   input_context : string list;
-  input_type : typ;
+  input_type : base_type;
 }
 
 type output_decl = string

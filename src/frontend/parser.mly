@@ -3,10 +3,12 @@ open CalendarLib
 open Ast
 %}
 
-%token REMUNERATION QUOTEPART BONUS SOURCE TOTALISE ANS MOIS ENTREE CALCULABLE
-%token CONTEXTUALISEE PAR TYPE ENTIER RATIONNEL ARGENT FLUX SORTIE POUR COULOIR
-%token EVENEMENT ET OU AVANT APRES QUAND CONTEXTE TOUT CONSTANTE SECTION FIN
-%token LPAR RPAR VERS ATTEINT PLUS MINUS MULT DIV EQ COLON EOF
+%token REMUNERATION QUOTEPART BONUS SUR ASSIETTE TOTALISE ANS MOIS ENTREE
+%token LCUR RCUR CALCULABLE CONTEXTUALISEE PAR TYPE ENTIER RATIONNEL ARGENT
+%token SORTIE POUR COULOIR EVENEMENT ET OU AVANT APRES QUAND CONTEXTE TOUT
+%token CONSTANTE SECTION FIN LPAR RPAR VERS ATTEINT PLUS MINUS MULT DIV EQ
+%token COLON EOF
+//%token FLUX
 %token<float> FLOAT
 %token<int> INT MONEY
 %token<string> LIDENT UIDENT
@@ -27,9 +29,8 @@ open Ast
 remuneration:
 | REMUNERATION rem_default_output = destinataire? ce = context_expr
  {
-  let (rem_context,
-       (rem_source, rem_guarded_redistrib))
-    = ce
+  let (rem_context, (rem_source, rem_guarded_redistrib)) =
+    ce
   in
   {
    rem_default_output;
@@ -43,17 +44,16 @@ simple_expr:
 | BONUS f = formula d = strict_destinataire? { Flat f, d }
 
 expression:
-| e = simple_expr { [], e }
-| g = event_guard ge = expression
- { let (gs, e) = ge in
-   g::gs, e
- }
+| e = simple_expr { Redist e }
+| g = event_guard ge = expression { Guarded (g, ge) }
+| LCUR es = expression+ RCUR { Seq es }
 
 sourced_expr:
-| s = source? e = expression+ { s, e }
+| s = source? es = expression+ { s, match es with [e] -> e | _ -> Seq es }
 
 source:
-| SOURCE id = LIDENT l = lane? { Destination(id, l) }
+| SUR intermediary_flag = boption(ASSIETTE) id = LIDENT l = lane?
+ { Destination(id, l, intermediary_flag) }
 
 context_expr:
 | cs = context* se = sourced_expr { cs, se }
@@ -112,16 +112,16 @@ input_context:
 | CONTEXTUALISEE PAR ids = UIDENT+ { ids }
 
 input_type:
-| TYPE t = typ { t }
+| TYPE t = base_type { t }
 
 base_type:
 | ENTIER { Integer }
 | RATIONNEL { Rational }
 | ARGENT { Money }
 
-typ:
-| t = base_type { Sample t }
-| FLUX t = base_type { Flow t }
+/* typ: */
+/* | t = base_type { Instant t } */
+/* | FLUX t = base_type { Flow t } */
 
 output_decl:
 | SORTIE id = LIDENT { id }
@@ -131,7 +131,8 @@ destinataire:
 | d = strict_destinataire { d }
 
 strict_destinataire:
-| VERS id = LIDENT l = lane? { Destination(id, l) }
+| VERS intermediary_flag = boption(ASSIETTE) id = LIDENT l = lane?
+ { Destination(id, l, intermediary_flag) }
 
 lane:
 | PAR COULOIR id = LIDENT { id }
