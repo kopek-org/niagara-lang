@@ -22,16 +22,16 @@ type binop =
   | Mult
   | Div
 
+type flow_expr =
+  | Pool of string
+  | LabeledOutput of string * string
+  | ContextPool of string * string list
+
 type formula =
   | Literal of literal
   | ValueId of string
-  | Integral of formula
-  | OnLane of formula * string
+  | Flow of flow_expr
   | Binop of binop * formula * formula
-
-type flow_expr =
-  | Destination of string * string option * bool
-  | Lane of string
 
 type redistribution =
   | Part of formula
@@ -59,11 +59,20 @@ type context =
   | Forall of string
   | Cases of string * string list
 
-type remuneration_decl = {
-  rem_default_output : flow_expr option;
-  rem_context : context list;
-  rem_source : flow_expr option;
-  rem_guarded_redistrib : guarded_redistrib;
+type operation_decl = {
+  op_label : string;
+  op_default_output : flow_expr option;
+  op_context : context list;
+  op_source : flow_expr option;
+  op_guarded_redistrib : guarded_redistrib;
+}
+
+type advance_decl = {
+  adv_label : string;
+  adv_source : flow_expr;
+  adv_output : flow_expr;
+  adv_provider : flow_expr;
+  adv_amount : formula;
 }
 
 type event_decl = {
@@ -98,12 +107,15 @@ type section = {
 }
 
 and declaration =
-  | Remuneration of remuneration_decl
+  | Operation of operation_decl
+  | Advance of advance_decl
   | Event of event_decl
   | Constant of const_decl
   | Context of context_decl
   | Input of input_decl
   | Output of output_decl
   | Section of section
+  | Default of flow_expr * flow_expr
+  | Deficit of flow_expr * flow_expr
 
 type program = declaration list

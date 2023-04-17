@@ -3,18 +3,16 @@ open CalendarLib
 open Ast
 %}
 
-%token REMUNERATION QUOTEPART BONUS SUR ASSIETTE TOTALISE ANS MOIS ENTREE
+%token OPERATION QUOTEPART BONUS SUR ASSIETTE ANS MOIS ENTREE LBRA RBRA DEFAUT
 %token LCUR RCUR CALCULABLE CONTEXTUALISEE PAR TYPE ENTIER RATIONNEL ARGENT
-%token SORTIE POUR COULOIR EVENEMENT ET OU AVANT APRES QUAND CONTEXTE TOUT
-%token CONSTANTE SECTION FIN LPAR RPAR VERS ATTEINT PLUS MINUS MULT DIV EQ
-%token COLON EOF
-//%token FLUX
+%token SORTIE POUR EVENEMENT ET OU AVANT APRES QUAND CONTEXTE TOUT CONSTANTE
+%token SECTION FIN LPAR RPAR VERS ATTEINT PLUS MINUS MULT DIV EQ COLON EOF
+%token DEFICITAIRE AVANCE MONTANT COMMA
 %token<float> FLOAT
 %token<int> INT MONEY
-%token<string> LIDENT UIDENT
+%token<string> LIDENT UIDENT LABEL
 %token<CalendarLib.Date.t> DATE
 
-%nonassoc TOTALISE PAR
 %left PLUS MINUS OU
 %left MULT DIV ET
 
@@ -26,45 +24,46 @@ open Ast
 
 // Dispatch
 
-remuneration:
-| REMUNERATION rem_default_output = destinataire? ce = context_expr
- {
-  let (rem_context, (rem_source, rem_guarded_redistrib)) =
-    ce
-  in
-  {
-   rem_default_output;
-   rem_context;
-   rem_source;
-   rem_guarded_redistrib;
+operation:
+| OPERATION op_label = LABEL op_default_output = destinataire?
+    op_context = context* op_source = source? es = expression+
+ {{
+   op_label;
+   op_default_output;
+   op_context;
+   op_source;
+   op_guarded_redistrib = match es with [e] -> e | _ -> Seq es;
+  }}
+
+advance:
+| AVANCE adv_label = LABEL adv_source = source PAR
+    adv_provider = flow_expr MONTANT adv_amount = formula adv_output = destinataire
+  {{
+      adv_label;
+      adv_output;
+      adv_source;
+      adv_provider;
+      adv_amount;
   }}
 
 simple_expr:
-| QUOTEPART f = formula d = strict_destinataire? { Part f, d }
-| BONUS f = formula d = strict_destinataire? { Flat f, d }
+| QUOTEPART f = formula d = destinataire? { Part f, d }
+| BONUS f = formula d = destinataire? { Flat f, d }
 
 expression:
 | e = simple_expr { Redist e }
 | g = event_guard ge = expression { Guarded (g, ge) }
 | LCUR es = expression+ RCUR { Seq es }
 
-sourced_expr:
-| s = source? es = expression+ { s, match es with [e] -> e | _ -> Seq es }
-
 source:
-| SUR intermediary_flag = boption(ASSIETTE) id = LIDENT l = lane?
- { Destination(id, l, intermediary_flag) }
-
-context_expr:
-| cs = context* se = sourced_expr { cs, se }
+| SUR f = flow_expr { f }
 
 // Formula
 
 formula:
 | l = literal { Literal l }
 | id = LIDENT { ValueId id }
-| f = formula TOTALISE { Integral f }
-| f = formula l = lane { OnLane(f, l) }
+| f = flow_expr { Flow f }
 | f1 = formula op = binop f2 = formula { Binop(op, f1, f2) }
 | LPAR f = formula RPAR { f }
 
@@ -119,23 +118,16 @@ base_type:
 | RATIONNEL { Rational }
 | ARGENT { Money }
 
-/* typ: */
-/* | t = base_type { Instant t } */
-/* | FLUX t = base_type { Flow t } */
-
 output_decl:
 | SORTIE id = LIDENT { id }
 
 destinataire:
-| l = lane { Lane l }
-| d = strict_destinataire { d }
+| VERS f = flow_expr { f }
 
-strict_destinataire:
-| VERS intermediary_flag = boption(ASSIETTE) id = LIDENT l = lane?
- { Destination(id, l, intermediary_flag) }
-
-lane:
-| PAR COULOIR id = LIDENT { id }
+flow_expr:
+| ASSIETTE id = LIDENT { Pool id }
+| id = LIDENT LBRA l = LIDENT RBRA { LabeledOutput (id, l) }
+| id = LIDENT LBRA l = separated_nonempty_list(COMMA,UIDENT) RBRA { ContextPool (id, l) }
 
 // Event
 
@@ -173,6 +165,12 @@ constant_decl:
 | CONSTANTE const_name = LIDENT COLON const_value = literal
  {{ const_name; const_value }}
 
+default_decl:
+| DEFAUT SUR src = flow_expr VERS dst = flow_expr { src, dst }
+
+deficit_decl:
+| DEFICITAIRE SUR src = flow_expr PAR def = flow_expr { src, def }
+
 section:
 | SECTION section_name = UIDENT section_context = context*
   section_guards = event_guard* section_decl = toplevel_decl* FIN
@@ -184,12 +182,15 @@ section:
  }}
 
 toplevel_decl:
-| r = remuneration { Remuneration r }
+| o = operation { Operation o }
 | e = event_decl { Event e }
 | c = constant_decl { Constant c }
 | c = context_decl { Context c }
 | i = input_decl { Input i }
 | o = output_decl { Output o }
 | s = section { Section s }
+| d = default_decl { let (s, d) = d in Default (s, d) }
+| d = deficit_decl { let (s, d) = d in Deficit (s, d) }
+| a = advance { Advance a }
 
 program: d = toplevel_decl* EOF { d }

@@ -9,12 +9,11 @@ let unknown_token_error lexbuf =
 
 let keywords =
   [
-    "remuneration", REMUNERATION;
+    "operation", OPERATION;
     "quotepart", QUOTEPART;
     "bonus", BONUS;
     "sur", SUR;
     "assiette", ASSIETTE;
-    "totalise", TOTALISE;
     "ans", ANS;
     "mois", MOIS;
     "entree", ENTREE;
@@ -25,11 +24,9 @@ let keywords =
     "entier", ENTIER;
     "rationnel", RATIONNEL;
     "argent", ARGENT;
-    (* "flux", FLUX; *)
     "sortie", SORTIE;
     "vers", VERS;
     "pour", POUR;
-    "couloir", COULOIR;
     "evenement", EVENEMENT;
     "atteint", ATTEINT;
     "et", ET;
@@ -42,6 +39,9 @@ let keywords =
     "constante", CONSTANTE;
     "section", SECTION;
     "fin", FIN;
+    "defaut", DEFAUT;
+    "deficitaire", DEFICITAIRE;
+    "avance", AVANCE;
   ]
 
 let digit = [%sedlex.regexp? '0' .. '9']
@@ -52,6 +52,7 @@ let lident = [%sedlex.regexp? lowercase, Star (digit | lowercase | uppercase | '
 let uident = [%sedlex.regexp? uppercase, Star (digit | lowercase | uppercase | '_')]
 let date = [%sedlex.regexp? integer, '/', integer, '/', integer]
 let comment = [%sedlex.regexp? '#', Star (Compl '\n'), '\n']
+let label = [%sedlex.regexp? '\'', Plus (Compl ('\n' | '\r' | '\'')), '\'']
 
 let parse_money_amount s =
   let invalid_arg = Invalid_argument "Lexer.parse_money_amount" in
@@ -75,6 +76,10 @@ let parse_date s =
     Date.make (int_of_string y) (int_of_string m) (int_of_string d)
   | _ -> raise (Invalid_argument "Lexer.parse_date")
 
+let strip_enclosing_chars s =
+  let s = String.trim s in
+  String.sub s 1 (String.length s - 2)
+
 let reading_code = ref false
 
 let rec code ~is_in_text lexbuf =
@@ -86,6 +91,7 @@ let rec code ~is_in_text lexbuf =
   | decimal -> FLOAT (float_of_string (Utf8.lexeme lexbuf))
   | integer -> INT (int_of_string (Utf8.lexeme lexbuf))
   | money -> MONEY (parse_money_amount (Utf8.lexeme lexbuf))
+  | label -> LABEL (strip_enclosing_chars (Utf8.lexeme lexbuf))
   | '+' -> PLUS
   | '-' -> MINUS
   | '*' -> MULT
@@ -94,6 +100,11 @@ let rec code ~is_in_text lexbuf =
   | ':' -> COLON
   | '(' -> LPAR
   | ')' -> RPAR
+  | '[' -> LBRA
+  | ']' -> RBRA
+  | '{' -> LCUR
+  | '}' -> RCUR
+  | ',' -> COMMA
   | uident -> UIDENT (Utf8.lexeme lexbuf)
   | lident ->
     let id = Utf8.lexeme lexbuf in
