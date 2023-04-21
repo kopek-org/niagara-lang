@@ -40,7 +40,7 @@ let keywords =
     "section", SECTION;
     "fin", FIN;
     "defaut", DEFAUT;
-    "deficitaire", DEFICITAIRE;
+    "deficit", DEFICIT;
     "avance", AVANCE;
   ]
 
@@ -102,8 +102,6 @@ let rec code ~is_in_text lexbuf =
   | ')' -> RPAR
   | '[' -> LBRA
   | ']' -> RBRA
-  | '{' -> LCUR
-  | '}' -> RCUR
   | ',' -> COMMA
   | uident -> UIDENT (Utf8.lexeme lexbuf)
   | lident ->

@@ -30,7 +30,7 @@ type flow_expr =
 type formula =
   | Literal of literal
   | ValueId of string
-  | Flow of flow_expr
+  | FlowExpr of flow_expr
   | Binop of binop * formula * formula
 
 type redistribution =
@@ -69,7 +69,6 @@ type operation_decl = {
 
 type advance_decl = {
   adv_label : string;
-  adv_source : flow_expr;
   adv_output : flow_expr;
   adv_provider : flow_expr;
   adv_amount : formula;

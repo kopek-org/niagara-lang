@@ -4,14 +4,17 @@ open Ast
 %}
 
 %token OPERATION QUOTEPART BONUS SUR ASSIETTE ANS MOIS ENTREE LBRA RBRA DEFAUT
-%token LCUR RCUR CALCULABLE CONTEXTUALISEE PAR TYPE ENTIER RATIONNEL ARGENT
+%token CALCULABLE CONTEXTUALISEE PAR TYPE ENTIER RATIONNEL ARGENT
 %token SORTIE POUR EVENEMENT ET OU AVANT APRES QUAND CONTEXTE TOUT CONSTANTE
 %token SECTION FIN LPAR RPAR VERS ATTEINT PLUS MINUS MULT DIV EQ COLON EOF
-%token DEFICITAIRE AVANCE MONTANT COMMA
+%token DEFICIT AVANCE MONTANT COMMA
 %token<float> FLOAT
 %token<int> INT MONEY
 %token<string> LIDENT UIDENT LABEL
 %token<CalendarLib.Date.t> DATE
+
+%nonassoc LIDENT
+%nonassoc LPAR
 
 %left PLUS MINUS OU
 %left MULT DIV ET
@@ -20,28 +23,28 @@ open Ast
 
 %start<Ast.program> program
 
+%type<Ast.guarded_redistrib> expression
 %%
 
 // Dispatch
 
 operation:
 | OPERATION op_label = LABEL op_default_output = destinataire?
-    op_context = context* op_source = source? es = expression+
+    op_context = context* op_source = source? op_guarded_redistrib = expression
  {{
    op_label;
    op_default_output;
    op_context;
    op_source;
-   op_guarded_redistrib = match es with [e] -> e | _ -> Seq es;
+   op_guarded_redistrib;
   }}
 
 advance:
-| AVANCE adv_label = LABEL adv_source = source PAR
-    adv_provider = flow_expr MONTANT adv_amount = formula adv_output = destinataire
+| AVANCE adv_label = LABEL adv_output = source PAR
+    adv_provider = flow_expr MONTANT adv_amount = formula
   {{
       adv_label;
       adv_output;
-      adv_source;
       adv_provider;
       adv_amount;
   }}
@@ -50,10 +53,18 @@ simple_expr:
 | QUOTEPART f = formula d = destinataire? { Part f, d }
 | BONUS f = formula d = destinataire? { Flat f, d }
 
+expression_group:
+| es = simple_expr+ { List.map (fun e -> Redist e) es }
+| es = guarded_expr+ { es }
+
 expression:
-| e = simple_expr { Redist e }
+| es = simple_expr+
+  { match es with [e] -> Redist e | _ -> Seq (List.map (fun e -> Redist e) es) }
+| e = guarded_expr { e }
+| LPAR es = expression_group RPAR { Seq es }
+
+guarded_expr:
 | g = event_guard ge = expression { Guarded (g, ge) }
-| LCUR es = expression+ RCUR { Seq es }
 
 source:
 | SUR f = flow_expr { f }
@@ -63,7 +74,7 @@ source:
 formula:
 | l = literal { Literal l }
 | id = LIDENT { ValueId id }
-| f = flow_expr { Flow f }
+| f = flow_expr { FlowExpr f }
 | f1 = formula op = binop f2 = formula { Binop(op, f1, f2) }
 | LPAR f = formula RPAR { f }
 
@@ -127,7 +138,7 @@ destinataire:
 flow_expr:
 | ASSIETTE id = LIDENT { Pool id }
 | id = LIDENT LBRA l = LIDENT RBRA { LabeledOutput (id, l) }
-| id = LIDENT LBRA l = separated_nonempty_list(COMMA,UIDENT) RBRA { ContextPool (id, l) }
+| ASSIETTE id = LIDENT LPAR l = separated_nonempty_list(COMMA,UIDENT) RPAR { ContextPool (id, l) }
 
 // Event
 
@@ -166,10 +177,10 @@ constant_decl:
  {{ const_name; const_value }}
 
 default_decl:
-| DEFAUT SUR src = flow_expr VERS dst = flow_expr { src, dst }
+| DEFAUT src = source VERS dst = flow_expr { src, dst }
 
 deficit_decl:
-| DEFICITAIRE SUR src = flow_expr PAR def = flow_expr { src, def }
+| DEFICIT src = source PAR def = flow_expr { src, def }
 
 section:
 | SECTION section_name = UIDENT section_context = context*
