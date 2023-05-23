@@ -4,10 +4,10 @@ open Ast
 %}
 
 %token OPERATION QUOTEPART BONUS SUR ASSIETTE ANS MOIS ENTREE LBRA RBRA DEFAUT
-%token CALCULABLE CONTEXTUALISEE PAR TYPE ENTIER RATIONNEL ARGENT
-%token SORTIE POUR EVENEMENT ET OU AVANT APRES QUAND CONTEXTE TOUT CONSTANTE
-%token SECTION FIN LPAR RPAR VERS ATTEINT PLUS MINUS MULT DIV EQ COLON EOF
-%token DEFICIT AVANCE MONTANT COMMA
+%token CONTEXTUALISEE PAR TYPE ENTIER RATIONNEL ARGENT TOTAL COURANT
+%token ACTEUR POUR EVENEMENT ET OU AVANT APRES QUAND CONTEXTE TOUT CONSTANTE
+%token LPAR RPAR VERS ATTEINT PLUS MINUS MULT DIV EQ COLON EOF DEFICIT
+%token AVANCE MONTANT COMMA RETROCESSION OPPOSABLE // SECTION FIN
 %token<float> FLOAT
 %token<int> INT MONEY
 %token<string> LIDENT UIDENT LABEL
@@ -16,10 +16,12 @@ open Ast
 %nonassoc LIDENT
 %nonassoc LPAR
 
+%nonassoc TOTAL COURANT
+%nonassoc EQ
 %left PLUS MINUS OU
 %left MULT DIV ET
 
-%on_error_reduce literal formula event_guard
+%on_error_reduce literal formula event_guard named actor
 
 %start<Ast.program> program
 
@@ -30,18 +32,19 @@ open Ast
 
 operation:
 | OPERATION op_label = LABEL op_default_output = destinataire?
-    op_context = context* op_source = source? op_guarded_redistrib = expression
+    op_context = context* op_source = source
+    exprs = expression_group
  {{
    op_label;
    op_default_output;
    op_context;
    op_source;
-   op_guarded_redistrib;
+   op_guarded_redistrib = Seq exprs;
   }}
 
 advance:
-| AVANCE adv_label = LABEL adv_output = source PAR
-    adv_provider = flow_expr MONTANT adv_amount = formula
+| AVANCE adv_label = LABEL SUR adv_output = holder PAR
+    adv_provider = actor MONTANT adv_amount = formula
   {{
       adv_label;
       adv_output;
@@ -52,6 +55,8 @@ advance:
 simple_expr:
 | QUOTEPART f = formula d = destinataire? { Part f, d }
 | BONUS f = formula d = destinataire? { Flat f, d }
+| RETROCESSION f = formula SUR h = holder d = destinataire?
+  { Retrocession (f, h), d}
 
 expression_group:
 | es = simple_expr+ { List.map (fun e -> Redist e) es }
@@ -67,15 +72,18 @@ guarded_expr:
 | g = event_guard ge = expression { Guarded (g, ge) }
 
 source:
-| SUR f = flow_expr { f }
+| SUR p = pool { p }
+| PAR a = actor { Actor a }
 
 // Formula
 
 formula:
 | l = literal { Literal l }
-| id = LIDENT { ValueId id }
-| f = flow_expr { FlowExpr f }
+| n = named { Named n }
 | f1 = formula op = binop f2 = formula { Binop(op, f1, f2) }
+| f1 = formula op = comp f2 = formula { Comp(op, f1, f2) }
+| f = formula COURANT { Instant f }
+| f = formula TOTAL { Total f }
 | LPAR f = formula RPAR { f }
 
 %inline binop:
@@ -83,6 +91,35 @@ formula:
 | MINUS { Sub }
 | MULT { Mult }
 | DIV { Div }
+
+%inline comp:
+| EQ { Eq }
+
+named:
+| n = LIDENT c = ioption(context_refinement) { Name(n, c) }
+| a = labeled_actor { Holder (Actor a) }
+| p = pool { Holder p }
+
+holder:
+| a = actor { Actor a }
+| p = pool { p }
+
+actor:
+| a = LIDENT { PlainActor a }
+| la = labeled_actor { la }
+
+labeled_actor:
+| a = LIDENT LBRA l = LIDENT RBRA { LabeledActor(a, l) }
+
+pool:
+| ASSIETTE p = LIDENT c = ioption(context_refinement) { Pool(p, c) }
+
+context_refinement:
+| LPAR c = separated_nonempty_list(COMMA,context_refine_item) RPAR { c }
+
+context_refine_item:
+| c = UIDENT { CCase c }
+| TOUT ct = UIDENT { CFullType ct }
 
 literal:
 | i = INT { LitInt i }
@@ -109,13 +146,17 @@ duration_month:
 // Flow and IO
 
 input_decl:
-| ENTREE input_computable = boption(CALCULABLE) input_name = LIDENT
-  input_context = loption(input_context) input_type = input_type
+| ENTREE input_name = LIDENT input_context = loption(input_context) input_type = input_type
  {{
    input_name;
-   input_computable;
    input_context;
    input_type;
+ }}
+| ENTREE ASSIETTE input_name = LIDENT input_context = loption(input_context)
+ {{
+   input_name;
+   input_context;
+   input_type = MoneyPool;
  }}
 
 input_context:
@@ -129,16 +170,15 @@ base_type:
 | RATIONNEL { Rational }
 | ARGENT { Money }
 
-output_decl:
-| SORTIE id = LIDENT { id }
+actor_decl:
+| ACTEUR id = LIDENT { id }
 
 destinataire:
-| VERS f = flow_expr { f }
+| VERS d = holder { d, NoOpposition }
+| VERS d = holder o = opposition { d, o }
 
-flow_expr:
-| ASSIETTE id = LIDENT { Pool id }
-| id = LIDENT LBRA l = LIDENT RBRA { LabeledOutput (id, l) }
-| ASSIETTE id = LIDENT LPAR l = separated_nonempty_list(COMMA,UIDENT) RPAR { ContextPool (id, l) }
+opposition:
+| OPPOSABLE f = formula POUR a = actor { Opposable (f, a) }
 
 // Event
 
@@ -148,7 +188,7 @@ event_decl:
 
 event_expr:
 | EVENEMENT id = LIDENT { EventId id }
-| f1 = formula EQ f2 = formula { EventEq(f1, f2) }
+| f = formula { EventFormula f }
 | e1 = event_expr ET e2 = event_expr { EventConj(e1, e2) }
 | e1 = event_expr OU e2 = event_expr { EventDisj(e1, e2) }
 
@@ -177,20 +217,20 @@ constant_decl:
  {{ const_name; const_value }}
 
 default_decl:
-| DEFAUT src = source VERS dst = flow_expr { src, dst }
+| DEFAUT SUR src = pool VERS dst = holder { src, dst }
 
 deficit_decl:
-| DEFICIT src = source PAR def = flow_expr { src, def }
+| DEFICIT SUR src = pool PAR def = holder { src, def }
 
-section:
-| SECTION section_name = UIDENT section_context = context*
-  section_guards = event_guard* section_decl = toplevel_decl* FIN
- {{
-   section_name;
-   section_context;
-   section_guards;
-   section_decl;
- }}
+/* section: */
+/* | SECTION section_name = UIDENT section_context = context* */
+/*   section_guards = event_guard* section_decl = toplevel_decl* FIN */
+/*  {{ */
+/*    section_name; */
+/*    section_context; */
+/*    section_guards; */
+/*    section_decl; */
+/*  }} */
 
 toplevel_decl:
 | o = operation { Operation o }
@@ -198,8 +238,8 @@ toplevel_decl:
 | c = constant_decl { Constant c }
 | c = context_decl { Context c }
 | i = input_decl { Input i }
-| o = output_decl { Output o }
-| s = section { Section s }
+| o = actor_decl { Output o }
+/* | s = section { Section s } */
 | d = default_decl { let (s, d) = d in Default (s, d) }
 | d = deficit_decl { let (s, d) = d in Deficit (s, d) }
 | a = advance { Advance a }

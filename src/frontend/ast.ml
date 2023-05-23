@@ -1,11 +1,8 @@
-type base_type =
+type typ =
   | Integer
   | Rational
   | Money
-
-type typ =
-  | Instant of base_type
-  | Flow of base_type
+  | MoneyPool
   | Duration
   | Date
 
@@ -22,26 +19,49 @@ type binop =
   | Mult
   | Div
 
-type flow_expr =
-  | Pool of string
-  | LabeledOutput of string * string
-  | ContextPool of string * string list
+type comp = Eq
+
+type context_refinement_item =
+  | CCase of string
+  | CFullType of string
+
+type context_refinement = context_refinement_item list
+
+type actor =
+  | PlainActor of string
+  | LabeledActor of string * string
+
+type holder =
+  | Pool of string * context_refinement option
+  | Actor of actor
+
+type named =
+  | Name of string * context_refinement option
+  | Holder of holder
 
 type formula =
   | Literal of literal
-  | ValueId of string
-  | FlowExpr of flow_expr
+  | Named of named
+  | HolderExpr of holder
   | Binop of binop * formula * formula
+  | Comp of comp * formula * formula
+  | Total of formula
+  | Instant of formula
 
 type redistribution =
   | Part of formula
   | Flat of formula
+  | Retrocession of formula * holder
 
-type redistrib_with_dest = redistribution * flow_expr option
+type opposition =
+  | NoOpposition
+  | Opposable of formula * actor
+
+type redistrib_with_dest = redistribution * (holder * opposition) option
 
 type event_expr =
   | EventId of string
-  | EventEq of formula * formula
+  | EventFormula of formula
   | EventConj of event_expr * event_expr
   | EventDisj of event_expr * event_expr
 
@@ -61,16 +81,16 @@ type context =
 
 type operation_decl = {
   op_label : string;
-  op_default_output : flow_expr option;
+  op_default_output : (holder * opposition) option;
   op_context : context list;
-  op_source : flow_expr option;
+  op_source : holder;
   op_guarded_redistrib : guarded_redistrib;
 }
 
 type advance_decl = {
   adv_label : string;
-  adv_output : flow_expr;
-  adv_provider : flow_expr;
+  adv_output : holder;
+  adv_provider : actor;
   adv_amount : formula;
 }
 
@@ -91,21 +111,20 @@ type context_decl = {
 
 type input_decl = {
   input_name : string;
-  input_computable : bool;
   input_context : string list;
-  input_type : base_type;
+  input_type : typ;
 }
 
 type output_decl = string
 
-type section = {
-  section_name : string;
-  section_context : context list;
-  section_guards : guard list;
-  section_decl : declaration list;
-}
+(* type section = { *)
+(*   section_name : string; *)
+(*   section_context : context list; *)
+(*   section_guards : guard list; *)
+(*   section_decl : declaration list; *)
+(* } *)
 
-and declaration =
+type declaration =
   | Operation of operation_decl
   | Advance of advance_decl
   | Event of event_decl
@@ -113,8 +132,8 @@ and declaration =
   | Context of context_decl
   | Input of input_decl
   | Output of output_decl
-  | Section of section
-  | Default of flow_expr * flow_expr
-  | Deficit of flow_expr * flow_expr
+  (* | Section of section *)
+  | Default of holder * holder
+  | Deficit of holder * holder
 
 type program = declaration list

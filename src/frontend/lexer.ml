@@ -17,14 +17,13 @@ let keywords =
     "ans", ANS;
     "mois", MOIS;
     "entree", ENTREE;
-    "calculable", CALCULABLE;
     "contextualisee", CONTEXTUALISEE;
     "par", PAR;
     "type", TYPE;
     "entier", ENTIER;
     "rationnel", RATIONNEL;
     "argent", ARGENT;
-    "sortie", SORTIE;
+    "acteur", ACTEUR;
     "vers", VERS;
     "pour", POUR;
     "evenement", EVENEMENT;
@@ -37,11 +36,16 @@ let keywords =
     "contexte", CONTEXTE;
     "tout", TOUT;
     "constante", CONSTANTE;
-    "section", SECTION;
-    "fin", FIN;
     "defaut", DEFAUT;
     "deficit", DEFICIT;
     "avance", AVANCE;
+    "total", TOTAL;
+    "courant", COURANT;
+    "retrocession", RETROCESSION;
+    "montant", MONTANT;
+    "opposable", OPPOSABLE;
+    (* "section", SECTION; *)
+    (* "fin", FIN; *)
   ]
 
 let digit = [%sedlex.regexp? '0' .. '9']

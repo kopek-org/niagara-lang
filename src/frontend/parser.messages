@@ -8,43 +8,15 @@ program: VERS
 ##
 ##
 #
-program: SECTION UIDENT FIN VERS
-##
-## Ends in an error in state: 147.
-##
-## list(toplevel_decl) -> toplevel_decl . list(toplevel_decl) [ FIN EOF ]
-##
-## The known suffix of the stack is as follows:
-## toplevel_decl
-##
 
 Expected section or declaration.
 
-program: SORTIE VERS
-##
-## Ends in an error in state: 1.
-##
-## output_decl -> SORTIE . LIDENT [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
-##
-## The known suffix of the stack is as follows:
-## SORTIE
-##
-#
-program: OPERATION LABEL APRES EVENEMENT VERS
-##
-## Ends in an error in state: 51.
-##
-## event_expr -> EVENEMENT . LIDENT [ SORTIE SECTION QUOTEPART QUAND OU OPERATION LPAR FIN EVENEMENT ET EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-##
-## The known suffix of the stack is as follows:
-## EVENEMENT
-##
-#
 program: OPERATION LABEL VERS VERS
 ##
-## Ends in an error in state: 68.
+## Ends in an error in state: 3.
 ##
-## destinataire -> VERS . flow_expr [ SUR SORTIE SECTION RPAR QUOTEPART QUAND POUR OPERATION LPAR FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
+## destinataire -> VERS . holder [ SUR RPAR RETROCESSION QUOTEPART QUAND POUR PAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## destinataire -> VERS . holder opposition [ SUR RPAR RETROCESSION QUOTEPART QUAND POUR PAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## VERS
@@ -52,9 +24,9 @@ program: OPERATION LABEL VERS VERS
 #
 program: EVENEMENT VERS
 ##
-## Ends in an error in state: 100.
+## Ends in an error in state: 117.
 ##
-## event_decl -> EVENEMENT . LIDENT ATTEINT QUAND event_expr [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
+## event_decl -> EVENEMENT . LIDENT ATTEINT QUAND event_expr [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## EVENEMENT
@@ -62,10 +34,10 @@ program: EVENEMENT VERS
 #
 program: OPERATION LABEL VERS ASSIETTE VERS
 ##
-## Ends in an error in state: 28.
+## Ends in an error in state: 8.
 ##
-## flow_expr -> ASSIETTE . LIDENT [ VERS SUR SORTIE SECTION RPAR QUOTEPART QUAND POUR PLUS PAR OU OPERATION MULT MONTANT MINUS LPAR FIN EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-## flow_expr -> ASSIETTE . LIDENT LPAR separated_nonempty_list(COMMA,UIDENT) RPAR [ VERS SUR SORTIE SECTION RPAR QUOTEPART QUAND POUR PLUS PAR OU OPERATION MULT MONTANT MINUS LPAR FIN EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
+## pool -> ASSIETTE . LIDENT [ VERS TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS PAR OU OPPOSABLE OPERATION MULT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## pool -> ASSIETTE . LIDENT context_refinement [ VERS TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS PAR OU OPPOSABLE OPERATION MULT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## ASSIETTE
@@ -73,9 +45,9 @@ program: OPERATION LABEL VERS ASSIETTE VERS
 #
 program: OPERATION LABEL VERS LIDENT LBRA VERS
 ##
-## Ends in an error in state: 17.
+## Ends in an error in state: 5.
 ##
-## flow_expr -> LIDENT LBRA . LIDENT RBRA [ VERS SUR SORTIE SECTION RPAR QUOTEPART QUAND POUR PLUS PAR OU OPERATION MULT MONTANT MINUS LPAR FIN EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
+## labeled_actor -> LIDENT LBRA . LIDENT RBRA [ VERS TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS PAR OU OPPOSABLE OPERATION MULT MONTANT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## LIDENT LBRA
@@ -83,36 +55,14 @@ program: OPERATION LABEL VERS LIDENT LBRA VERS
 
 Expected lowercase identifier.
 
-program: SECTION VERS
-##
-## Ends in an error in state: 3.
-##
-## section -> SECTION . UIDENT list(context) list(event_guard) list(toplevel_decl) FIN [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
-##
-## The known suffix of the stack is as follows:
-## SECTION
-##
 
-Expected uppercase identifier.
-
-program: SECTION UIDENT VERS
-##
-## Ends in an error in state: 4.
-##
-## section -> SECTION UIDENT . list(context) list(event_guard) list(toplevel_decl) FIN [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
-##
-## The known suffix of the stack is as follows:
-## SECTION UIDENT
-##
-
-Expected contextualisation, an event guard, a sub-section, or a declaration.
 
 program: OPERATION LABEL POUR VERS
 ##
-## Ends in an error in state: 5.
+## Ends in an error in state: 63.
 ##
-## context -> POUR . UIDENT nonempty_list(UIDENT) [ SUR SORTIE SECTION QUOTEPART QUAND POUR OPERATION LPAR FIN EVENEMENT ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-## context -> POUR . TOUT UIDENT [ SUR SORTIE SECTION QUOTEPART QUAND POUR OPERATION LPAR FIN EVENEMENT ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
+## context -> POUR . UIDENT nonempty_list(UIDENT) [ SUR POUR PAR ]
+## context -> POUR . TOUT UIDENT [ SUR POUR PAR ]
 ##
 ## The known suffix of the stack is as follows:
 ## POUR
@@ -120,9 +70,9 @@ program: OPERATION LABEL POUR VERS
 #
 program: OPERATION LABEL POUR UIDENT VERS
 ##
-## Ends in an error in state: 6.
+## Ends in an error in state: 64.
 ##
-## context -> POUR UIDENT . nonempty_list(UIDENT) [ SUR SORTIE SECTION QUOTEPART QUAND POUR OPERATION LPAR FIN EVENEMENT ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
+## context -> POUR UIDENT . nonempty_list(UIDENT) [ SUR POUR PAR ]
 ##
 ## The known suffix of the stack is as follows:
 ## POUR UIDENT
@@ -130,9 +80,9 @@ program: OPERATION LABEL POUR UIDENT VERS
 #
 program: OPERATION LABEL POUR TOUT VERS
 ##
-## Ends in an error in state: 10.
+## Ends in an error in state: 68.
 ##
-## context -> POUR TOUT . UIDENT [ SUR SORTIE SECTION QUOTEPART QUAND POUR OPERATION LPAR FIN EVENEMENT ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
+## context -> POUR TOUT . UIDENT [ SUR POUR PAR ]
 ##
 ## The known suffix of the stack is as follows:
 ## POUR TOUT
@@ -145,266 +95,24 @@ Examples:
 
 program: OPERATION LABEL POUR UIDENT UIDENT VERS
 ##
-## Ends in an error in state: 7.
+## Ends in an error in state: 65.
 ##
-## nonempty_list(UIDENT) -> UIDENT . [ TYPE SUR SORTIE SECTION QUOTEPART QUAND POUR OPERATION LPAR FIN EVENEMENT ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-## nonempty_list(UIDENT) -> UIDENT . nonempty_list(UIDENT) [ TYPE SUR SORTIE SECTION QUOTEPART QUAND POUR OPERATION LPAR FIN EVENEMENT ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
+## nonempty_list(UIDENT) -> UIDENT . [ TYPE SUR POUR PAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
+## nonempty_list(UIDENT) -> UIDENT . nonempty_list(UIDENT) [ TYPE SUR POUR PAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## UIDENT
 ##
-#
-program: OPERATION LABEL POUR TOUT UIDENT SORTIE
-##
-## Ends in an error in state: 72.
-##
-## operation -> OPERATION LABEL option(destinataire) list(context) . option(source) expression [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
-##
-## The known suffix of the stack is as follows:
-## OPERATION LABEL option(destinataire) list(context)
-##
-## WARNING: This example involves spurious reductions.
-## This implies that, although the LR(1) items shown above provide an
-## accurate view of the past (what has been recognized so far), they
-## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 98, spurious reduction of production list(context) ->
-## In state 99, spurious reduction of production list(context) -> context list(context)
-##
 
 Expected more context, or a redistribution expression.
 
-
-program: OPERATION LABEL QUAND VERS
-##
-## Ends in an error in state: 13.
-##
-## event_guard -> QUAND . event_expr [ SORTIE SECTION QUOTEPART QUAND OPERATION LPAR FIN EVENEMENT ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-##
-## The known suffix of the stack is as follows:
-## QUAND
-##
-#
-program: OPERATION LABEL APRES EVENEMENT LIDENT OU VERS
-##
-## Ends in an error in state: 57.
-##
-## event_expr -> event_expr OU . event_expr [ SORTIE SECTION QUOTEPART QUAND OU OPERATION LPAR FIN EVENEMENT ET EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-##
-## The known suffix of the stack is as follows:
-## event_expr OU
-##
-#
-program: OPERATION LABEL APRES EVENEMENT LIDENT ET VERS
-##
-## Ends in an error in state: 59.
-##
-## event_expr -> event_expr ET . event_expr [ SORTIE SECTION QUOTEPART QUAND OU OPERATION LPAR FIN EVENEMENT ET EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-##
-## The known suffix of the stack is as follows:
-## event_expr ET
-##
-#
-program: OPERATION LABEL AVANT VERS
-##
-## Ends in an error in state: 61.
-##
-## event_guard -> AVANT . event_expr [ SORTIE SECTION QUOTEPART QUAND OPERATION LPAR FIN EVENEMENT ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-##
-## The known suffix of the stack is as follows:
-## AVANT
-##
-#
-program: OPERATION LABEL APRES VERS
-##
-## Ends in an error in state: 63.
-##
-## event_guard -> APRES . event_expr [ SORTIE SECTION QUOTEPART QUAND OPERATION LPAR FIN EVENEMENT ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-##
-## The known suffix of the stack is as follows:
-## APRES
-##
-
-Expected an event expression.
-
-program: OPERATION LABEL APRES LPAR VERS
-##
-## Ends in an error in state: 15.
-##
-## formula -> LPAR . formula RPAR [ VERS SORTIE SECTION RPAR QUOTEPART QUAND PLUS OU OPERATION MULT MINUS LPAR FIN EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-##
-## The known suffix of the stack is as follows:
-## LPAR
-##
-#
-program: OPERATION LABEL APRES DATE PLUS VERS
-##
-## Ends in an error in state: 39.
-##
-## formula -> formula PLUS . formula [ VERS SORTIE SECTION RPAR QUOTEPART QUAND PLUS OU OPERATION MULT MINUS LPAR FIN EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-##
-## The known suffix of the stack is as follows:
-## formula PLUS
-##
-#
-program: OPERATION LABEL APRES DATE MULT VERS
-##
-## Ends in an error in state: 41.
-##
-## formula -> formula MULT . formula [ VERS SORTIE SECTION RPAR QUOTEPART QUAND PLUS OU OPERATION MULT MINUS LPAR FIN EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-##
-## The known suffix of the stack is as follows:
-## formula MULT
-##
-#
-program: OPERATION LABEL APRES DATE DIV VERS
-##
-## Ends in an error in state: 47.
-##
-## formula -> formula DIV . formula [ VERS SORTIE SECTION RPAR QUOTEPART QUAND PLUS OU OPERATION MULT MINUS LPAR FIN EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-##
-## The known suffix of the stack is as follows:
-## formula DIV
-##
-#
-program: OPERATION LABEL APRES DATE MINUS VERS
-##
-## Ends in an error in state: 49.
-##
-## formula -> formula MINUS . formula [ VERS SORTIE SECTION RPAR QUOTEPART QUAND PLUS OU OPERATION MULT MINUS LPAR FIN EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-##
-## The known suffix of the stack is as follows:
-## formula MINUS
-##
-#
-program: OPERATION LABEL BONUS VERS
-##
-## Ends in an error in state: 82.
-##
-## simple_expr -> BONUS . formula option(destinataire) [ SORTIE SECTION RPAR QUOTEPART QUAND OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-##
-## The known suffix of the stack is as follows:
-## BONUS
-##
-
-Expected a formula.
-
-program: OPERATION LABEL APRES INT ANS UIDENT
-##
-## Ends in an error in state: 22.
-##
-## duration_year -> INT ANS . option(duration_month) [ VERS SORTIE SECTION RPAR QUOTEPART QUAND PLUS OU OPERATION MULT MINUS LPAR FIN EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-##
-## The known suffix of the stack is as follows:
-## INT ANS
-##
-
-Malformed event expression. Expected a date (literal or computed) or an equality test.
-
-program: OPERATION LABEL APRES INT ANS INT VERS
-##
-## Ends in an error in state: 23.
-##
-## duration_month -> INT . MOIS [ VERS SORTIE SECTION RPAR QUOTEPART QUAND PLUS OU OPERATION MULT MINUS LPAR FIN EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-##
-## The known suffix of the stack is as follows:
-## INT
-##
-
-Malformed duration. Expected a time unit.
-
-program: OPERATION LABEL APRES LPAR DATE MOIS
-##
-## Ends in an error in state: 37.
-##
-## formula -> formula . PLUS formula [ RPAR PLUS MULT MINUS DIV ]
-## formula -> formula . MINUS formula [ RPAR PLUS MULT MINUS DIV ]
-## formula -> formula . MULT formula [ RPAR PLUS MULT MINUS DIV ]
-## formula -> formula . DIV formula [ RPAR PLUS MULT MINUS DIV ]
-## formula -> LPAR formula . RPAR [ VERS SORTIE SECTION RPAR QUOTEPART QUAND PLUS OU OPERATION MULT MINUS LPAR FIN EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-##
-## The known suffix of the stack is as follows:
-## LPAR formula
-##
-
-Malformed formula. Might miss a closing parenthesis.
-
-program: OPERATION LABEL APRES DATE MOIS
-##
-## Ends in an error in state: 53.
-##
-## event_expr -> formula . EQ formula [ SORTIE SECTION QUOTEPART QUAND OU OPERATION LPAR FIN EVENEMENT ET EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-## formula -> formula . PLUS formula [ PLUS MULT MINUS EQ DIV ]
-## formula -> formula . MINUS formula [ PLUS MULT MINUS EQ DIV ]
-## formula -> formula . MULT formula [ PLUS MULT MINUS EQ DIV ]
-## formula -> formula . DIV formula [ PLUS MULT MINUS EQ DIV ]
-##
-## The known suffix of the stack is as follows:
-## formula
-##
-
-Malformed event expression. Expected either '=', or a formula operator.
-
-program: OPERATION LABEL APRES DATE EQ VERS
-##
-## Ends in an error in state: 54.
-##
-## event_expr -> formula EQ . formula [ SORTIE SECTION QUOTEPART QUAND OU OPERATION LPAR FIN EVENEMENT ET EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-##
-## The known suffix of the stack is as follows:
-## formula EQ
-##
-
-Malformed event expression. Expected a formula.
-
-program: OPERATION LABEL APRES DATE EQ DATE MOIS
-##
-## Ends in an error in state: 55.
-##
-## event_expr -> formula EQ formula . [ SORTIE SECTION QUOTEPART QUAND OU OPERATION LPAR FIN EVENEMENT ET EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-## formula -> formula . PLUS formula [ SORTIE SECTION QUOTEPART QUAND PLUS OU OPERATION MULT MINUS LPAR FIN EVENEMENT ET EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-## formula -> formula . MINUS formula [ SORTIE SECTION QUOTEPART QUAND PLUS OU OPERATION MULT MINUS LPAR FIN EVENEMENT ET EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-## formula -> formula . MULT formula [ SORTIE SECTION QUOTEPART QUAND PLUS OU OPERATION MULT MINUS LPAR FIN EVENEMENT ET EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-## formula -> formula . DIV formula [ SORTIE SECTION QUOTEPART QUAND PLUS OU OPERATION MULT MINUS LPAR FIN EVENEMENT ET EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-##
-## The known suffix of the stack is as follows:
-## formula EQ formula
-##
-#
-program: OPERATION LABEL QUAND EVENEMENT LIDENT VERS
-##
-## Ends in an error in state: 91.
-##
-## guarded_expr -> event_guard . expression [ SORTIE SECTION RPAR QUAND OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANT AVANCE APRES ]
-##
-## The known suffix of the stack is as follows:
-## event_guard
-##
-## WARNING: This example involves spurious reductions.
-## This implies that, although the LR(1) items shown above provide an
-## accurate view of the past (what has been recognized so far), they
-## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 56, spurious reduction of production event_guard -> QUAND event_expr
-##
-#
-program: OPERATION LABEL APRES EVENEMENT LIDENT OU EVENEMENT LIDENT VERS
-##
-## Ends in an error in state: 58.
-##
-## event_expr -> event_expr . ET event_expr [ SORTIE SECTION QUOTEPART QUAND OU OPERATION LPAR FIN EVENEMENT ET EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-## event_expr -> event_expr . OU event_expr [ SORTIE SECTION QUOTEPART QUAND OU OPERATION LPAR FIN EVENEMENT ET EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-## event_expr -> event_expr OU event_expr . [ SORTIE SECTION QUOTEPART QUAND OU OPERATION LPAR FIN EVENEMENT ET EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-##
-## The known suffix of the stack is as follows:
-## event_expr OU event_expr
-##
-#
 program: EVENEMENT LIDENT ATTEINT QUAND EVENEMENT LIDENT VERS
 ##
-## Ends in an error in state: 104.
+## Ends in an error in state: 121.
 ##
-## event_decl -> EVENEMENT LIDENT ATTEINT QUAND event_expr . [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
-## event_expr -> event_expr . ET event_expr [ SORTIE SECTION OU OPERATION FIN EVENEMENT ET EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
-## event_expr -> event_expr . OU event_expr [ SORTIE SECTION OU OPERATION FIN EVENEMENT ET EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
+## event_decl -> EVENEMENT LIDENT ATTEINT QUAND event_expr . [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
+## event_expr -> event_expr . ET event_expr [ OU OPERATION EVENEMENT ET EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
+## event_expr -> event_expr . OU event_expr [ OU OPERATION EVENEMENT ET EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## EVENEMENT LIDENT ATTEINT QUAND event_expr
@@ -414,9 +122,9 @@ Unexpected word after event expression.
 
 program: OPERATION LABEL UIDENT
 ##
-## Ends in an error in state: 67.
+## Ends in an error in state: 2.
 ##
-## operation -> OPERATION LABEL . option(destinataire) list(context) option(source) expression [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
+## operation -> OPERATION LABEL . option(destinataire) list(context) source expression_group [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## OPERATION LABEL
@@ -424,67 +132,11 @@ program: OPERATION LABEL UIDENT
 
 Expected some context, or a destination, or a redistribution expression.
 
-program: OPERATION LABEL VERS LIDENT VERS
-##
-## Ends in an error in state: 69.
-##
-## flow_expr -> LIDENT . LBRA LIDENT RBRA [ VERS SUR SORTIE SECTION RPAR QUOTEPART QUAND POUR PAR OPERATION MONTANT LPAR FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-##
-## The known suffix of the stack is as follows:
-## LIDENT
-##
-
-Expected bracketed label on flow expression.
-
-program: OPERATION LABEL QUOTEPART VERS
-##
-## Ends in an error in state: 77.
-##
-## simple_expr -> QUOTEPART . formula option(destinataire) [ SORTIE SECTION RPAR QUOTEPART QUAND OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-##
-## The known suffix of the stack is as follows:
-## QUOTEPART
-##
-
-Malformed redistribution statement. Such statements have the form:
- - quotepart [some formula] [optional destination]
- - bonus [some formula] [optional destination]
-
-program: OPERATION LABEL QUOTEPART DATE MOIS
-##
-## Ends in an error in state: 78.
-##
-## formula -> formula . PLUS formula [ VERS SORTIE SECTION RPAR QUOTEPART QUAND PLUS OPERATION MULT MINUS FIN EVENEMENT EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-## formula -> formula . MINUS formula [ VERS SORTIE SECTION RPAR QUOTEPART QUAND PLUS OPERATION MULT MINUS FIN EVENEMENT EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-## formula -> formula . MULT formula [ VERS SORTIE SECTION RPAR QUOTEPART QUAND PLUS OPERATION MULT MINUS FIN EVENEMENT EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-## formula -> formula . DIV formula [ VERS SORTIE SECTION RPAR QUOTEPART QUAND PLUS OPERATION MULT MINUS FIN EVENEMENT EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-## simple_expr -> QUOTEPART formula . option(destinataire) [ SORTIE SECTION RPAR QUOTEPART QUAND OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-##
-## The known suffix of the stack is as follows:
-## QUOTEPART formula
-##
-#
-program: OPERATION LABEL BONUS DATE MOIS
-##
-## Ends in an error in state: 83.
-##
-## formula -> formula . PLUS formula [ VERS SORTIE SECTION RPAR QUOTEPART QUAND PLUS OPERATION MULT MINUS FIN EVENEMENT EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-## formula -> formula . MINUS formula [ VERS SORTIE SECTION RPAR QUOTEPART QUAND PLUS OPERATION MULT MINUS FIN EVENEMENT EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-## formula -> formula . MULT formula [ VERS SORTIE SECTION RPAR QUOTEPART QUAND PLUS OPERATION MULT MINUS FIN EVENEMENT EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-## formula -> formula . DIV formula [ VERS SORTIE SECTION RPAR QUOTEPART QUAND PLUS OPERATION MULT MINUS FIN EVENEMENT EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-## simple_expr -> BONUS formula . option(destinataire) [ SORTIE SECTION RPAR QUOTEPART QUAND OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-##
-## The known suffix of the stack is as follows:
-## BONUS formula
-##
-
-Unexpected word after redistribution formula.
-
 program: OPERATION LABEL POUR TOUT UIDENT VERS
 ##
-## Ends in an error in state: 98.
+## Ends in an error in state: 115.
 ##
-## list(context) -> context . list(context) [ SUR SORTIE SECTION QUOTEPART QUAND OPERATION LPAR FIN EVENEMENT ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
+## list(context) -> context . list(context) [ SUR PAR ]
 ##
 ## The known suffix of the stack is as follows:
 ## context
@@ -494,9 +146,9 @@ Unexpected word after context.
 
 program: EVENEMENT LIDENT VERS
 ##
-## Ends in an error in state: 101.
+## Ends in an error in state: 118.
 ##
-## event_decl -> EVENEMENT LIDENT . ATTEINT QUAND event_expr [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
+## event_decl -> EVENEMENT LIDENT . ATTEINT QUAND event_expr [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## EVENEMENT LIDENT
@@ -504,9 +156,9 @@ program: EVENEMENT LIDENT VERS
 #
 program: EVENEMENT LIDENT ATTEINT VERS
 ##
-## Ends in an error in state: 102.
+## Ends in an error in state: 119.
 ##
-## event_decl -> EVENEMENT LIDENT ATTEINT . QUAND event_expr [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
+## event_decl -> EVENEMENT LIDENT ATTEINT . QUAND event_expr [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## EVENEMENT LIDENT ATTEINT
@@ -514,9 +166,9 @@ program: EVENEMENT LIDENT ATTEINT VERS
 #
 program: EVENEMENT LIDENT ATTEINT QUAND VERS
 ##
-## Ends in an error in state: 103.
+## Ends in an error in state: 120.
 ##
-## event_decl -> EVENEMENT LIDENT ATTEINT QUAND . event_expr [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
+## event_decl -> EVENEMENT LIDENT ATTEINT QUAND . event_expr [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## EVENEMENT LIDENT ATTEINT QUAND
@@ -528,39 +180,30 @@ Malformed event declaration. Well-formed examples:
 
 program: ENTREE VERS
 ##
-## Ends in an error in state: 105.
+## Ends in an error in state: 122.
 ##
-## input_decl -> ENTREE . boption(CALCULABLE) LIDENT loption(input_context) input_type [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
+## input_decl -> ENTREE . LIDENT loption(input_context) input_type [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
+## input_decl -> ENTREE . ASSIETTE LIDENT loption(input_context) [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## ENTREE
 ##
 #
-program: ENTREE CALCULABLE VERS
-##
-## Ends in an error in state: 107.
-##
-## input_decl -> ENTREE boption(CALCULABLE) . LIDENT loption(input_context) input_type [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
-##
-## The known suffix of the stack is as follows:
-## ENTREE boption(CALCULABLE)
-##
-#
 program: ENTREE LIDENT VERS
 ##
-## Ends in an error in state: 108.
+## Ends in an error in state: 123.
 ##
-## input_decl -> ENTREE boption(CALCULABLE) LIDENT . loption(input_context) input_type [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
+## input_decl -> ENTREE LIDENT . loption(input_context) input_type [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
-## ENTREE boption(CALCULABLE) LIDENT
+## ENTREE LIDENT
 ##
 #
 program: ENTREE LIDENT CONTEXTUALISEE VERS
 ##
-## Ends in an error in state: 109.
+## Ends in an error in state: 124.
 ##
-## input_context -> CONTEXTUALISEE . PAR nonempty_list(UIDENT) [ TYPE ]
+## input_context -> CONTEXTUALISEE . PAR nonempty_list(UIDENT) [ TYPE OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## CONTEXTUALISEE
@@ -568,9 +211,9 @@ program: ENTREE LIDENT CONTEXTUALISEE VERS
 #
 program: ENTREE LIDENT CONTEXTUALISEE PAR VERS
 ##
-## Ends in an error in state: 110.
+## Ends in an error in state: 125.
 ##
-## input_context -> CONTEXTUALISEE PAR . nonempty_list(UIDENT) [ TYPE ]
+## input_context -> CONTEXTUALISEE PAR . nonempty_list(UIDENT) [ TYPE OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## CONTEXTUALISEE PAR
@@ -578,20 +221,20 @@ program: ENTREE LIDENT CONTEXTUALISEE PAR VERS
 #
 program: ENTREE LIDENT CONTEXTUALISEE PAR UIDENT SUR
 ##
-## Ends in an error in state: 112.
+## Ends in an error in state: 127.
 ##
-## input_decl -> ENTREE boption(CALCULABLE) LIDENT loption(input_context) . input_type [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
+## input_decl -> ENTREE LIDENT loption(input_context) . input_type [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
-## ENTREE boption(CALCULABLE) LIDENT loption(input_context)
+## ENTREE LIDENT loption(input_context)
 ##
 ## WARNING: This example involves spurious reductions.
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 7, spurious reduction of production nonempty_list(UIDENT) -> UIDENT
-## In state 111, spurious reduction of production input_context -> CONTEXTUALISEE PAR nonempty_list(UIDENT)
-## In state 119, spurious reduction of production loption(input_context) -> input_context
+## In state 65, spurious reduction of production nonempty_list(UIDENT) -> UIDENT
+## In state 126, spurious reduction of production input_context -> CONTEXTUALISEE PAR nonempty_list(UIDENT)
+## In state 134, spurious reduction of production loption(input_context) -> input_context
 ##
 
 Malformed input declaration. An input is declared with an optional computable
@@ -602,9 +245,9 @@ Well-formed examples:
 
 program: ENTREE LIDENT TYPE VERS
 ##
-## Ends in an error in state: 113.
+## Ends in an error in state: 128.
 ##
-## input_type -> TYPE . base_type [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
+## input_type -> TYPE . base_type [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## TYPE
@@ -617,9 +260,9 @@ Expected a type identifier. It can be:
 
 program: CONTEXTE VERS
 ##
-## Ends in an error in state: 128.
+## Ends in an error in state: 148.
 ##
-## context_decl -> CONTEXTE . UIDENT COLON nonempty_list(context_case) [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
+## context_decl -> CONTEXTE . UIDENT COLON nonempty_list(context_case) [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## CONTEXTE
@@ -627,9 +270,9 @@ program: CONTEXTE VERS
 #
 program: CONTEXTE UIDENT VERS
 ##
-## Ends in an error in state: 129.
+## Ends in an error in state: 149.
 ##
-## context_decl -> CONTEXTE UIDENT . COLON nonempty_list(context_case) [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
+## context_decl -> CONTEXTE UIDENT . COLON nonempty_list(context_case) [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## CONTEXTE UIDENT
@@ -637,9 +280,9 @@ program: CONTEXTE UIDENT VERS
 #
 program: CONTEXTE UIDENT COLON VERS
 ##
-## Ends in an error in state: 130.
+## Ends in an error in state: 150.
 ##
-## context_decl -> CONTEXTE UIDENT COLON . nonempty_list(context_case) [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
+## context_decl -> CONTEXTE UIDENT COLON . nonempty_list(context_case) [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## CONTEXTE UIDENT COLON
@@ -647,9 +290,9 @@ program: CONTEXTE UIDENT COLON VERS
 #
 program: CONTEXTE UIDENT COLON MINUS VERS
 ##
-## Ends in an error in state: 131.
+## Ends in an error in state: 151.
 ##
-## context_case -> MINUS . UIDENT [ SORTIE SECTION OPERATION MINUS FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
+## context_case -> MINUS . UIDENT [ OPERATION MINUS EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## MINUS
@@ -657,10 +300,10 @@ program: CONTEXTE UIDENT COLON MINUS VERS
 #
 program: CONTEXTE UIDENT COLON MINUS UIDENT VERS
 ##
-## Ends in an error in state: 134.
+## Ends in an error in state: 154.
 ##
-## nonempty_list(context_case) -> context_case . [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
-## nonempty_list(context_case) -> context_case . nonempty_list(context_case) [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
+## nonempty_list(context_case) -> context_case . [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
+## nonempty_list(context_case) -> context_case . nonempty_list(context_case) [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## context_case
@@ -673,9 +316,9 @@ contexte My_context_type :
 
 program: CONSTANTE VERS
 ##
-## Ends in an error in state: 136.
+## Ends in an error in state: 156.
 ##
-## constant_decl -> CONSTANTE . LIDENT COLON literal [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
+## constant_decl -> CONSTANTE . LIDENT COLON literal [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## CONSTANTE
@@ -683,9 +326,9 @@ program: CONSTANTE VERS
 #
 program: CONSTANTE LIDENT VERS
 ##
-## Ends in an error in state: 137.
+## Ends in an error in state: 157.
 ##
-## constant_decl -> CONSTANTE LIDENT . COLON literal [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
+## constant_decl -> CONSTANTE LIDENT . COLON literal [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## CONSTANTE LIDENT
@@ -693,9 +336,9 @@ program: CONSTANTE LIDENT VERS
 #
 program: CONSTANTE LIDENT COLON VERS
 ##
-## Ends in an error in state: 138.
+## Ends in an error in state: 158.
 ##
-## constant_decl -> CONSTANTE LIDENT COLON . literal [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
+## constant_decl -> CONSTANTE LIDENT COLON . literal [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## CONSTANTE LIDENT COLON
@@ -704,84 +347,12 @@ program: CONSTANTE LIDENT COLON VERS
 Malformed constant declaration. Example:
 - constante my_const : 99.99
 
-program: SECTION UIDENT SORTIE LIDENT EOF
-##
-## Ends in an error in state: 159.
-##
-## section -> SECTION UIDENT list(context) list(event_guard) list(toplevel_decl) . FIN [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
-##
-## The known suffix of the stack is as follows:
-## SECTION UIDENT list(context) list(event_guard) list(toplevel_decl)
-##
-## WARNING: This example involves spurious reductions.
-## This implies that, although the LR(1) items shown above provide an
-## accurate view of the past (what has been recognized so far), they
-## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 147, spurious reduction of production list(toplevel_decl) ->
-## In state 151, spurious reduction of production list(toplevel_decl) -> toplevel_decl list(toplevel_decl)
-##
-
-Missing keyword 'fin' to close section.
-
-program: SECTION UIDENT APRES EVENEMENT LIDENT VERS
-##
-## Ends in an error in state: 161.
-##
-## list(event_guard) -> event_guard . list(event_guard) [ SORTIE SECTION OPERATION FIN EVENEMENT ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
-##
-## The known suffix of the stack is as follows:
-## event_guard
-##
-## WARNING: This example involves spurious reductions.
-## This implies that, although the LR(1) items shown above provide an
-## accurate view of the past (what has been recognized so far), they
-## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 64, spurious reduction of production event_guard -> APRES event_expr
-##
-#
-program: SECTION UIDENT POUR TOUT UIDENT SUR
-##
-## Ends in an error in state: 12.
-##
-## section -> SECTION UIDENT list(context) . list(event_guard) list(toplevel_decl) FIN [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
-##
-## The known suffix of the stack is as follows:
-## SECTION UIDENT list(context)
-##
-## WARNING: This example involves spurious reductions.
-## This implies that, although the LR(1) items shown above provide an
-## accurate view of the past (what has been recognized so far), they
-## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 98, spurious reduction of production list(context) ->
-## In state 99, spurious reduction of production list(context) -> context list(context)
-##
-
-Expected event guard or a declaration.
-
-program: SORTIE LIDENT FIN
-##
-## Ends in an error in state: 164.
-##
-## program -> list(toplevel_decl) . EOF [ # ]
-##
-## The known suffix of the stack is as follows:
-## list(toplevel_decl)
-##
-## WARNING: This example involves spurious reductions.
-## This implies that, although the LR(1) items shown above provide an
-## accurate view of the past (what has been recognized so far), they
-## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 147, spurious reduction of production list(toplevel_decl) ->
-## In state 151, spurious reduction of production list(toplevel_decl) -> toplevel_decl list(toplevel_decl)
-##
-
-Unexpected word after declaration.
 
 program: OPERATION LABEL SUR VERS
 ##
-## Ends in an error in state: 73.
+## Ends in an error in state: 71.
 ##
-## source -> SUR . flow_expr [ VERS QUOTEPART QUAND PAR LPAR BONUS AVANT APRES ]
+## source -> SUR . pool [ RETROCESSION QUOTEPART QUAND BONUS AVANT APRES ]
 ##
 ## The known suffix of the stack is as follows:
 ## SUR
@@ -792,62 +363,60 @@ Malformed source of repartition. Example:
 
 program: OPERATION LABEL VERS LIDENT LBRA LIDENT VERS
 ##
-## Ends in an error in state: 18.
+## Ends in an error in state: 6.
 ##
-## flow_expr -> LIDENT LBRA LIDENT . RBRA [ VERS SUR SORTIE SECTION RPAR QUOTEPART QUAND POUR PLUS PAR OU OPERATION MULT MONTANT MINUS LPAR FIN EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
+## labeled_actor -> LIDENT LBRA LIDENT . RBRA [ VERS TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS PAR OU OPPOSABLE OPERATION MULT MONTANT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## LIDENT LBRA LIDENT
 ##
-#
 
 Expected closing bracket.
 
 program: OPERATION LABEL VERS ASSIETTE LIDENT VERS
 ##
-## Ends in an error in state: 71.
+## Ends in an error in state: 22.
 ##
-## operation -> OPERATION LABEL option(destinataire) . list(context) option(source) expression [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
+## destinataire -> VERS holder . [ SUR RPAR RETROCESSION QUOTEPART QUAND POUR PAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## destinataire -> VERS holder . opposition [ SUR RPAR RETROCESSION QUOTEPART QUAND POUR PAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
-## OPERATION LABEL option(destinataire)
+## VERS holder
 ##
 ## WARNING: This example involves spurious reductions.
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 29, spurious reduction of production flow_expr -> ASSIETTE LIDENT
-## In state 70, spurious reduction of production destinataire -> VERS flow_expr
-## In state 80, spurious reduction of production option(destinataire) -> destinataire
+## In state 9, spurious reduction of production pool -> ASSIETTE LIDENT
+## In state 20, spurious reduction of production holder -> pool
 ##
 
 Unexpected word after destination.
 
 program: OPERATION LABEL SUR ASSIETTE LIDENT VERS
 ##
-## Ends in an error in state: 76.
+## Ends in an error in state: 75.
 ##
-## operation -> OPERATION LABEL option(destinataire) list(context) option(source) . expression [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
+## operation -> OPERATION LABEL option(destinataire) list(context) source . expression_group [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
-## OPERATION LABEL option(destinataire) list(context) option(source)
+## OPERATION LABEL option(destinataire) list(context) source
 ##
 ## WARNING: This example involves spurious reductions.
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 29, spurious reduction of production flow_expr -> ASSIETTE LIDENT
-## In state 74, spurious reduction of production source -> SUR flow_expr
-## In state 75, spurious reduction of production option(source) -> source
+## In state 9, spurious reduction of production pool -> ASSIETTE LIDENT
+## In state 72, spurious reduction of production source -> SUR pool
 ##
 
 Unexpected word after source.
 
 program: OPERATION VERS
 ##
-## Ends in an error in state: 66.
+## Ends in an error in state: 1.
 ##
-## operation -> OPERATION . LABEL option(destinataire) list(context) option(source) expression [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
+## operation -> OPERATION . LABEL option(destinataire) list(context) source expression_group [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## OPERATION
@@ -857,9 +426,9 @@ Expected label for operation.
 
 program: DEFAUT VERS
 ##
-## Ends in an error in state: 124.
+## Ends in an error in state: 143.
 ##
-## default_decl -> DEFAUT . source VERS flow_expr [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
+## default_decl -> DEFAUT . SUR pool VERS holder [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## DEFAUT
@@ -867,10 +436,10 @@ program: DEFAUT VERS
 #
 program: DEFAUT SUR ASSIETTE LIDENT UIDENT
 ##
-## Ends in an error in state: 29.
+## Ends in an error in state: 9.
 ##
-## flow_expr -> ASSIETTE LIDENT . [ VERS SUR SORTIE SECTION RPAR QUOTEPART QUAND POUR PLUS PAR OU OPERATION MULT MONTANT MINUS LPAR FIN EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
-## flow_expr -> ASSIETTE LIDENT . LPAR separated_nonempty_list(COMMA,UIDENT) RPAR [ VERS SUR SORTIE SECTION RPAR QUOTEPART QUAND POUR PLUS PAR OU OPERATION MULT MONTANT MINUS LPAR FIN EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
+## pool -> ASSIETTE LIDENT . [ VERS TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS PAR OU OPPOSABLE OPERATION MULT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## pool -> ASSIETTE LIDENT . context_refinement [ VERS TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS PAR OU OPPOSABLE OPERATION MULT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## ASSIETTE LIDENT
@@ -878,29 +447,12 @@ program: DEFAUT SUR ASSIETTE LIDENT UIDENT
 #
 program: DEFAUT SUR ASSIETTE LIDENT VERS VERS
 ##
-## Ends in an error in state: 126.
+## Ends in an error in state: 146.
 ##
-## default_decl -> DEFAUT source VERS . flow_expr [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
-##
-## The known suffix of the stack is as follows:
-## DEFAUT source VERS
-##
-#
-program: DEFAUT SUR ASSIETTE LIDENT SUR
-##
-## Ends in an error in state: 125.
-##
-## default_decl -> DEFAUT source . VERS flow_expr [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
+## default_decl -> DEFAUT SUR pool VERS . holder [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
-## DEFAUT source
-##
-## WARNING: This example involves spurious reductions.
-## This implies that, although the LR(1) items shown above provide an
-## accurate view of the past (what has been recognized so far), they
-## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 29, spurious reduction of production flow_expr -> ASSIETTE LIDENT
-## In state 74, spurious reduction of production source -> SUR flow_expr
+## DEFAUT SUR pool VERS
 ##
 
 Malformed default declaration. Examples:
@@ -909,9 +461,9 @@ Malformed default declaration. Examples:
 
 program: AVANCE VERS
 ##
-## Ends in an error in state: 140.
+## Ends in an error in state: 160.
 ##
-## advance -> AVANCE . LABEL source PAR flow_expr MONTANT formula [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
+## advance -> AVANCE . LABEL SUR holder PAR actor MONTANT formula [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## AVANCE
@@ -919,9 +471,9 @@ program: AVANCE VERS
 #
 program: AVANCE LABEL VERS
 ##
-## Ends in an error in state: 141.
+## Ends in an error in state: 161.
 ##
-## advance -> AVANCE LABEL . source PAR flow_expr MONTANT formula [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
+## advance -> AVANCE LABEL . SUR holder PAR actor MONTANT formula [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## AVANCE LABEL
@@ -929,127 +481,579 @@ program: AVANCE LABEL VERS
 #
 program: AVANCE LABEL SUR ASSIETTE LIDENT VERS
 ##
-## Ends in an error in state: 142.
+## Ends in an error in state: 163.
 ##
-## advance -> AVANCE LABEL source . PAR flow_expr MONTANT formula [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
+## advance -> AVANCE LABEL SUR holder . PAR actor MONTANT formula [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
-## AVANCE LABEL source
+## AVANCE LABEL SUR holder
 ##
 ## WARNING: This example involves spurious reductions.
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 29, spurious reduction of production flow_expr -> ASSIETTE LIDENT
-## In state 74, spurious reduction of production source -> SUR flow_expr
+## In state 9, spurious reduction of production pool -> ASSIETTE LIDENT
+## In state 20, spurious reduction of production holder -> pool
 ##
 #
 program: AVANCE LABEL SUR ASSIETTE LIDENT PAR VERS
 ##
-## Ends in an error in state: 143.
+## Ends in an error in state: 164.
 ##
-## advance -> AVANCE LABEL source PAR . flow_expr MONTANT formula [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
-##
-## The known suffix of the stack is as follows:
-## AVANCE LABEL source PAR
-##
-#
-program: AVANCE LABEL SUR ASSIETTE LIDENT PAR ASSIETTE LIDENT VERS
-##
-## Ends in an error in state: 144.
-##
-## advance -> AVANCE LABEL source PAR flow_expr . MONTANT formula [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
+## advance -> AVANCE LABEL SUR holder PAR . actor MONTANT formula [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
-## AVANCE LABEL source PAR flow_expr
-##
-## WARNING: This example involves spurious reductions.
-## This implies that, although the LR(1) items shown above provide an
-## accurate view of the past (what has been recognized so far), they
-## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 29, spurious reduction of production flow_expr -> ASSIETTE LIDENT
-##
-#
-program: AVANCE LABEL SUR ASSIETTE LIDENT PAR ASSIETTE LIDENT MONTANT VERS
-##
-## Ends in an error in state: 145.
-##
-## advance -> AVANCE LABEL source PAR flow_expr MONTANT . formula [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
-##
-## The known suffix of the stack is as follows:
-## AVANCE LABEL source PAR flow_expr MONTANT
-##
-#
-program: AVANCE LABEL SUR ASSIETTE LIDENT PAR ASSIETTE LIDENT MONTANT DATE MOIS
-##
-## Ends in an error in state: 146.
-##
-## advance -> AVANCE LABEL source PAR flow_expr MONTANT formula . [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
-## formula -> formula . PLUS formula [ SORTIE SECTION PLUS OPERATION MULT MINUS FIN EVENEMENT EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
-## formula -> formula . MINUS formula [ SORTIE SECTION PLUS OPERATION MULT MINUS FIN EVENEMENT EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
-## formula -> formula . MULT formula [ SORTIE SECTION PLUS OPERATION MULT MINUS FIN EVENEMENT EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
-## formula -> formula . DIV formula [ SORTIE SECTION PLUS OPERATION MULT MINUS FIN EVENEMENT EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
-##
-## The known suffix of the stack is as follows:
-## AVANCE LABEL source PAR flow_expr MONTANT formula
+## AVANCE LABEL SUR holder PAR
 ##
 
 Malformed advance declaration. Example:
 - avance 'my_advance' sur my_source par my_provider montant 5000$ vers my_output
 
-program: DEFAUT SUR ASSIETTE LIDENT LPAR VERS
+program: DEFICIT VERS
 ##
-## Ends in an error in state: 30.
+## Ends in an error in state: 138.
 ##
-## flow_expr -> ASSIETTE LIDENT LPAR . separated_nonempty_list(COMMA,UIDENT) RPAR [ VERS SUR SORTIE SECTION RPAR QUOTEPART QUAND POUR PLUS PAR OU OPERATION MULT MONTANT MINUS LPAR FIN EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ]
+## deficit_decl -> DEFICIT . SUR pool PAR holder [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
-## ASSIETTE LIDENT LPAR
+## DEFICIT
+##
+#
+program: DEFICIT SUR ASSIETTE LIDENT VERS
+##
+## Ends in an error in state: 140.
+##
+## deficit_decl -> DEFICIT SUR pool . PAR holder [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## DEFICIT SUR pool
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 9, spurious reduction of production pool -> ASSIETTE LIDENT
+##
+#
+program: DEFICIT SUR ASSIETTE LIDENT PAR VERS
+##
+## Ends in an error in state: 141.
+##
+## deficit_decl -> DEFICIT SUR pool PAR . holder [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## DEFICIT SUR pool PAR
+##
+
+Malformed deficit declaration. Syntax:
+- deficit sur my_assiette PAR my_acteur
+
+program: DEFAUT SUR ASSIETTE LIDENT LPAR VERS
+##
+## Ends in an error in state: 10.
+##
+## context_refinement -> LPAR . separated_nonempty_list(COMMA,context_refine_item) RPAR [ VERS TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS PAR OU OPPOSABLE OPERATION MULT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## LPAR
+##
+#
+program: DEFAUT SUR ASSIETTE LIDENT LPAR TOUT VERS
+##
+## Ends in an error in state: 12.
+##
+## context_refine_item -> TOUT . UIDENT [ RPAR COMMA ]
+##
+## The known suffix of the stack is as follows:
+## TOUT
+##
+#
+program: DEFAUT SUR ASSIETTE LIDENT LPAR UIDENT VERS
+##
+## Ends in an error in state: 16.
+##
+## separated_nonempty_list(COMMA,context_refine_item) -> context_refine_item . [ RPAR ]
+## separated_nonempty_list(COMMA,context_refine_item) -> context_refine_item . COMMA separated_nonempty_list(COMMA,context_refine_item) [ RPAR ]
+##
+## The known suffix of the stack is as follows:
+## context_refine_item
 ##
 #
 program: DEFAUT SUR ASSIETTE LIDENT LPAR UIDENT COMMA VERS
 ##
-## Ends in an error in state: 32.
+## Ends in an error in state: 17.
 ##
-## separated_nonempty_list(COMMA,UIDENT) -> UIDENT COMMA . separated_nonempty_list(COMMA,UIDENT) [ RPAR ]
-##
-## The known suffix of the stack is as follows:
-## UIDENT COMMA
-##
-
-Malformed recontextualization. Must be a list of context cases separated by comma.
-
-program: DEFAUT SUR ASSIETTE LIDENT LPAR UIDENT VERS
-##
-## Ends in an error in state: 31.
-##
-## separated_nonempty_list(COMMA,UIDENT) -> UIDENT . [ RPAR ]
-## separated_nonempty_list(COMMA,UIDENT) -> UIDENT . COMMA separated_nonempty_list(COMMA,UIDENT) [ RPAR ]
+## separated_nonempty_list(COMMA,context_refine_item) -> context_refine_item COMMA . separated_nonempty_list(COMMA,context_refine_item) [ RPAR ]
 ##
 ## The known suffix of the stack is as follows:
-## UIDENT
+## context_refine_item COMMA
 ##
 
-Unexpected word following context case list. Might miss a closing parenthesis.
+Malformed context refinement. Syntax:
+- rbd(Salles,France,tout Secteur)
 
-program: OPERATION LABEL LPAR VERS
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+program: OPERATION LABEL VERS LIDENT OPPOSABLE VERS
 ##
-## Ends in an error in state: 81.
+## Ends in an error in state: 23.
 ##
-## expression -> LPAR . expression_group RPAR [ SORTIE SECTION RPAR QUAND OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANT AVANCE APRES ]
+## opposition -> OPPOSABLE . formula POUR actor [ SUR RPAR RETROCESSION QUOTEPART QUAND POUR PAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## OPPOSABLE
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: EVENEMENT LIDENT ATTEINT QUAND LPAR VERS
+##
+## Ends in an error in state: 25.
+##
+## formula -> LPAR . formula RPAR [ VERS TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS OU OPERATION MULT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## LPAR
 ##
 
-Expected (possibly guarded) redistribution expressions.
+<YOUR SYNTAX ERROR MESSAGE HERE>
 
-program: OPERATION LABEL BONUS DATE VERS ASSIETTE LIDENT VERS
+program: CONSTANTE LIDENT COLON INT ANS UIDENT
+##
+## Ends in an error in state: 30.
+##
+## duration_year -> INT ANS . option(duration_month) [ VERS TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS OU OPERATION MULT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## INT ANS
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: CONSTANTE LIDENT COLON INT ANS INT VERS
+##
+## Ends in an error in state: 31.
+##
+## duration_month -> INT . MOIS [ VERS TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS OU OPERATION MULT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## INT
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: EVENEMENT LIDENT ATTEINT QUAND LPAR DATE VERS
+##
+## Ends in an error in state: 40.
+##
+## formula -> formula . PLUS formula [ TOTAL RPAR PLUS MULT MINUS EQ DIV COURANT ]
+## formula -> formula . MINUS formula [ TOTAL RPAR PLUS MULT MINUS EQ DIV COURANT ]
+## formula -> formula . MULT formula [ TOTAL RPAR PLUS MULT MINUS EQ DIV COURANT ]
+## formula -> formula . DIV formula [ TOTAL RPAR PLUS MULT MINUS EQ DIV COURANT ]
+## formula -> formula . EQ formula [ TOTAL RPAR PLUS MULT MINUS EQ DIV COURANT ]
+## formula -> formula . COURANT [ TOTAL RPAR PLUS MULT MINUS EQ DIV COURANT ]
+## formula -> formula . TOTAL [ TOTAL RPAR PLUS MULT MINUS EQ DIV COURANT ]
+## formula -> LPAR formula . RPAR [ VERS TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS OU OPERATION MULT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## LPAR formula
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: EVENEMENT LIDENT ATTEINT QUAND DATE PLUS VERS
+##
+## Ends in an error in state: 43.
+##
+## formula -> formula PLUS . formula [ VERS TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS OU OPERATION MULT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## formula PLUS
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: EVENEMENT LIDENT ATTEINT QUAND DATE MULT VERS
+##
+## Ends in an error in state: 45.
+##
+## formula -> formula MULT . formula [ VERS TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS OU OPERATION MULT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## formula MULT
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: EVENEMENT LIDENT ATTEINT QUAND DATE DIV VERS
+##
+## Ends in an error in state: 50.
+##
+## formula -> formula DIV . formula [ VERS TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS OU OPERATION MULT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## formula DIV
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: EVENEMENT LIDENT ATTEINT QUAND DATE MINUS VERS
+##
+## Ends in an error in state: 52.
+##
+## formula -> formula MINUS . formula [ VERS TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS OU OPERATION MULT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## formula MINUS
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: EVENEMENT LIDENT ATTEINT QUAND DATE EQ VERS
+##
+## Ends in an error in state: 54.
+##
+## formula -> formula EQ . formula [ VERS TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS OU OPERATION MULT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## formula EQ
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: EVENEMENT LIDENT ATTEINT QUAND DATE EQ DATE EQ
+##
+## Ends in an error in state: 55.
+##
+## formula -> formula . PLUS formula [ VERS TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS OU OPERATION MULT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## formula -> formula . MINUS formula [ VERS TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS OU OPERATION MULT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## formula -> formula . MULT formula [ VERS TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS OU OPERATION MULT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## formula -> formula . DIV formula [ VERS TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS OU OPERATION MULT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## formula -> formula . EQ formula [ VERS TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS OU OPERATION MULT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## formula -> formula EQ formula . [ VERS TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS OU OPERATION MULT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## formula -> formula . COURANT [ VERS TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS OU OPERATION MULT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## formula -> formula . TOTAL [ VERS TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS OU OPERATION MULT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## formula EQ formula
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: OPERATION LABEL VERS LIDENT OPPOSABLE DATE VERS
+##
+## Ends in an error in state: 57.
+##
+## formula -> formula . PLUS formula [ TOTAL POUR PLUS MULT MINUS EQ DIV COURANT ]
+## formula -> formula . MINUS formula [ TOTAL POUR PLUS MULT MINUS EQ DIV COURANT ]
+## formula -> formula . MULT formula [ TOTAL POUR PLUS MULT MINUS EQ DIV COURANT ]
+## formula -> formula . DIV formula [ TOTAL POUR PLUS MULT MINUS EQ DIV COURANT ]
+## formula -> formula . EQ formula [ TOTAL POUR PLUS MULT MINUS EQ DIV COURANT ]
+## formula -> formula . COURANT [ TOTAL POUR PLUS MULT MINUS EQ DIV COURANT ]
+## formula -> formula . TOTAL [ TOTAL POUR PLUS MULT MINUS EQ DIV COURANT ]
+## opposition -> OPPOSABLE formula . POUR actor [ SUR RPAR RETROCESSION QUOTEPART QUAND POUR PAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## OPPOSABLE formula
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: OPERATION LABEL VERS LIDENT OPPOSABLE DATE POUR VERS
+##
+## Ends in an error in state: 58.
+##
+## opposition -> OPPOSABLE formula POUR . actor [ SUR RPAR RETROCESSION QUOTEPART QUAND POUR PAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## OPPOSABLE formula POUR
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: OPERATION LABEL VERS LIDENT RPAR
+##
+## Ends in an error in state: 62.
+##
+## operation -> OPERATION LABEL option(destinataire) . list(context) source expression_group [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## OPERATION LABEL option(destinataire)
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 4, spurious reduction of production actor -> LIDENT
+## In state 61, spurious reduction of production holder -> actor
+## In state 22, spurious reduction of production destinataire -> VERS holder
+## In state 81, spurious reduction of production option(destinataire) -> destinataire
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: OPERATION LABEL PAR VERS
+##
+## Ends in an error in state: 73.
+##
+## source -> PAR . actor [ RETROCESSION QUOTEPART QUAND BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## PAR
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: OPERATION LABEL PAR LIDENT RETROCESSION VERS
+##
+## Ends in an error in state: 76.
+##
+## simple_expr -> RETROCESSION . formula SUR holder option(destinataire) [ RPAR RETROCESSION QUOTEPART QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## RETROCESSION
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: OPERATION LABEL PAR LIDENT RETROCESSION DATE VERS
+##
+## Ends in an error in state: 77.
+##
+## formula -> formula . PLUS formula [ TOTAL SUR PLUS MULT MINUS EQ DIV COURANT ]
+## formula -> formula . MINUS formula [ TOTAL SUR PLUS MULT MINUS EQ DIV COURANT ]
+## formula -> formula . MULT formula [ TOTAL SUR PLUS MULT MINUS EQ DIV COURANT ]
+## formula -> formula . DIV formula [ TOTAL SUR PLUS MULT MINUS EQ DIV COURANT ]
+## formula -> formula . EQ formula [ TOTAL SUR PLUS MULT MINUS EQ DIV COURANT ]
+## formula -> formula . COURANT [ TOTAL SUR PLUS MULT MINUS EQ DIV COURANT ]
+## formula -> formula . TOTAL [ TOTAL SUR PLUS MULT MINUS EQ DIV COURANT ]
+## simple_expr -> RETROCESSION formula . SUR holder option(destinataire) [ RPAR RETROCESSION QUOTEPART QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## RETROCESSION formula
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: OPERATION LABEL PAR LIDENT RETROCESSION DATE SUR VERS
+##
+## Ends in an error in state: 78.
+##
+## simple_expr -> RETROCESSION formula SUR . holder option(destinataire) [ RPAR RETROCESSION QUOTEPART QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## RETROCESSION formula SUR
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: OPERATION LABEL PAR LIDENT RETROCESSION DATE SUR LIDENT TOTAL
+##
+## Ends in an error in state: 79.
+##
+## simple_expr -> RETROCESSION formula SUR holder . option(destinataire) [ RPAR RETROCESSION QUOTEPART QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## RETROCESSION formula SUR holder
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 4, spurious reduction of production actor -> LIDENT
+## In state 61, spurious reduction of production holder -> actor
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: OPERATION LABEL PAR LIDENT QUOTEPART VERS
+##
+## Ends in an error in state: 82.
+##
+## simple_expr -> QUOTEPART . formula option(destinataire) [ RPAR RETROCESSION QUOTEPART QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## QUOTEPART
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: OPERATION LABEL PAR LIDENT QUOTEPART DATE SUR
+##
+## Ends in an error in state: 83.
+##
+## formula -> formula . PLUS formula [ VERS TOTAL RPAR RETROCESSION QUOTEPART QUAND PLUS OPERATION MULT MINUS EVENEMENT EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## formula -> formula . MINUS formula [ VERS TOTAL RPAR RETROCESSION QUOTEPART QUAND PLUS OPERATION MULT MINUS EVENEMENT EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## formula -> formula . MULT formula [ VERS TOTAL RPAR RETROCESSION QUOTEPART QUAND PLUS OPERATION MULT MINUS EVENEMENT EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## formula -> formula . DIV formula [ VERS TOTAL RPAR RETROCESSION QUOTEPART QUAND PLUS OPERATION MULT MINUS EVENEMENT EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## formula -> formula . EQ formula [ VERS TOTAL RPAR RETROCESSION QUOTEPART QUAND PLUS OPERATION MULT MINUS EVENEMENT EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## formula -> formula . COURANT [ VERS TOTAL RPAR RETROCESSION QUOTEPART QUAND PLUS OPERATION MULT MINUS EVENEMENT EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## formula -> formula . TOTAL [ VERS TOTAL RPAR RETROCESSION QUOTEPART QUAND PLUS OPERATION MULT MINUS EVENEMENT EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## simple_expr -> QUOTEPART formula . option(destinataire) [ RPAR RETROCESSION QUOTEPART QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## QUOTEPART formula
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: OPERATION LABEL PAR LIDENT QUAND VERS
 ##
 ## Ends in an error in state: 85.
 ##
-## nonempty_list(simple_expr) -> simple_expr . [ SORTIE SECTION RPAR QUAND OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANT AVANCE APRES ]
-## nonempty_list(simple_expr) -> simple_expr . nonempty_list(simple_expr) [ SORTIE SECTION RPAR QUAND OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANT AVANCE APRES ]
+## event_guard -> QUAND . event_expr [ RETROCESSION QUOTEPART QUAND LPAR BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## QUAND
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: EVENEMENT LIDENT ATTEINT QUAND EVENEMENT VERS
+##
+## Ends in an error in state: 86.
+##
+## event_expr -> EVENEMENT . LIDENT [ RETROCESSION QUOTEPART QUAND OU OPERATION LPAR EVENEMENT ET EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## EVENEMENT
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: EVENEMENT LIDENT ATTEINT QUAND DATE VERS
+##
+## Ends in an error in state: 88.
+##
+## event_expr -> formula . [ RETROCESSION QUOTEPART QUAND OU OPERATION LPAR EVENEMENT ET EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## formula -> formula . PLUS formula [ TOTAL RETROCESSION QUOTEPART QUAND PLUS OU OPERATION MULT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## formula -> formula . MINUS formula [ TOTAL RETROCESSION QUOTEPART QUAND PLUS OU OPERATION MULT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## formula -> formula . MULT formula [ TOTAL RETROCESSION QUOTEPART QUAND PLUS OU OPERATION MULT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## formula -> formula . DIV formula [ TOTAL RETROCESSION QUOTEPART QUAND PLUS OU OPERATION MULT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## formula -> formula . EQ formula [ TOTAL RETROCESSION QUOTEPART QUAND PLUS OU OPERATION MULT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## formula -> formula . COURANT [ TOTAL RETROCESSION QUOTEPART QUAND PLUS OU OPERATION MULT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## formula -> formula . TOTAL [ TOTAL RETROCESSION QUOTEPART QUAND PLUS OU OPERATION MULT MINUS LPAR EVENEMENT ET EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## formula
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: EVENEMENT LIDENT ATTEINT QUAND DATE OU VERS
+##
+## Ends in an error in state: 90.
+##
+## event_expr -> event_expr OU . event_expr [ RETROCESSION QUOTEPART QUAND OU OPERATION LPAR EVENEMENT ET EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## event_expr OU
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: EVENEMENT LIDENT ATTEINT QUAND DATE OU EVENEMENT LIDENT VERS
+##
+## Ends in an error in state: 91.
+##
+## event_expr -> event_expr . ET event_expr [ RETROCESSION QUOTEPART QUAND OU OPERATION LPAR EVENEMENT ET EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## event_expr -> event_expr . OU event_expr [ RETROCESSION QUOTEPART QUAND OU OPERATION LPAR EVENEMENT ET EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## event_expr -> event_expr OU event_expr . [ RETROCESSION QUOTEPART QUAND OU OPERATION LPAR EVENEMENT ET EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## event_expr OU event_expr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: EVENEMENT LIDENT ATTEINT QUAND DATE ET VERS
+##
+## Ends in an error in state: 92.
+##
+## event_expr -> event_expr ET . event_expr [ RETROCESSION QUOTEPART QUAND OU OPERATION LPAR EVENEMENT ET EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## event_expr ET
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: OPERATION LABEL PAR LIDENT BONUS VERS
+##
+## Ends in an error in state: 94.
+##
+## simple_expr -> BONUS . formula option(destinataire) [ RPAR RETROCESSION QUOTEPART QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## BONUS
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: OPERATION LABEL PAR LIDENT BONUS DATE SUR
+##
+## Ends in an error in state: 95.
+##
+## formula -> formula . PLUS formula [ VERS TOTAL RPAR RETROCESSION QUOTEPART QUAND PLUS OPERATION MULT MINUS EVENEMENT EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## formula -> formula . MINUS formula [ VERS TOTAL RPAR RETROCESSION QUOTEPART QUAND PLUS OPERATION MULT MINUS EVENEMENT EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## formula -> formula . MULT formula [ VERS TOTAL RPAR RETROCESSION QUOTEPART QUAND PLUS OPERATION MULT MINUS EVENEMENT EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## formula -> formula . DIV formula [ VERS TOTAL RPAR RETROCESSION QUOTEPART QUAND PLUS OPERATION MULT MINUS EVENEMENT EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## formula -> formula . EQ formula [ VERS TOTAL RPAR RETROCESSION QUOTEPART QUAND PLUS OPERATION MULT MINUS EVENEMENT EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## formula -> formula . COURANT [ VERS TOTAL RPAR RETROCESSION QUOTEPART QUAND PLUS OPERATION MULT MINUS EVENEMENT EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## formula -> formula . TOTAL [ VERS TOTAL RPAR RETROCESSION QUOTEPART QUAND PLUS OPERATION MULT MINUS EVENEMENT EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+## simple_expr -> BONUS formula . option(destinataire) [ RPAR RETROCESSION QUOTEPART QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE APRES ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## BONUS formula
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: OPERATION LABEL PAR LIDENT AVANT VERS
+##
+## Ends in an error in state: 97.
+##
+## event_guard -> AVANT . event_expr [ RETROCESSION QUOTEPART QUAND LPAR BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## AVANT
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: OPERATION LABEL PAR LIDENT APRES VERS
+##
+## Ends in an error in state: 99.
+##
+## event_guard -> APRES . event_expr [ RETROCESSION QUOTEPART QUAND LPAR BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## APRES
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: OPERATION LABEL PAR LIDENT BONUS DATE VERS LIDENT SUR
+##
+## Ends in an error in state: 101.
+##
+## nonempty_list(simple_expr) -> simple_expr . [ RPAR QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANT AVANCE APRES ACTEUR ]
+## nonempty_list(simple_expr) -> simple_expr . nonempty_list(simple_expr) [ RPAR QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANT AVANCE APRES ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## simple_expr
@@ -1058,40 +1062,64 @@ program: OPERATION LABEL BONUS DATE VERS ASSIETTE LIDENT VERS
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 29, spurious reduction of production flow_expr -> ASSIETTE LIDENT
-## In state 70, spurious reduction of production destinataire -> VERS flow_expr
-## In state 80, spurious reduction of production option(destinataire) -> destinataire
-## In state 84, spurious reduction of production simple_expr -> BONUS formula option(destinataire)
+## In state 4, spurious reduction of production actor -> LIDENT
+## In state 61, spurious reduction of production holder -> actor
+## In state 22, spurious reduction of production destinataire -> VERS holder
+## In state 81, spurious reduction of production option(destinataire) -> destinataire
+## In state 96, spurious reduction of production simple_expr -> BONUS formula option(destinataire)
 ##
 
-Unexpected word after redistribution expression.
+<YOUR SYNTAX ERROR MESSAGE HERE>
 
-program: OPERATION LABEL LPAR APRES EVENEMENT LIDENT BONUS DATE SORTIE
+program: OPERATION LABEL PAR LIDENT APRES DATE LPAR BONUS DATE RPAR VERS
 ##
-## Ends in an error in state: 89.
+## Ends in an error in state: 105.
 ##
-## nonempty_list(guarded_expr) -> guarded_expr . [ RPAR ]
-## nonempty_list(guarded_expr) -> guarded_expr . nonempty_list(guarded_expr) [ RPAR ]
+## nonempty_list(guarded_expr) -> guarded_expr . [ RPAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
+## nonempty_list(guarded_expr) -> guarded_expr . nonempty_list(guarded_expr) [ RPAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## guarded_expr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: OPERATION LABEL PAR LIDENT APRES DATE OPERATION
+##
+## Ends in an error in state: 107.
+##
+## guarded_expr -> event_guard . expression [ RPAR QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANT AVANCE APRES ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## event_guard
 ##
 ## WARNING: This example involves spurious reductions.
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 83, spurious reduction of production option(destinataire) ->
-## In state 84, spurious reduction of production simple_expr -> BONUS formula option(destinataire)
-## In state 85, spurious reduction of production nonempty_list(simple_expr) -> simple_expr
-## In state 92, spurious reduction of production expression -> nonempty_list(simple_expr)
-## In state 94, spurious reduction of production guarded_expr -> event_guard expression
+## In state 88, spurious reduction of production event_expr -> formula
+## In state 100, spurious reduction of production event_guard -> APRES event_expr
 ##
-#
-program: OPERATION LABEL LPAR BONUS DATE SORTIE
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: OPERATION LABEL PAR LIDENT APRES DATE LPAR VERS
 ##
-## Ends in an error in state: 95.
+## Ends in an error in state: 108.
 ##
-## expression -> LPAR expression_group . RPAR [ SORTIE SECTION RPAR QUAND OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANT AVANCE APRES ]
+## expression -> LPAR . expression_group RPAR [ RPAR QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANT AVANCE APRES ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## LPAR
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: OPERATION LABEL PAR LIDENT APRES DATE LPAR BONUS DATE OPERATION
+##
+## Ends in an error in state: 109.
+##
+## expression -> LPAR expression_group . RPAR [ RPAR QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANT AVANCE APRES ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## LPAR expression_group
@@ -1100,50 +1128,161 @@ program: OPERATION LABEL LPAR BONUS DATE SORTIE
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 83, spurious reduction of production option(destinataire) ->
-## In state 84, spurious reduction of production simple_expr -> BONUS formula option(destinataire)
-## In state 85, spurious reduction of production nonempty_list(simple_expr) -> simple_expr
-## In state 87, spurious reduction of production expression_group -> nonempty_list(simple_expr)
+## In state 95, spurious reduction of production option(destinataire) ->
+## In state 96, spurious reduction of production simple_expr -> BONUS formula option(destinataire)
+## In state 101, spurious reduction of production nonempty_list(simple_expr) -> simple_expr
+## In state 103, spurious reduction of production expression_group -> nonempty_list(simple_expr)
 ##
 
-Unexpected word in redistribution expression group. Might miss a closing parenthesis.
+<YOUR SYNTAX ERROR MESSAGE HERE>
 
-program: DEFICIT VERS
+program: ENTREE ASSIETTE VERS
 ##
-## Ends in an error in state: 120.
+## Ends in an error in state: 135.
 ##
-## deficit_decl -> DEFICIT . source PAR flow_expr [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
-##
-## The known suffix of the stack is as follows:
-## DEFICIT
-##
-#
-program: DEFICIT SUR ASSIETTE LIDENT VERS
-##
-## Ends in an error in state: 121.
-##
-## deficit_decl -> DEFICIT source . PAR flow_expr [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
+## input_decl -> ENTREE ASSIETTE . LIDENT loption(input_context) [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
-## DEFICIT source
+## ENTREE ASSIETTE
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: ENTREE ASSIETTE LIDENT VERS
+##
+## Ends in an error in state: 136.
+##
+## input_decl -> ENTREE ASSIETTE LIDENT . loption(input_context) [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## ENTREE ASSIETTE LIDENT
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: DEFICIT SUR VERS
+##
+## Ends in an error in state: 139.
+##
+## deficit_decl -> DEFICIT SUR . pool PAR holder [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## DEFICIT SUR
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: DEFAUT SUR VERS
+##
+## Ends in an error in state: 144.
+##
+## default_decl -> DEFAUT SUR . pool VERS holder [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## DEFAUT SUR
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: DEFAUT SUR ASSIETTE LIDENT TOTAL
+##
+## Ends in an error in state: 145.
+##
+## default_decl -> DEFAUT SUR pool . VERS holder [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## DEFAUT SUR pool
 ##
 ## WARNING: This example involves spurious reductions.
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 29, spurious reduction of production flow_expr -> ASSIETTE LIDENT
-## In state 74, spurious reduction of production source -> SUR flow_expr
-##
-#
-program: DEFICIT SUR ASSIETTE LIDENT PAR VERS
-##
-## Ends in an error in state: 122.
-##
-## deficit_decl -> DEFICIT source PAR . flow_expr [ SORTIE SECTION OPERATION FIN EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ]
-##
-## The known suffix of the stack is as follows:
-## DEFICIT source PAR
+## In state 9, spurious reduction of production pool -> ASSIETTE LIDENT
 ##
 
-Malformed deficit declaration. Syntax:
-- deficit sur my_assiette PAR my_acteur
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: AVANCE LABEL SUR VERS
+##
+## Ends in an error in state: 162.
+##
+## advance -> AVANCE LABEL SUR . holder PAR actor MONTANT formula [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## AVANCE LABEL SUR
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: AVANCE LABEL SUR LIDENT PAR LIDENT VERS
+##
+## Ends in an error in state: 165.
+##
+## advance -> AVANCE LABEL SUR holder PAR actor . MONTANT formula [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## AVANCE LABEL SUR holder PAR actor
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 4, spurious reduction of production actor -> LIDENT
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: AVANCE LABEL SUR LIDENT PAR LIDENT MONTANT VERS
+##
+## Ends in an error in state: 166.
+##
+## advance -> AVANCE LABEL SUR holder PAR actor MONTANT . formula [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## AVANCE LABEL SUR holder PAR actor MONTANT
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: AVANCE LABEL SUR LIDENT PAR LIDENT MONTANT DATE VERS
+##
+## Ends in an error in state: 167.
+##
+## advance -> AVANCE LABEL SUR holder PAR actor MONTANT formula . [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
+## formula -> formula . PLUS formula [ TOTAL PLUS OPERATION MULT MINUS EVENEMENT EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE AVANCE ACTEUR ]
+## formula -> formula . MINUS formula [ TOTAL PLUS OPERATION MULT MINUS EVENEMENT EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE AVANCE ACTEUR ]
+## formula -> formula . MULT formula [ TOTAL PLUS OPERATION MULT MINUS EVENEMENT EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE AVANCE ACTEUR ]
+## formula -> formula . DIV formula [ TOTAL PLUS OPERATION MULT MINUS EVENEMENT EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE AVANCE ACTEUR ]
+## formula -> formula . EQ formula [ TOTAL PLUS OPERATION MULT MINUS EVENEMENT EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE AVANCE ACTEUR ]
+## formula -> formula . COURANT [ TOTAL PLUS OPERATION MULT MINUS EVENEMENT EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE AVANCE ACTEUR ]
+## formula -> formula . TOTAL [ TOTAL PLUS OPERATION MULT MINUS EVENEMENT EQ EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE AVANCE ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## AVANCE LABEL SUR holder PAR actor MONTANT formula
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: ACTEUR VERS
+##
+## Ends in an error in state: 168.
+##
+## actor_decl -> ACTEUR . LIDENT [ OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ACTEUR ]
+##
+## The known suffix of the stack is as follows:
+## ACTEUR
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+program: ACTEUR LIDENT RPAR
+##
+## Ends in an error in state: 170.
+##
+## list(toplevel_decl) -> toplevel_decl . list(toplevel_decl) [ EOF ]
+##
+## The known suffix of the stack is as follows:
+## toplevel_decl
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
