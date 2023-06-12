@@ -31,12 +31,12 @@ open Ast
 // Dispatch
 
 operation:
-| OPERATION op_label = LABEL op_default_output = destinataire?
+| OPERATION op_label = LABEL op_default_dest = destinataire?
     op_context = context* op_source = source
     exprs = expression_group
  {{
    op_label;
-   op_default_output;
+   op_default_dest;
    op_context;
    op_source;
    op_guarded_redistrib = Seq exprs;
@@ -156,7 +156,7 @@ input_decl:
  {{
    input_name;
    input_context;
-   input_type = MoneyPool;
+   input_type = Money;
  }}
 
 input_context:
@@ -233,15 +233,15 @@ deficit_decl:
 /*  }} */
 
 toplevel_decl:
-| o = operation { Operation o }
-| e = event_decl { Event e }
-| c = constant_decl { Constant c }
-| c = context_decl { Context c }
-| i = input_decl { Input i }
-| o = actor_decl { Output o }
-/* | s = section { Section s } */
-| d = default_decl { let (s, d) = d in Default (s, d) }
-| d = deficit_decl { let (s, d) = d in Deficit (s, d) }
-| a = advance { Advance a }
+| o = operation { DOperation o }
+| e = event_decl { DEvent e }
+| c = constant_decl { DConstant c }
+| c = context_decl { DContext c }
+| i = input_decl { DInput i }
+| o = actor_decl { DActor o }
+/* | s = section { DSection s } */
+| d = default_decl { let (s, d) = d in DDefault (s, d) }
+| d = deficit_decl { let (s, d) = d in DDeficit (s, d) }
+| a = advance { DAdvance a }
 
 program: d = toplevel_decl* EOF { d }

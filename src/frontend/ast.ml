@@ -2,7 +2,6 @@ type typ =
   | Integer
   | Rational
   | Money
-  | MoneyPool
   | Duration
   | Date
 
@@ -81,7 +80,7 @@ type context =
 
 type operation_decl = {
   op_label : string;
-  op_default_output : (holder * opposition) option;
+  op_default_dest : (holder * opposition) option;
   op_context : context list;
   op_source : holder;
   op_guarded_redistrib : guarded_redistrib;
@@ -115,7 +114,7 @@ type input_decl = {
   input_type : typ;
 }
 
-type output_decl = string
+type actor_decl = string
 
 (* type section = { *)
 (*   section_name : string; *)
@@ -125,15 +124,15 @@ type output_decl = string
 (* } *)
 
 type declaration =
-  | Operation of operation_decl
-  | Advance of advance_decl
-  | Event of event_decl
-  | Constant of const_decl
-  | Context of context_decl
-  | Input of input_decl
-  | Output of output_decl
-  (* | Section of section *)
-  | Default of holder * holder
-  | Deficit of holder * holder
+  | DOperation of operation_decl
+  | DAdvance of advance_decl
+  | DEvent of event_decl
+  | DConstant of const_decl
+  | DContext of context_decl
+  | DInput of input_decl
+  | DActor of actor_decl
+  (* | DSection of section *)
+  | DDefault of holder * holder
+  | DDeficit of holder * holder
 
 type program = declaration list

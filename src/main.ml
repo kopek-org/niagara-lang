@@ -5,5 +5,7 @@ let () =
     exit 1
   end;
   let file = Sys.argv.(1) in
-  let _program = Frontend.ParserMain.parse_program file in
-  Printf.printf "OK\n%!"
+  let program = Frontend.ParserMain.parse_program file in
+  Printf.printf "Parsing OK\n%!";
+  let _prog = Frontend.Ast_to_ir.translate_program program in
+  Printf.printf "First pass OK\n%!"
