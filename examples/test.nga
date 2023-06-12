@@ -1,0 +1,143 @@
+###
+# bricoles random de test pour developpement
+###
+
+
+entree entreeSalles type entier
+entree assiette rbd
+
+acteur prod
+acteur distrib
+
+operation 'simple op'
+sur assiette rbd
+quotepart 20% vers prod
+
+acteur scenariste
+
+operation 'flat transfert'
+par prod
+bonus 5000$ vers scenariste
+
+acteur sofica1
+acteur sofica2
+
+operation 'more parties'
+sur assiette rbd
+quotepart 20% vers prod
+quotepart 10% vers sofica1
+quotepart 5% vers sofica2
+
+operation 'simple op 2' vers prod
+sur assiette rbd
+quotepart 20%
+
+operation 'base rnpp'
+sur assiette rbd
+quotepart 20% vers distrib
+quotepart 80% vers assiette rnpp
+
+operation 'proportionnelle' vers celebrite1
+par prod
+bonus entreeSalles * 0.90$
+
+operation 'delta' vers celebrite1
+par prod
+bonus 1$ * entreeSalles courant
+
+operation 'total' vers celebrite1
+par prod
+bonus 1$ * entreeSalles total
+
+evenement recupCom
+atteint quand distrib = 20000$
+
+evenement test
+atteint quand 2022/12/20 + 6 mois et evenement recupCom
+
+operation 'com' vers distrib
+sur assiette rbd
+avant evenement recupCom
+  quotepart 90%
+apres evenement recupCom
+  quotepart 20%
+
+operation 'more events'
+par prod
+apres 2023/10/15
+avant evenement recupCom
+ bonus 200$ vers celebrite1
+ bonus 2$ vers agent1
+
+operation 'more clauses' vers distrib
+sur assiette rbd
+avant distrib = 500$
+ quotepart 20%
+apres distrib = 500$
+ quotepart 10%
+apres distrib = 1000$
+ quotepart 5%
+
+operation 'nested clauses' vers distrib
+sur assiette rbd
+avant distrib = 1500$ (
+ apres distrib = 500$
+  quotepart 10%
+ apres distrib = 1000$
+  quotepart 5%
+)
+
+# contexte Support :
+# - Salles
+# - TV
+# - Prive
+# - VOD
+# - SVOD
+
+# contexte Territoire :
+# - France
+# - Belgique
+# - Etranger
+
+# entree assiette rbd contextualisee par Support Territoire
+
+# operation 'tv france'
+# pour Support TV
+# pour Territoire France
+# sur assiette rbd
+# quotepart 20% vers distrib
+# quotepart 80% vers assiette rnpp
+
+# operation 'tv monde'
+# pour Support TV
+# pour tout Territoire
+# sur assiette rbd
+# quotepart 20% vers distrib
+# quotepart 80% vers assiette rnpp
+
+# entree entreeSalles contextualisee par Territoire type entier
+
+# operation 'rem entreesSalles' vers celebrite1
+# par prod
+# bonus entreesSalles(France) * 0.20$
+# bonus entreeSalles(Belgique, Etranger) * 0.15$
+
+# defaut sur assiette rbd vers assiette rnpp
+
+# defaut sur assiette rnpp vers prod
+
+# deficit sur assiette rbd par prod
+
+# operation 'special treatment' vers distrib[special]
+# par prod[distribBonus]
+# bonus 5000$
+
+# operation 'return' vers distrib
+# par prod
+# retrocession 20% sur assiette rnpp
+
+# avance 'auteur' sur scenar[remuProp] par prod montant 5000$
+
+# operation 'opposable'
+# sur assiette rbd
+# quotepart 30% vers distrib opposable 20% pour sofica
