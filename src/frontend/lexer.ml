@@ -43,7 +43,7 @@ let keywords =
     "courant", COURANT;
     "retrocession", RETROCESSION;
     "montant", MONTANT;
-    "opposable", OPPOSABLE;
+    (* "opposable", OPPOSABLE; *)
     (* "section", SECTION; *)
     (* "fin", FIN; *)
   ]

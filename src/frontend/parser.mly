@@ -7,7 +7,7 @@ open Ast
 %token CONTEXTUALISEE PAR TYPE ENTIER RATIONNEL ARGENT TOTAL COURANT
 %token ACTEUR POUR EVENEMENT ET OU AVANT APRES QUAND CONTEXTE TOUT CONSTANTE
 %token LPAR RPAR VERS ATTEINT PLUS MINUS MULT DIV EQ COLON EOF DEFICIT
-%token AVANCE MONTANT COMMA RETROCESSION OPPOSABLE // SECTION FIN
+%token AVANCE MONTANT COMMA RETROCESSION // OPPOSABLE SECTION FIN
 %token<float> FLOAT
 %token<int> INT MONEY
 %token<string> LIDENT UIDENT LABEL
@@ -16,23 +16,22 @@ open Ast
 %nonassoc LIDENT
 %nonassoc LPAR
 
-%nonassoc TOTAL COURANT
 %nonassoc EQ
 %left PLUS MINUS OU
 %left MULT DIV ET
+%nonassoc TOTAL COURANT
 
 %on_error_reduce literal formula event_guard named actor
 
-%start<Ast.program> program
+%start<Ast.source Ast.program> program
 
-%type<Ast.guarded_redistrib> expression
 %%
 
 // Dispatch
 
 operation:
 | OPERATION op_label = LABEL op_default_dest = destinataire?
-    op_context = context* op_source = source
+    op_context = op_context* op_source = source
     exprs = expression_group
  {{
    op_label;
@@ -59,12 +58,14 @@ simple_expr:
   { Retrocession (f, h), d}
 
 expression_group:
-| es = simple_expr+ { List.map (fun e -> Redist e) es }
+| es = simple_expr+ { List.map (fun (e, d) -> Redist (WithHolder (e, d))) es }
 | es = guarded_expr+ { es }
 
 expression:
 | es = simple_expr+
-  { match es with [e] -> Redist e | _ -> Seq (List.map (fun e -> Redist e) es) }
+  { match es with
+    | [e, d] -> Redist (WithHolder (e, d))
+    | _ -> Seq (List.map (fun (e, d) -> Redist (WithHolder (e, d))) es) }
 | e = guarded_expr { e }
 | LPAR es = expression_group RPAR { Seq es }
 
@@ -96,7 +97,10 @@ formula:
 | EQ { Eq }
 
 named:
-| n = LIDENT c = ioption(context_refinement) { Name(n, c) }
+| n = LIDENT c = ioption(context_refinement)
+    { let ctx = Option.fold c ~none:[] ~some:(fun c -> c) in
+      Name (n, ctx)
+    }
 | a = labeled_actor { Holder (Actor a) }
 | p = pool { Holder p }
 
@@ -112,14 +116,17 @@ labeled_actor:
 | a = LIDENT LBRA l = LIDENT RBRA { LabeledActor(a, l) }
 
 pool:
-| ASSIETTE p = LIDENT c = ioption(context_refinement) { Pool(p, c) }
+| ASSIETTE p = LIDENT c = ioption(context_refinement)
+    { let ctx = Option.fold c ~none:[] ~some:(fun c -> c) in
+      Pool(p, ctx)
+    }
 
 context_refinement:
 | LPAR c = separated_nonempty_list(COMMA,context_refine_item) RPAR { c }
 
 context_refine_item:
 | c = UIDENT { CCase c }
-| TOUT ct = UIDENT { CFullType ct }
+| TOUT ct = UIDENT { CFullDomain ct }
 
 literal:
 | i = INT { LitInt i }
@@ -146,39 +153,51 @@ duration_month:
 // Flow and IO
 
 input_decl:
-| ENTREE input_name = LIDENT input_context = loption(input_context) input_type = input_type
+| ENTREE input_name = LIDENT input_type = input_type input_context = loption(input_context_decl)
  {{
    input_name;
    input_context;
    input_type;
+   input_kind = ReadOnly;
  }}
-| ENTREE ASSIETTE input_name = LIDENT input_context = loption(input_context)
+| ENTREE ASSIETTE input_name = LIDENT input_context = loption(input_context_decl)
  {{
    input_name;
    input_context;
-   input_type = Money;
+   input_type = TMoney;
+   input_kind = Attributable;
  }}
 
+input_context_decl:
+| CONTEXTUALISEE PAR ctx = input_context_list { ctx }
+
+input_context_list:
+| cs = input_context { [cs] }
+| css = nonempty_list(preceded(MINUS,input_context)) { css }
+
 input_context:
-| CONTEXTUALISEE PAR ids = UIDENT+ { ids }
+| cs = nonempty_list(context) { cs }
 
 input_type:
 | TYPE t = base_type { t }
 
 base_type:
-| ENTIER { Integer }
-| RATIONNEL { Rational }
-| ARGENT { Money }
+| ENTIER { TInteger }
+| RATIONNEL { TRational }
+| ARGENT { TMoney }
 
 actor_decl:
 | ACTEUR id = LIDENT { id }
 
 destinataire:
-| VERS d = holder { d, NoOpposition }
-| VERS d = holder o = opposition { d, o }
+| VERS d = holder { d }
 
-opposition:
-| OPPOSABLE f = formula POUR a = actor { Opposable (f, a) }
+/* destinataire: */
+/* | VERS d = holder { d, NoOpposition } */
+/* | VERS d = holder o = opposition { d, o } */
+
+/* opposition: */
+/* | OPPOSABLE f = formula POUR a = actor { Opposable (f, a) } */
 
 // Event
 
@@ -207,8 +226,11 @@ context_case:
 | MINUS id = UIDENT { id }
 
 context:
-| POUR tid = UIDENT cases = nonempty_list(UIDENT) { Cases(tid, cases) }
-| POUR TOUT id = UIDENT { Forall id }
+| tid = UIDENT LPAR cases = separated_nonempty_list(COMMA,UIDENT) RPAR { Cases(tid, cases) }
+| TOUT id = UIDENT { Forall id }
+
+op_context:
+| POUR c = context { c }
 
 // Program
 
@@ -233,15 +255,20 @@ deficit_decl:
 /*  }} */
 
 toplevel_decl:
-| o = operation { DOperation o }
-| e = event_decl { DEvent e }
+| o = operation { DHolderOperation o }
+| e = event_decl { DHolderEvent e }
 | c = constant_decl { DConstant c }
 | c = context_decl { DContext c }
 | i = input_decl { DInput i }
 | o = actor_decl { DActor o }
+| d = default_decl
+  { let (default_source, default_dest) = d in
+    DHolderDefault { default_source; default_dest }
+  }
+| d = deficit_decl
+  { let (deficit_pool, deficit_provider) = d in
+    DHolderDeficit { deficit_pool; deficit_provider } }
+| a = advance { DHolderAdvance a }
 /* | s = section { DSection s } */
-| d = default_decl { let (s, d) = d in DDefault (s, d) }
-| d = deficit_decl { let (s, d) = d in DDeficit (s, d) }
-| a = advance { DAdvance a }
 
-program: d = toplevel_decl* EOF { d }
+program: d = toplevel_decl* EOF { Source d }

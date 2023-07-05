@@ -1,0 +1,74 @@
+
+type typ = [`I | `R | `M | `Da | `Du | `E]
+
+type _ variable = Id : 'a * _ -> 'a variable
+
+type _ literal =
+  | LitInt : int -> [>`I] literal
+  | LitRational : float -> [>`R] literal
+  | LitMoney : int -> [>`M] literal
+  | LitDuration : CalendarLib.Date.Period.t -> [>`Du] literal
+  | LitDate : CalendarLib.Date.t -> [>`Da] literal
+
+type _ flow =
+  | Flow : [< `I | `R | `M] flow
+
+type _ prim =
+  | Integral : 'a flow formula -> 'a prim
+  | AddInt : [`I] formula * [`I] formula -> [`I] prim
+  | AddRational : [< `I | `R] formula * [`I | `R] formula -> [`R] prim
+  | AddMoney : [`M] formula * [`M] formula -> [`M] prim
+  | AddDuration : [`Du] formula * [`Du] formula -> [`Du] prim
+  | AddDate : [`Da] formula * [`Du] formula -> [`Da] prim
+  | SubInt : [`I] formula * [`I] formula -> [`I] prim
+  | SubRational : [< `I | `R] formula * [`I | `R] formula -> [`R] prim
+  | SubMoney : [`M] formula * [`M] formula -> [`M] prim
+  | SubDuration : [`Du] formula * [`Du] formula -> [`Du] prim
+  | SubDate : [`Da] formula * [`Du] formula -> [`Da] prim
+  | MultInt : [`I] formula * [`I] formula -> [`I] prim
+  | MultRational : [< `I | `R] formula * [`I | `R] formula -> [`R] prim
+  | MultMoney : [`M] formula * [<`I|`R] formula -> [`M] prim
+  | MultDuration : [`Du] formula * [<`I|`R] formula -> [`Du] prim
+  | DivInt : [`I] formula * [`I] formula -> [`I] prim
+  | DivRational : [<`I|`R] formula * [<`I|`R] formula -> [`R] prim
+  | DivMoney : [`M] formula * [<`I|`R] formula -> [`M] prim
+  | DivDuration : [`Du] formula * [<`I|`R] formula -> [`Du] prim
+
+and _ formula =
+  | Literal : 'a literal -> 'a formula
+  | Var : 'a variable -> 'a formula
+  | Op : 'a prim -> 'a formula
+
+and expression =
+  | Conditional of [`E] variable * expression * expression
+  | Trigger of [`E] variable * expression
+  | Independant of expression list
+  | Emit of [`M] flow variable * [`M] formula
+
+(* type input_data = { *)
+(*   input_name : string; *)
+(*   input_type : typ; *)
+(*   input_is_intermediary : bool; *)
+(* } *)
+
+(* type output_data = { *)
+(*   output_name : string; *)
+(* } *)
+
+(* type event = { *)
+(*   event_name : string; *)
+(*   event_condition : condition; *)
+(* } *)
+
+(* type tree = { *)
+(*   tree_entry : [`M] flow variable; *)
+(*   tree_outputs : VariableSet.t; *)
+(*   tree_expr : expression; *)
+(* } *)
+
+(* type program = { *)
+(*   prog_inputs : input_data VariableMap.t; *)
+(*   prog_outputs : output_data VariableMap.t; *)
+(*   prog_events : event EventIdMap.t; *)
+(*   prog_graph : tree VariableMap.t; *)
+(* } *)
