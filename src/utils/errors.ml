@@ -1,11 +1,11 @@
 
 let raise_error ?(with_pos=Pos.dummy) ?span fmt =
-  Printf.kfprintf
+  Format.kfprintf
     (fun fmt ->
-       Printf.fprintf fmt " %a:\n" Pos.print with_pos;
+       Format.fprintf fmt " %a:\n" Pos.print with_pos;
        (match span with
         | None -> ()
-        | Some span -> Printf.fprintf fmt "%s\n" span);
-       exit 1)
-    stderr
-    ("[error] "^^fmt)
+        | Some span -> Format.fprintf fmt "%s\n" span);
+       failwith "error"(* exit 1 *))
+    (Format.formatter_of_out_channel stderr)
+    ("[error] " ^^ fmt ^^ "@.")

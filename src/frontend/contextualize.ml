@@ -65,6 +65,9 @@ module Acc = struct
   let bind_type (v : Variable.t) (typ : ValueType.t) t =
     { t with types = Variable.Map.add v typ t.types }
 
+  let bind_actor (v : Variable.t) (way : stream_way) t =
+    { t with actors = Variable.Map.add v way t.actors }
+
   let bind_const (v : Variable.t) (value : literal) t =
     { t with constants = Variable.Map.add v value t.constants }
 
@@ -101,6 +104,8 @@ module Acc = struct
     |> bind_type uv ValueType.TMoney
     |> bind_name dv name
     |> bind_type dv ValueType.TMoney
+    |> bind_actor dv Downstream
+    |> bind_actor uv Upstream
 
   let register_event t (name : string) =
     let v = Variable.new_var () in
@@ -117,6 +122,9 @@ module Acc = struct
     |> bind_name v name
     |> bind_type v typ
     |> bind_const v value
+
+  let is_actor t (v : Variable.t) =
+    Variable.Map.mem v t.actors
 
   let find_pool_opt t (name : string) =
     match StrMap.find_opt name t.var_table with
@@ -139,9 +147,11 @@ module Acc = struct
 
   let find_misc_var ~(way : stream_way) t (name : string) =
     match StrMap.find_opt name t.var_table with
-    | Some (RefPool v | RefROInput v | RefEvent v | RefConst v) -> v
+    | Some (RefROInput v | RefEvent v | RefConst v) -> v
     | Some (RefActor a) ->
       (match way with Upstream -> a.upstream | Downstream -> a.downstream)
+    | Some (RefPool _) ->
+      Errors.raise_error "Variable %s should be identified as pool" name
     | None -> Errors.raise_error "Unknown identifier %s" name
 
   let register_context_domain t (domain_name : string) (cases_names : string list) =
@@ -177,10 +187,11 @@ module Acc = struct
       | None ->
         match Variable.Map.find_opt v t.constraints with
         | None ->
+          let everything = Context.shape_of_everything t.contexts in
           { t with
-            var_shapes = Variable.Map.add v (Context.shape_of_everything t.contexts) t.var_shapes;
+            var_shapes = Variable.Map.add v everything t.var_shapes;
           },
-          (Context.shape_of_everything t.contexts)
+          everything
         | Some constrs ->
           let most, least =
             List.fold_left (fun (m, l) ->
@@ -217,7 +228,7 @@ module Acc = struct
                   (* Format.printf "shape of proj: %a@;" *)
                   (*   (Context.print_shape t.contexts) vpshape; *)
                   let vshape =
-                    Context.project_on_shape t.contexts vshape vp
+                    Context.projection_subshape_strict t.contexts vshape vp
                   in
                   (* filterMustExist and morePrecise *)
                   Format.printf "shape of projd var: %a@;"
@@ -267,9 +278,9 @@ module Acc = struct
           },
           least_shape
     in
-    Variable.Map.fold (fun v _constrs t ->
+    Variable.Map.fold (fun v _ t ->
         fst @@ resolve_var v t)
-      t.constraints t
+      t.var_info t
 
 end
 
@@ -381,8 +392,7 @@ let destination acc (flow : holder) ~(on_proj : Context.projection) =
       acc, v, proj
   in
   (* TODO warning on context refine *)
-  let proj = if Context.is_any_projection proj then on_proj else proj in
-  let acc = Acc.add_constraint acc v (AtLeast (Projection proj)) in
+  let acc = Acc.add_constraint acc v (AtLeast (Projection on_proj)) in
   acc, (v, proj)
 
 let destination_opt acc (flow : holder option) ~(on_proj : Context.projection) =
@@ -397,14 +407,11 @@ let named acc (named : named) ~(on_proj : Context.projection) =
     match named with
     | Name (name, ctx) ->
       let v = Acc.find_misc_var ~way:Downstream acc name in
-      begin match ctx with
-        | [] -> acc, (v, on_proj)
-        | _::_ ->
-          let proj = projection_of_context_refinement acc ctx in
-          acc, (v, proj)
-      end
+      let proj = projection_of_context_refinement acc ctx in
+      acc, (v, proj)
     | Holder h -> find_holder acc h
   in
+  let proj = if Context.is_any_projection proj then on_proj else proj in
   let acc = Acc.add_constraint acc v (AtLeast (Projection proj)) in
   acc, (v, proj)
 
@@ -499,8 +506,12 @@ let operation acc (op : operation_decl) =
   let on_proj =
     projection_of_context_selector acc op.op_context
   in
-  let src_proj =
-    if Context.is_any_projection src_proj then on_proj else src_proj
+  let on_proj =
+    if Context.is_any_projection src_proj
+    then on_proj
+    else if Acc.is_actor acc src
+    then src_proj
+    else Errors.raise_error "Forbidden refinment on source of operation"
   in
   (* TODO warning on source context refinment *)
   let acc, default_dest = destination_opt acc op.op_default_dest ~on_proj in
@@ -515,7 +526,7 @@ let operation acc (op : operation_decl) =
   {
     ctx_op_label = op.op_label;
     ctx_op_default_dest = default_dest;
-    ctx_op_source = src, src_proj;
+    ctx_op_source = src, on_proj;
     ctx_op_guarded_redistrib = g_redist;
   }
 

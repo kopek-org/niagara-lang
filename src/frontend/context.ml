@@ -16,6 +16,11 @@ module DomainMap = IntMap
 type group = CaseSet.t DomainMap.t
 type projection = group
 
+module GroupMap = Map.Make(struct
+    type t = group
+    let compare = DomainMap.compare CaseSet.compare
+end)
+
 type shape = group list
 
 type domain_info = {
@@ -55,6 +60,18 @@ let empty_shape = []
 let shape_of_everything world = [
   DomainMap.map (fun info -> info.domain_cases) world.domains
  ]
+
+let shape_of_groups (groups : group list) = groups
+
+(* let is_any_shape world (s : shape) = *)
+(*   match s with *)
+(*   | [g] -> *)
+(*     DomainMap.for_all (fun dom { domain_cases; _ } -> *)
+(*         match DomainMap.find_opt dom g with *)
+(*         | None -> false *)
+(*         | Some cs -> CaseSet.equal domain_cases cs) *)
+(*       world.domains *)
+(*   | _ -> false *)
 
 let find_domain world (dom_name : string) =
   match StrMap.find_opt dom_name world.domain_table with
@@ -105,7 +122,7 @@ let print_projection world fmt (p : projection) =
 
 let print_shape world fmt (s : shape) =
   if s = [] then
-    Format.fprintf fmt "nothing"
+    Format.fprintf fmt "{nothing}"
   else begin
     Format.fprintf fmt "@[<hov 2>{@ ";
     List.iter (fun group ->
@@ -113,6 +130,8 @@ let print_shape world fmt (s : shape) =
       s;
     Format.fprintf fmt "@]}"
   end
+
+let fold_shape = List.fold_left
 
 let add_domain world (domain_name : string) (cases_names : string list) =
   let domain = fresh_id () in
@@ -229,6 +248,8 @@ let projection_of world (dom : domain) (cases : case list) =
   in
   DomainMap.singleton dom cases
 
+let projection_of_group (g : group) = g
+
 let is_any_projection (proj : projection) =
   DomainMap.is_empty proj
 
@@ -316,22 +337,28 @@ let fracture_group (base : group) (hole : group) =
   in
   List.filter group_distinct_from_hole frac_groups
 
-let disjoint_group world (g1 : group) (g2 : group) =
-  Format.printf "disjoint %a %a@;" (print_group world) g1 (print_group world) g2;
+let disjoint_group _world (g1 : group) (g2 : group) =
+  (* Format.printf "disjoint %a %a@;" (print_group world) g1 (print_group world) g2; *)
   let common = group_intersection g1 g2 in
-  Format.printf "inter %a@;" (print_group world) common;
+  (* Format.printf "inter %a@;" (print_group world) common; *)
   if group_is_empty common
   then Disjoint
   else
     let only_left = fracture_group g1 common in
     let only_right = fracture_group g2 common in
-    Format.printf "left %a right %a@;" (print_shape world) only_left (print_shape world) only_right;
+    (* Format.printf "left %a right %a@;" (print_shape world) only_left (print_shape world) only_right; *)
     Joint { common = [common]; only_left; only_right }
 
 let group_distinct_of_shape world (s : shape) (g : group) =
   let rec slice_g (only_s, com, only_g) shape_groups frag_g =
+    (* Format.printf "only_s: %a@ com: %a@ only_g: %a@ sgroups: %a@ frags: %a@;" *)
+    (*   (print_shape world) only_s *)
+    (*   (print_shape world) com *)
+    (*   (print_shape world) only_g *)
+    (*   (print_shape world) shape_groups *)
+    (*   (print_shape world) frag_g; *)
     match shape_groups, frag_g with
-    | _, [] -> (only_s, com, only_g)
+    | _, [] -> (shape_groups@only_s, com, only_g)
     | [], frag1::frags -> slice_g ([], com, frag1::only_g) only_s frags
     | sg::groups, frag1::frags ->
       let join = disjoint_group world sg frag1 in
@@ -361,7 +388,7 @@ let shape_add_precise world (s_base : shape) (s_refine : shape) =
       match group_distinct_of_shape world base group with
       | Disjoint -> group::base
       | Joint { only_left; common; only_right } ->
-        Format.printf "common %a left %a right %a@;" (print_shape world) common (print_shape world) only_left (print_shape world) only_right;
+        (* Format.printf "common %a left %a right %a@;" (print_shape world) common (print_shape world) only_left (print_shape world) only_right; *)
         only_left @ common @ only_right)
     s_base s_refine
 
@@ -372,27 +399,27 @@ let shape_filter_strict_precise world (s_base : shape) (s_filter : shape) =
   List.fold_left (fun filtered fgroup ->
       match group_distinct_of_shape world s_base fgroup with
       | Disjoint -> missing_part_error ()
-      | Joint { only_left; common; only_right } ->
-        Format.printf "common %a left %a right %a@;" (print_shape world) common (print_shape world) only_left (print_shape world) only_right;
+      | Joint { only_left=_; common; only_right } ->
+        (* Format.printf "common %a left %a right %a@;" (print_shape world) common (print_shape world) only_left (print_shape world) only_right; *)
         if only_right <> [] then missing_part_error () else
           common @ filtered
         )
     [] s_filter
 
-let shape_filter_strict_loose world (s_base : shape) (s_filter : shape) =
-  let missing_part_error () =
-    Errors.raise_error "strict shape filter loose not fully matched"
-  in
-  List.fold_left (fun filtered fgroup ->
-      match group_distinct_of_shape world s_base fgroup with
-      | Disjoint -> (Format.printf "%a _ (%a)@;" (print_shape world) s_base (print_group world) fgroup; missing_part_error ())
-      | Joint { only_left; common; only_right } ->
-        Format.printf "common %a left %a right %a@;" (print_shape world) common (print_shape world) only_left (print_shape world) only_right;
-        if only_right <> [] then missing_part_error () else
-          fgroup::filtered
-          (* nothing in right, so [fgroup] must be fully (but may be sliced) in [common] *)
-        )
-    [] s_filter
+(* let shape_filter_strict_loose world (s_base : shape) (s_filter : shape) = *)
+(*   let missing_part_error () = *)
+(*     Errors.raise_error "strict shape filter loose not fully matched" *)
+(*   in *)
+(*   List.fold_left (fun filtered fgroup -> *)
+(*       match group_distinct_of_shape world s_base fgroup with *)
+(*       | Disjoint -> (Format.printf "%a _ (%a)@;" (print_shape world) s_base (print_group world) fgroup; missing_part_error ()) *)
+(*       | Joint { only_left; common; only_right } -> *)
+(*         Format.printf "common %a left %a right %a@;" (print_shape world) common (print_shape world) only_left (print_shape world) only_right; *)
+(*         if only_right <> [] then missing_part_error () else *)
+(*           fgroup::filtered *)
+(*           (\* nothing in right, so [fgroup] must be fully (but may be sliced) in [common] *\) *)
+(*         ) *)
+(*     [] s_filter *)
 
 let shape_envelope (s : shape) =
   List.fold_left (fun env group ->
@@ -417,18 +444,47 @@ let extend_projection_to_shape (p : projection) (s : shape) =
 let fit_projection_to_shape (p : projection) (s : shape) =
   [ extend_projection_to_shape p s ]
 
-let project_on_shape world (s: shape) (p : projection) =
-  if is_any_projection p then s else
-    let ex_proj = extend_projection_to_shape p s in
-    List.fold_left (fun groups_in_proj group ->
-        match disjoint_group world group ex_proj with
-        | Disjoint -> groups_in_proj
-        | Joint { common; only_left; only_right = _; } ->
-          if only_left <> []
-          then Errors.raise_error "shape projection mismatch"
-          else common @ groups_in_proj
-      )
-      [] s
+(* let project_on_shape world (s: shape) (p : projection) = *)
+(*   if is_any_projection p then s else *)
+(*     let ex_proj = extend_projection_to_shape p s in *)
+(*     List.fold_left (fun groups_in_proj group -> *)
+(*         match disjoint_group world group ex_proj with *)
+(*         | Disjoint -> groups_in_proj *)
+(*         | Joint { common; only_left; only_right = _; } -> *)
+(*           if only_left <> [] *)
+(*           then Errors.raise_error "shape projection mismatch" *)
+(*           else common @ groups_in_proj *)
+(*       ) *)
+(*       [] s *)
+
+let projection_subshape_strict world (s : shape) (p : projection) =
+  let ex_proj = extend_projection_to_shape p s in
+  match group_distinct_of_shape world s ex_proj with
+  | Disjoint -> Errors.raise_error "shape disjoint from projection"
+  | Joint { only_left; common; only_right } ->
+    if only_right <> []
+    then Errors.raise_error "projection too large"
+    else if List.length only_left + List.length common = List.length s
+    then common
+    else Errors.raise_error "shape less precise than projection"
+
+let projection_subshape_inclusive world (s : shape) (p : projection) =
+  let ex_proj = extend_projection_to_shape p s in
+  List.fold_left (fun groups_inc_proj group ->
+      match disjoint_group world group ex_proj with
+      | Disjoint -> groups_inc_proj
+      | Joint _ -> group::groups_inc_proj)
+    [] s
+
+  (* match group_distinct_of_shape world s ex_proj with *)
+  (* | Disjoint -> Errors.raise_error "shape disjoint from projection" *)
+  (* | Joint { only_left; common; only_right } -> *)
+  (*   if only_right <> [] *)
+  (*   then Errors.raise_error "projection too large" *)
+  (*   else if List.length only_left + List.length common = List.length s *)
+  (*   then common *)
+  (*   else Errors.raise_error "shape less precise than projection" *)
+
 
 (* let domains_of_strings world (domains : string list) = *)
 (*   List.fold_left (fun domains dom_name -> *)

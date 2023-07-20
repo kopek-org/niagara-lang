@@ -1,2 +1,2 @@
 
-val translate_program : Ast.contextualized Ast.program -> unit
+val translate_program : Ast.contextualized Ast.program -> Ir.program
