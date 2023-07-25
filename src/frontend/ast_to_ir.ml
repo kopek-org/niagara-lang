@@ -36,6 +36,9 @@ module Acc = struct
       let i = !c in incr c;
       "anon_" ^ name ^ "_" ^ string_of_int i
 
+  let find_const_opt t (v : Variable.t) =
+    Variable.Map.find_opt v t.infos.Ast.constants
+
   let find_derivation_opt t (v : Variable.t) (ctx : Context.group) =
     match Variable.Map.find_opt v t.ctx_derivations with
     | None -> None
@@ -106,11 +109,21 @@ module Acc = struct
     t, v
 
   let add_redist t ~(source : Variable.t) (tree : RedistTree.tree) =
+    let add_tree_to_redists rs t =
+      match (t : RedistTree.tree) with
+      | RedistTree.Redist r ->
+        List.map (function
+            | RedistTree.Redist r' ->
+              RedistTree.Redist (RedistTree.merge_redist r' r)
+            | RedistTree.Branch _ as b -> b)
+          rs
+      | Branch _ -> t::rs
+    in
     let trees =
       Variable.Map.update source (function
-          | None -> Some tree
+          | None -> Some [tree]
           | Some existing_tree ->
-            Some (RedistTree.unordered_merge existing_tree tree))
+            Some (add_tree_to_redists existing_tree tree))
         t.trees
     in
     { t with trees }
@@ -153,6 +166,138 @@ let shape_of_ctx_var acc (v : Ast.contextualized_variable) =
 
 let resolve_projection_context ~context ~refinement =
   if Context.is_any_projection refinement then context else refinement
+
+let rec reduce_formula (f : formula) =
+  match f with
+  | Literal _
+  | Variable _ -> f
+  | RCast f ->
+    begin match reduce_formula f with
+      | Literal (LInteger i) -> Literal (LRational (float_of_int i))
+      | Literal _ -> assert false
+      | _ -> f
+    end
+  | Binop (IAdd, f1, f2) ->
+    begin match reduce_formula f1, reduce_formula f2 with
+      | Literal (LInteger i1), Literal (LInteger i2) -> Literal (LInteger (i1 + i2))
+      | Literal _, Literal _ -> assert false
+      | _ -> f
+    end
+  | Binop (RAdd, f1, f2) ->
+    begin match reduce_formula f1, reduce_formula f2 with
+      | Literal (LRational f1), Literal (LRational f2) -> Literal (LRational (f1 +. f2))
+      | Literal _, Literal _ -> assert false
+      | _ -> f
+    end
+  | Binop (MAdd, f1, f2) ->
+    begin match reduce_formula f1, reduce_formula f2 with
+      | Literal (LMoney m1), Literal (LMoney m2) -> Literal (LMoney (m1 + m2))
+      | Literal _, Literal _ -> assert false
+      | _ -> f
+    end
+  | Binop (DAdd, f1, f2) ->
+    begin match reduce_formula f1, reduce_formula f2 with
+      | Literal (LDate d), Literal (LDuration dr) ->
+        Literal (LDate (CalendarLib.Date.add d dr))
+      | Literal _, Literal _ -> assert false
+      | _ -> f
+    end
+  | Binop (DrAdd, f1, f2) ->
+    begin match reduce_formula f1, reduce_formula f2 with
+      | Literal (LDuration dr1), Literal (LDuration dr2) ->
+        Literal (LDuration (CalendarLib.Date.Period.add dr1 dr2))
+      | Literal _, Literal _ -> assert false
+      | _ -> f
+    end
+  | Binop (ISub, f1, f2) ->
+    begin match reduce_formula f1, reduce_formula f2 with
+      | Literal (LInteger i1), Literal (LInteger i2) -> Literal (LInteger (i1 - i2))
+      | Literal _, Literal _ -> assert false
+      | _ -> f
+    end
+  | Binop (RSub, f1, f2) ->
+    begin match reduce_formula f1, reduce_formula f2 with
+      | Literal (LRational f1), Literal (LRational f2) -> Literal (LRational (f1 -. f2))
+      | Literal _, Literal _ -> assert false
+      | _ -> f
+    end
+  | Binop (MSub, f1, f2) ->
+    begin match reduce_formula f1, reduce_formula f2 with
+      | Literal (LMoney m1), Literal (LMoney m2) -> Literal (LMoney (m1 - m2))
+      | Literal _, Literal _ -> assert false
+      | _ -> f
+    end
+  | Binop (DSub, f1, f2) ->
+    begin match reduce_formula f1, reduce_formula f2 with
+      | Literal (LDate d), Literal (LDuration dr) ->
+        Literal (LDate (CalendarLib.Date.rem d dr))
+      | Literal _, Literal _ -> assert false
+      | _ -> f
+    end
+  | Binop (DrSub, f1, f2) ->
+    begin match reduce_formula f1, reduce_formula f2 with
+      | Literal (LDuration dr1), Literal (LDuration dr2) ->
+        Literal (LDuration (CalendarLib.Date.Period.sub dr1 dr2))
+      | Literal _, Literal _ -> assert false
+      | _ -> f
+    end
+  | Binop (IMult, f1, f2) ->
+    begin match reduce_formula f1, reduce_formula f2 with
+      | Literal (LInteger i1), Literal (LInteger i2) -> Literal (LInteger (i1 * i2))
+      | Literal _, Literal _ -> assert false
+      | _ -> f
+    end
+  | Binop (RMult, f1, f2) ->
+    begin match reduce_formula f1, reduce_formula f2 with
+      | Literal (LRational f1), Literal (LRational f2) -> Literal (LRational (f1 *. f2))
+      | Literal _, Literal _ -> assert false
+      | _ -> f
+    end
+  | Binop (MMult, f1, f2) ->
+    begin match reduce_formula f1, reduce_formula f2 with
+      | Literal (LMoney m), Literal (LRational f) ->
+        Literal (LMoney (int_of_float ((float_of_int m) *. f)))
+      | Literal _, Literal _ -> assert false
+      | _ -> f
+    end
+  | Binop (DrMult, f1, f2) ->
+    begin match reduce_formula f1, reduce_formula f2 with
+      | Literal (LDuration dr), Literal (LRational f) ->
+        let open CalendarLib in
+        let ddr = Date.Period.nb_days dr in
+        Literal (LDuration (Date.Period.day (int_of_float (float_of_int ddr *. f +. 0.5))))
+      | Literal _, Literal _ -> assert false
+      | _ -> f
+    end
+  | Binop (IDiv, f1, f2) ->
+    begin match reduce_formula f1, reduce_formula f2 with
+      | Literal (LInteger i1), Literal (LInteger i2) -> Literal (LInteger (i1 / i2))
+      | Literal _, Literal _ -> assert false
+      | _ -> f
+    end
+  | Binop (RDiv, f1, f2) ->
+    begin match reduce_formula f1, reduce_formula f2 with
+      | Literal (LRational f1), Literal (LRational f2) -> Literal (LRational (f1 /. f2))
+      | Literal _, Literal _ -> assert false
+      | _ -> f
+    end
+  | Binop (MDiv, f1, f2) ->
+    begin match reduce_formula f1, reduce_formula f2 with
+      | Literal (LMoney m), Literal (LRational f) ->
+        Literal (LMoney (int_of_float ((float_of_int m) /. f)))
+      | Literal _, Literal _ -> assert false
+      | _ -> f
+    end
+  | Binop (DrDiv, f1, f2) ->
+    begin match reduce_formula f1, reduce_formula f2 with
+      | Literal (LDuration dr), Literal (LRational f) ->
+        let open CalendarLib in
+        let ddr = Date.Period.nb_days dr in
+        Literal (LDuration (Date.Period.day (int_of_float (float_of_int ddr /. f +. 0.5))))
+      | Literal _, Literal _ -> assert false
+      | _ -> f
+    end
+  | Binop ((IEq|REq|MEq|DEq|DrEq), _, _) -> f
 
 let translate_literal (l : Ast.literal) =
   match l with
@@ -241,14 +386,20 @@ let rec translate_formula ~(ctx : Context.projection) acc ~(view : flow_view)
     (f : Ast.contextualized Ast.formula) =
   match f with
   | Literal l ->
-    let f, t = translate_literal l in
-    acc, (Literal f, t)
+    let l, t = translate_literal l in
+    acc, (Literal l, t)
   | Variable (v, proj) ->
-    let t = Acc.type_of acc v in
-    let proj = resolve_projection_context ~context:ctx ~refinement:proj in
-    let acc, v = Acc.derive_ctx_variables ~mode:Strict acc v proj in
-    let f = aggregate_vars ~view t v in
-    acc, (f, t)
+    begin match Acc.find_const_opt acc v with
+    | Some l ->
+      let l, t = translate_literal l in
+      acc, (Literal l, t)
+    | None ->
+      let t = Acc.type_of acc v in
+      let proj = resolve_projection_context ~context:ctx ~refinement:proj in
+      let acc, v = Acc.derive_ctx_variables ~mode:Strict acc v proj in
+      let f = aggregate_vars ~view t v in
+      acc, (f, t)
+    end
   | Binop (op, f1, f2) ->
     let acc, f1 = translate_formula ~ctx acc ~view f1 in
     let acc, f2 = translate_formula ~ctx acc ~view f2 in
@@ -272,7 +423,7 @@ let translate_redist ~(ctx : Context.projection) acc ~(dest : Ast.contextualized
   match redist with
   | Part f ->
     let acc, (f, ft) = translate_formula ~ctx acc ~view:AtInstant f in
-    acc, RedistTree.share dest (reduce_formula acc f, ft)
+    acc, RedistTree.share dest (reduce_formula f, ft)
   | Flat f ->
     let acc, f = translate_formula ~ctx acc ~view:AtInstant f in
     acc, RedistTree.flat dest f
@@ -304,38 +455,67 @@ let lift_event acc (event : Ast.contextualized Ast.event_expr) =
     let acc, v = Acc.lift_event acc evt in
     acc, v
 
+let translate_redist_with_dest ~(ctx : Context.projection) acc
+    ~(default_dest : Ast.contextualized_variable option)
+    (WithVar (redist, dest) : Ast.contextualized Ast.redistrib_with_dest) =
+  let dest =
+    match default_dest, dest with
+    | Some _, Some dest (* TODO warning *)
+    | None, Some dest -> dest
+    | Some default, None -> default
+    | None, None -> Errors.raise_error "No destination for repartition"
+  in
+  let acc, redist = translate_redist ~ctx acc ~dest redist in
+  acc, redist
+
 let rec translate_guarded_redist ~(ctx : Context.projection) acc
     ~(default_dest : Ast.contextualized_variable option)
     (redist : Ast.contextualized Ast.guarded_redistrib) =
   match redist with
-  | Redist (WithVar (redist, dest)) ->
-    let dest =
-      match default_dest, dest with
-      | Some _, Some dest (* TODO warning *)
-      | None, Some dest -> dest
-      | Some default, None -> default
-      | None, None -> Errors.raise_error "No destination for repartition"
+  | Redists rs ->
+    let acc, redists =
+      List.fold_left_map (fun acc r ->
+          translate_redist_with_dest ~ctx acc ~default_dest r)
+        acc rs
     in
-    let acc, redist = translate_redist ~ctx acc ~dest redist in
-    acc, RedistTree.redist redist
-  | Seq grs ->
-    let acc, trees =
-      List.fold_left_map (translate_guarded_redist ~ctx ~default_dest) acc grs
-    in
-    begin match trees with
+    begin match redists with
       | [] -> assert false
-      | t::ts -> acc, List.fold_left RedistTree.ordered_merge t ts
+      | r::rs -> acc, RedistTree.Redist (List.fold_left RedistTree.merge_redist r rs)
     end
-  | Guarded (guard, redist) ->
-    let acc, tree = translate_guarded_redist ~ctx acc ~default_dest redist in
-    match guard with
-    | Before event ->
-      let acc, evt = lift_event acc event in
-      acc, RedistTree.until evt tree
-    | After event ->
-      let acc, evt = lift_event acc event in
-      acc, RedistTree.from evt tree
-    | When _ -> assert false
+  | Guardeds gs ->
+    translate_guard_group ~ctx acc ~default_dest gs
+
+and translate_guard_group ~ctx acc ~default_dest
+    (group : (Ast.contextualized Ast.guard * Ast.contextualized Ast.guarded_redistrib) list)
+  =
+  let noinfo = RedistTree.Redist NoInfo in
+  let rec aux acc group
+      (partial : 'acc -> RedistTree.tree -> 'acc * RedistTree.tree) =
+    match group with
+    | [] -> partial acc noinfo
+    | (guard, redist)::group ->
+      let acc, tree = translate_guarded_redist ~ctx acc ~default_dest redist in
+      match (guard : Ast.contextualized Ast.guard) with
+      | Before event ->
+        let acc, evt = lift_event acc event in
+        let partial acc after =
+          partial acc (RedistTree.Branch {evt; before = tree; after})
+        in
+        aux acc group partial
+      | After event ->
+        let acc, evt = lift_event acc event in
+        let partial acc before =
+          match (before : RedistTree.tree) with
+          | Redist NoInfo ->
+            let acc, before = partial acc noinfo in
+            acc, RedistTree.Branch {evt; before; after = tree}
+          | _ -> Errors.raise_error "pre-event guard after post-event guard have \
+                                     undefined semantics"
+        in
+        aux acc group partial
+      | When _ -> assert false
+  in
+  aux acc group (fun acc tree -> acc, tree)
 
 let translate_operation acc (o : Ast.ctx_operation_decl) =
   let source_local_shape = shape_of_ctx_var acc o.ctx_op_source in

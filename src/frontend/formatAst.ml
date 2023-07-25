@@ -146,22 +146,28 @@ let print_redist (type a) infos fmt (redist : a redistribution) =
       (print_formula infos) f
       print_holder p
 
+let print_redistrib_with_dest (type a) infos fmt (r : a redistrib_with_dest) =
+  match r with
+  | WithHolder (redist, dest) ->
+    Format.fprintf fmt "%a %a"
+      (print_redist infos) redist
+      (Format.pp_print_option print_destination) dest
+  | WithVar (redist, dest) ->
+    Format.fprintf fmt "%a -> %a"
+      (print_redist infos) redist
+      (Format.pp_print_option (print_ctx_variable infos)) dest
+
 let rec print_guarded_redistrib :
   type a. Ast.program_infos -> Format.formatter -> a guarded_redistrib -> unit =
   fun infos fmt g_redist ->
   match g_redist with
-  | Redist (WithHolder (redist, dest)) ->
-    Format.fprintf fmt "%a %a"
-      (print_redist infos) redist
-      (Format.pp_print_option print_destination) dest
-  | Redist (WithVar (redist, dest)) ->
-    Format.fprintf fmt "%a -> %a"
-      (print_redist infos) redist
-      (Format.pp_print_option (print_ctx_variable infos)) dest
-  | Guarded (g, r) ->
-    Format.fprintf fmt "@[<v 2>%a (@,%a)@]"
-      (print_guard infos) g (print_guarded_redistrib infos) r
-  | Seq gs -> Format.pp_print_list (print_guarded_redistrib infos) fmt gs
+  | Redists rs ->
+    Format.pp_print_list (print_redistrib_with_dest infos) fmt rs
+  | Guardeds gs ->
+    Format.pp_print_list (fun fmt (g, r)->
+        Format.fprintf fmt "@[<v 2>%a (@,%a)@]"
+          (print_guard infos) g (print_guarded_redistrib infos) r)
+      fmt gs
 
 let print_declaration (type a) infos fmt (decl : a declaration) =
   match decl with

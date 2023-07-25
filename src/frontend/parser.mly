@@ -32,13 +32,13 @@ open Ast
 operation:
 | OPERATION op_label = LABEL op_default_dest = destinataire?
     op_context = op_context* op_source = source
-    exprs = expression_group
+    exprs = expression
  {{
    op_label;
    op_default_dest;
    op_context;
    op_source;
-   op_guarded_redistrib = Seq exprs;
+   op_guarded_redistrib = exprs;
   }}
 
 advance:
@@ -57,20 +57,20 @@ simple_expr:
 | RETROCESSION f = formula SUR h = holder d = destinataire?
   { Retrocession (f, h), d}
 
-expression_group:
-| es = simple_expr+ { List.map (fun (e, d) -> Redist (WithHolder (e, d))) es }
-| es = guarded_expr+ { es }
+simple_exprs:
+| es = simple_expr+ { Redists (List.map (fun (e, d) -> WithHolder (e, d)) es) }
+
+sub_expression:
+| es = simple_exprs { es }
+| e = guarded_expr { Guardeds [e] }
+| LPAR es = expression RPAR { es }
 
 expression:
-| es = simple_expr+
-  { match es with
-    | [e, d] -> Redist (WithHolder (e, d))
-    | _ -> Seq (List.map (fun (e, d) -> Redist (WithHolder (e, d))) es) }
-| e = guarded_expr { e }
-| LPAR es = expression_group RPAR { Seq es }
+| es = simple_exprs { es }
+| es = guarded_expr+ { Guardeds es }
 
 guarded_expr:
-| g = event_guard ge = expression { Guarded (g, ge) }
+| g = event_guard ge = sub_expression { g, ge }
 
 source:
 | SUR p = pool { p }

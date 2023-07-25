@@ -76,9 +76,8 @@ type 'a guard =
   | When of 'a event_expr
 
 type 'a guarded_redistrib =
-  | Guarded of 'a guard * 'a guarded_redistrib
-  | Redist of 'a redistrib_with_dest
-  | Seq of 'a guarded_redistrib list
+  | Guardeds of ('a guard * 'a guarded_redistrib) list
+  | Redists of 'a redistrib_with_dest list
 
 type context =
   | Forall of string

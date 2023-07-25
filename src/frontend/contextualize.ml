@@ -345,23 +345,21 @@ let projection_of_context_refinement acc (ctx : context_refinement) =
     Context.any_projection
     ctx
 
-let find_holder_opt_with_name ~(way:stream_way) acc (flow : holder) =
-  (* TODO check var category *)
-  match flow with
+let find_holder0 ~(way : stream_way) acc (h : holder) =
+  match h with
   | Pool (name, ctx) ->
     let proj = projection_of_context_refinement acc ctx in
-    acc, Acc.find_pool_opt acc name, proj, name
+    begin match Acc.find_pool_opt acc name with
+    | Some v -> acc, (v, proj)
+    | None ->
+      let acc, v = Acc.register_pool acc name in
+      acc, (v, proj)
+    end
   | Actor (PlainActor name) ->
-    acc, Some (Acc.find_actor ~way acc name), Context.any_projection, name
+    acc, (Acc.find_actor ~way acc name, Context.any_projection)
   | Actor (LabeledActor (name, label)) ->
     let acc, v, proj = Acc.register_actor_label ~way acc name label in
-    acc, Some v, proj, name
-
-let find_holder0 ~(way : stream_way) acc (h : holder) =
-  match find_holder_opt_with_name ~way acc h with
-  | acc, Some v, proj, _name -> acc, (v, proj)
-  | _, None, _, name ->
-    Errors.raise_error "Unknown identifier" ~span:("Unknown holder "^name)
+    acc, (v, proj)
 
 let find_holder acc (h : holder) = find_holder0 ~way:Downstream acc h
 
@@ -383,14 +381,7 @@ let register_input acc (i : input_decl) =
     Acc.add_constraint acc v (AtMost (Shape (shape, Context.any_projection)))
 
 let destination acc (flow : holder) ~(on_proj : Context.projection) =
-  let acc, v, proj =
-    match find_holder_opt_with_name ~way:Downstream acc flow with
-    | acc, Some v, proj, _name ->
-      acc, v, proj
-    | acc, None, proj, name ->
-      let acc, v = Acc.register_pool acc name in
-      acc, v, proj
-  in
+  let acc, (v, proj) = find_holder acc flow in
   (* TODO warning on context refine *)
   let acc = Acc.add_constraint acc v (AtLeast (Projection on_proj)) in
   acc, (v, proj)
@@ -479,27 +470,34 @@ let redistribution acc (redist : source redistribution) ~(on_proj : Context.proj
     let acc, f = formula acc f ~on_proj in
     acc, Flat f
 
+let redist_with_dest acc (WithHolder (redist, dest) : source redistrib_with_dest)
+    ~(on_proj : Context.projection) =
+  let acc, dest = destination_opt acc dest ~on_proj in
+  let acc, redist = redistribution acc redist ~on_proj in
+  let redist_wd = WithVar (redist, dest) in
+  acc, redist_wd, Option.to_list dest
+
 let rec guarded_redist acc (redist : source guarded_redistrib) ~(on_proj : Context.projection) =
   match redist with
-  | Redist (WithHolder (redist, dest)) ->
-    let acc, dest = destination_opt acc dest ~on_proj in
-    let acc, redist = redistribution acc redist ~on_proj in
-    let g_redist = Redist (WithVar (redist, dest)) in
-    acc, g_redist, Option.to_list dest
-  | Guarded (guard_expr, redist) ->
-    let acc, guard_expr = guard acc guard_expr ~on_proj in
-    let acc, redist, dests = guarded_redist acc redist ~on_proj in
-    let g_redist = Guarded (guard_expr, redist) in
-    acc, g_redist, dests
-  | Seq redists ->
+  | Redists rs ->
     let (acc, dests), redists =
-      List.fold_left_map (fun (acc, dests) redist ->
-          let acc, redist, ds = guarded_redist acc redist ~on_proj in
-          (acc, ds @ dests), redist
+      List.fold_left_map (fun (acc, dests) r ->
+          let acc, red_wd, ds = redist_with_dest acc r ~on_proj in
+          (acc, ds @ dests), red_wd
         )
-        (acc, []) redists
+        (acc, []) rs
     in
-    acc, Seq redists, dests
+    acc, Redists redists, dests
+  | Guardeds gs ->
+    let (acc, dests), redists =
+      List.fold_left_map (fun (acc, dests) (g, r) ->
+          let acc, guard_expr = guard acc g ~on_proj in
+          let acc, g_redist, ds = guarded_redist acc r ~on_proj in
+          (acc, ds@dests), (guard_expr, g_redist)
+        )
+        (acc, []) gs
+    in
+    acc, Guardeds redists, dests
 
 let operation acc (op : operation_decl) =
   let acc, (src, src_proj) = find_holder_as_source acc op.op_source in
