@@ -99,7 +99,7 @@ avant evenement recuperation_minimum_garanti
 quotepart 80% vers distributeur_du_desert[minimum_garanti]
 
 #ce qui reste dans la rnpp va pour le producteur
-defaut sur assiette recette_nette_part_producteur vers les_productions_du_chameau[rnpp_france_residuelle]
+defaut sur assiette recette_nette_part_producteur(France) vers les_productions_du_chameau[rnpp_france_residuelle]
 
 # CONTRAT VENDEUR SCORPION
 # le vendeur prend une commission sur tous les supports (commission variable en fonction de la récuperation des frais d'éditions) puis verse le reste dans l'assiette recette_nette_commission_vendeur
@@ -129,7 +129,7 @@ apres evenement recuperation_frais_edition_scorpion
 quotepart 100% vers assiette recette_nette_part_producteur
 
 #ce qui reste dans la rnpp va pour le producteur
-defaut sur assiette recette_nette_part_producteur vers les_productions_du_chameau[rnpp_residuelle_etranger]
+defaut sur assiette recette_nette_part_producteur(Etranger) vers les_productions_du_chameau[rnpp_residuelle_etranger]
 
 # CONTRAT LES PRODUCTIONS DU CHAMEAU
 # le producteur prend une commission sur les ventes TV ou SVOD
@@ -168,7 +168,7 @@ bonus 10000$ vers barbie[bonus_nombre_entrees]
 # le coproducteur a 20% de l'étranger une fois que le producteur a récupéré un risque de 30000$
 
 evenement recup_risque_prod
-atteint quand assiette les_productions_du_chameau = risque_prod
+atteint quand les_productions_du_chameau = risque_prod
 
 operation 'part copro sur france'
 pour Territoire(France)
