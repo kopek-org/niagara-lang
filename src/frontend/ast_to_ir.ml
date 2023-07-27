@@ -529,14 +529,31 @@ let translate_operation acc (o : Ast.ctx_operation_decl) =
       Acc.add_redist acc ~source tree)
     acc source_local_shape
 
+let translate_default acc (d : Ast.ctx_default_decl) =
+  let source_local_shape = shape_of_ctx_var acc d.ctx_default_source in
+  Context.fold_shape (fun acc group ->
+      let acc, source = Acc.get_derivative_var acc (fst d.ctx_default_source) group in
+      let proj = Context.projection_of_group group in
+      let acc, dest =
+        Acc.derive_ctx_variables ~mode:Inclusive acc (fst d.ctx_default_dest) proj
+      in
+      let tree =
+        match dest with
+        | [dest] -> RedistTree.(Redist (remainder dest))
+        | _ -> Errors.raise_error "destination derivation should have been unique"
+      in
+      Acc.add_redist acc ~source tree)
+    acc source_local_shape
+
+
 let translate_declaration acc (decl : Ast.contextualized Ast.declaration) =
   match decl with
   | DVarOperation o -> translate_operation acc o
   | DVarEvent e ->
     let acc, evt_formula = translate_event acc e.ctx_event_expr in
     Acc.register_event acc e.ctx_event_var evt_formula
+  | DVarDefault d -> translate_default acc d
   | DVarAdvance _
-  | DVarDefault _
   | DVarDeficit _ -> assert false
 
 let translate_program (Contextualized (infos, prog) : Ast.contextualized Ast.program) =

@@ -54,7 +54,10 @@ module RedistTree = struct
 
   type redist =
     | NoInfo
-    | Shares of float Variable.Map.t
+    | Shares of {
+        expressed : float Variable.Map.t;
+        remainder : Variable.t option
+      }
     | Flats of formula Variable.Map.t
 
   type tree =
@@ -66,7 +69,7 @@ module RedistTree = struct
   let share (dest : Variable.t) (formula, _ft : formula * ValueType.t) =
     match formula with
     | Literal (LRational f) ->
-      Shares (Variable.Map.singleton dest f)
+      Shares { expressed = Variable.Map.singleton dest f; remainder = None }
     | _ -> Errors.raise_error "Expected formula to be a rational literal"
 
   let flat (dest : Variable.t) (formula, ftype : formula * ValueType.t) =
@@ -74,18 +77,27 @@ module RedistTree = struct
       Errors.raise_error "Expected formula of type money";
     Flats (Variable.Map.singleton dest formula)
 
+  let remainder (dest : Variable.t) =
+    Shares { expressed = Variable.Map.empty; remainder = Some dest }
+
   let merge_redist (r1 : redist) (r2 : redist) =
     match r1, r2 with
     | NoInfo, NoInfo -> NoInfo
     | NoInfo, r | r, NoInfo -> r
     | Shares s1, Shares s2 ->
-      let new_s =
+      let expressed =
         Variable.Map.union (fun _dest s1 s2 ->
             (* TODO warning *)
             Some (s1 +. s2))
-          s1 s2
+          s1.expressed s2.expressed
       in
-      Shares new_s
+      let remainder =
+        match s1.remainder, s2.remainder with
+        | Some _, Some _ -> Errors.raise_error "default expressed several times"
+        | Some r, None | None, Some r -> Some r
+        | None, None -> None
+      in
+      Shares { expressed; remainder }
     | Flats f1, Flats f2 ->
       let new_f =
         Variable.Map.union (fun _dest f1 f2 ->

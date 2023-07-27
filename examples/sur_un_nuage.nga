@@ -28,9 +28,9 @@ acteur barbie   #talent
 
 # LES ENTREES
 #contextes attendus : rbd (France + Salle et Video + Commercial sur la salle) / vente_tvsvod (France + groupe TVSVOD) / rbv(Etranger)
-entree assiette recette_brute_distributeur 
-entree assiette vente_tvsvod 
-entree assiette recette_brute_vendeur 
+entree assiette recette_brute_distributeur
+entree assiette vente_tvsvod
+entree assiette recette_brute_vendeur
 
 entree frais_edition_distributeur_du_desert type argent
 entree frais_edition_vendeur_scorpion type argent
@@ -52,7 +52,7 @@ atteint quand entree_salle_France total = 100000
 evenement recuperation_frais_edition_distributeur
 atteint quand distributeur_du_desert[frais_edition] = frais_edition_distributeur_du_desert
 
-evenement recuperation_minimum_garanti 
+evenement recuperation_minimum_garanti
 atteint quand distributeur_du_desert[minimum_garanti] = minimum_garanti_distributeur_du_desert
 
 operation 'commission salle vers distributeur'
@@ -81,13 +81,6 @@ pour Support(Video)
 sur assiette recette_brute_distributeur
 quotepart 25% vers distributeur_du_desert[commission_video]
 quotepart 75% vers assiette recette_nette_commission_distributeur
-
-operation 'commission distributeur non commercial vers distributeur'
-pour Territoire(France)
-pour Support(Salle, Video)
-sur assiette recette_brute_distributeur
-quotepart 20% vers distributeur_du_desert[commission_video]
-quotepart 80% vers assiette recette_nette_commission_distributeur
 
 operation 'recuperation frais edition vers distributeur'
 pour Territoire(France)
@@ -138,7 +131,7 @@ quotepart 100% vers assiette recette_nette_part_producteur
 #ce qui reste dans la rnpp va pour le producteur
 defaut sur assiette recette_nette_part_producteur vers les_productions_du_chameau[rnpp_residuelle_etranger]
 
-# CONTRAT LES PRODUCTIONS DU CHAMEAU 
+# CONTRAT LES PRODUCTIONS DU CHAMEAU
 # le producteur prend une commission sur les ventes TV ou SVOD
 # ce qui reste va dans l'assiette recette_nette_part_producteur
 
@@ -165,9 +158,9 @@ quotepart 20% vers barbie[interessement]
 #ce bonus est donné par le producteur
 
 operation 'bonus sur le nombre d entrees'
-par les_productions_du_chameau 
+par les_productions_du_chameau
 quand evenement seuil_100000_entrees
-bonus 10000$ vers barbie[bonus_]
+bonus 10000$ vers barbie[bonus_nombre_entrees]
 
 # CONTRAT COPRO DROMADAIRE
 # le coproducteur a 10% de la rnpp France une fois que le distributeur a récupéré son minimum garanti.
@@ -175,7 +168,7 @@ bonus 10000$ vers barbie[bonus_]
 # le coproducteur a 20% de l'étranger une fois que le producteur a récupéré un risque de 30000$
 
 evenement recup_risque_prod
-atteint quand assiette recette_nette_part_producteur(Etranger) = risque_prod
+atteint quand assiette les_productions_du_chameau = risque_prod
 
 operation 'part copro sur france'
 pour Territoire(France)

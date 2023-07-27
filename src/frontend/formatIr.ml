@@ -91,7 +91,10 @@ let print_redist (infos : Ast.program_infos) fmt (r : RedistTree.redist) =
     Format.fprintf fmt "@[<hv>";
     Variable.Map.iter (fun v s ->
         Format.fprintf fmt "%.2f%% -> %a@ " (s*.100.) (print_variable infos) v)
-      sh;
+      sh.expressed;
+    Format.pp_print_option
+      (fun fmt -> Format.fprintf fmt "default -> %a" (print_variable infos))
+      fmt sh.remainder;
     Format.fprintf fmt "@]"
   | RedistTree.Flats fs ->
     Format.fprintf fmt "@[<hv 2>";

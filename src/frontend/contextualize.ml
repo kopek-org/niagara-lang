@@ -181,9 +181,9 @@ module Acc = struct
 
   let resolve_constraints t =
     let rec resolve_var v t =
-      Format.printf "@[<v 2>resolve for %d@;" v;
+      (* Format.printf "@[<v 2>resolve for %d@;" v; *)
       match Variable.Map.find_opt v t.var_shapes with
-      | Some shape -> Format.printf "found !@]@;"; t, shape
+      | Some shape -> (* Format.printf "found !@]@;";  *)t, shape
       | None ->
         match Variable.Map.find_opt v t.constraints with
         | None ->
@@ -202,16 +202,16 @@ module Acc = struct
             List.fold_left (fun (t, shape) constr ->
                 match constr with
                 | Projection p ->
-                  Format.printf "constr proj: %a@;" (Context.print_projection t.contexts) p;
+                  (* Format.printf "constr proj: %a@;" (Context.print_projection t.contexts) p; *)
                   let pshape = Context.shape_of_projection t.contexts p in
-                  Format.printf "proj shape: %a@;" (Context.print_shape t.contexts) pshape;
+                  (* Format.printf "proj shape: %a@;" (Context.print_shape t.contexts) pshape; *)
                   let shape = Context.shape_add_precise t.contexts shape pshape in
                   (* add and slice *)
                   t, shape
                 | Shape (s, p) ->
-                  Format.printf "constr shape: %a _ %a@;"
-                    (Context.print_shape t.contexts) s
-                    (Context.print_projection t.contexts) p;
+                  (* Format.printf "constr shape: %a _ %a@;" *)
+                  (*   (Context.print_shape t.contexts) s *)
+                  (*   (Context.print_projection t.contexts) p; *)
                   let pshape = Context.shape_of_projection t.contexts p in
                   let sshape = Context.shape_filter_strict_precise t.contexts s pshape in
                   (* filterMustExist and slice *)
@@ -220,10 +220,10 @@ module Acc = struct
                   t, shape
                 | ShapeOfVar ((v, vp), p) ->
                   let t, vshape = resolve_var v t in
-                  Format.printf "constr varShape: %a _ %a _ %a@;"
-                    (Context.print_shape t.contexts) vshape
-                    (Context.print_projection t.contexts) vp
-                    (Context.print_projection t.contexts) p;
+                  (* Format.printf "constr varShape: %a _ %a _ %a@;" *)
+                  (*   (Context.print_shape t.contexts) vshape *)
+                  (*   (Context.print_projection t.contexts) vp *)
+                  (*   (Context.print_projection t.contexts) p; *)
                   (* let vpshape = Context.shape_of_projection t.contexts vp in *)
                   (* Format.printf "shape of proj: %a@;" *)
                   (*   (Context.print_shape t.contexts) vpshape; *)
@@ -231,11 +231,11 @@ module Acc = struct
                     Context.projection_subshape_strict t.contexts vshape vp
                   in
                   (* filterMustExist and morePrecise *)
-                  Format.printf "shape of projd var: %a@;"
-                    (Context.print_shape t.contexts) vshape;
+                  (* Format.printf "shape of projd var: %a@;" *)
+                  (*   (Context.print_shape t.contexts) vshape; *)
                   let pshape = Context.fit_projection_to_shape p vshape in
-                  Format.printf "shape of proj: %a@;"
-                    (Context.print_shape t.contexts) pshape;
+                  (* Format.printf "shape of proj: %a@;" *)
+                  (*   (Context.print_shape t.contexts) pshape; *)
                   let sshape =
                     Context.shape_filter_strict_precise t.contexts vshape pshape
                   in
@@ -272,7 +272,7 @@ module Acc = struct
               | _ -> Errors.raise_error "Upstream context constraints not implemented"
             )
             most;
-          Format.printf "done!@]@;@?";
+          (* Format.printf "done!@]@;@?"; *)
           { t with
             var_shapes = Variable.Map.add v least_shape t.var_shapes;
           },
