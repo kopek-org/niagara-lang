@@ -75,7 +75,7 @@ let print_variable infos fmt (v : Variable.t) =
   Format.fprintf fmt "%s/%d" vinfos.var_name v
 
 let print_ctx_variable infos fmt ((v, proj) : contextualized_variable) =
-  Format.fprintf fmt "%a%a" (print_variable infos) v
+  Format.fprintf fmt "@[<hv 2>%a@,%a@]" (print_variable infos) v
     (Context.print_projection infos.contexts) proj
 
 let print_literal fmt (lit : literal) =
@@ -232,7 +232,7 @@ let print_declaration (type a) infos fmt (decl : a declaration) =
 
 let print_var_contexts infos fmt () =
   Variable.Map.iter (fun v shape ->
-      Format.fprintf fmt "var %a %a@;"
+      Format.fprintf fmt "@[<hv 2>var %a@ %a@]@;"
         (print_ctx_variable infos) (v, Context.any_projection)
         (Context.print_shape infos.contexts) shape
     )

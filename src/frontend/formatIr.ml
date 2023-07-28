@@ -7,7 +7,7 @@ let print_variable (infos : Ast.program_infos) fmt (v : Variable.t) =
     | Some s -> s
     | None -> Context.empty_shape
   in
-  Format.fprintf fmt "%s/%d%a"
+  Format.fprintf fmt "@[<hv 2>%s/%d@,%a@]"
     var_name v
     (Context.print_shape infos.contexts) shape
 

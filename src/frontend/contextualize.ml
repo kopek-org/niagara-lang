@@ -2,17 +2,21 @@ open Ast
 
 type constr =
   | ShapeOfVar of contextualized_variable * Context.projection
-  | Shape of Context.shape * Context.projection
+  (* | Shape of Context.shape * Context.projection *)
   | Projection of Context.projection
 
 type constr_bound =
   | AtLeast of constr
-  | AtMost of constr
+  (* | AtMost of constr *)
 
 module Acc = struct
 
+  type actor_ref =
+    | BaseActor of { downstream : Variable.t; upstream : Variable.t }
+    | Label of Variable.t * stream_way
+
   type name_ref =
-    | RefActor of { downstream : Variable.t; upstream : Variable.t }
+    | RefActor of actor_ref
     | RefPool of Variable.t
     | RefROInput of Variable.t
     | RefEvent of Variable.t
@@ -99,7 +103,7 @@ module Acc = struct
   let register_actor t (name : string) =
     let uv = Variable.new_var () in
     let dv = Variable.new_var () in
-    bind_var name (RefActor {upstream = uv; downstream = dv}) t
+    bind_var name (RefActor (BaseActor {upstream = uv; downstream = dv})) t
     |> bind_name uv name
     |> bind_type uv ValueType.TMoney
     |> bind_name dv name
@@ -134,8 +138,15 @@ module Acc = struct
 
   let find_actor ~(way : stream_way) t (name : string) =
     match StrMap.find_opt name t.var_table with
-    | Some (RefActor a) ->
-      (match way with Upstream -> a.upstream | Downstream -> a.downstream)
+    | Some (RefActor ar) -> begin
+        match ar with
+        | Label (v, lway) ->
+          if way <> lway then
+            Errors.raise_error "Labeled actor has wrong steam way";
+          v
+        | BaseActor a ->
+          (match way with Upstream -> a.upstream | Downstream -> a.downstream)
+    end
     | Some _ -> Errors.raise_error "Identifier %s is not an actor" name
     | None -> Errors.raise_error "Unknown identifier %s" name
 
@@ -148,8 +159,10 @@ module Acc = struct
   let find_misc_var ~(way : stream_way) t (name : string) =
     match StrMap.find_opt name t.var_table with
     | Some (RefROInput v | RefEvent v | RefConst v) -> v
-    | Some (RefActor a) ->
+    | Some (RefActor (BaseActor a)) ->
       (match way with Upstream -> a.upstream | Downstream -> a.downstream)
+    | Some (RefActor (Label _)) ->
+      Errors.raise_error "(internal) actor name %s should not exists" name
     | Some (RefPool _) ->
       Errors.raise_error "Variable %s should be identified as pool" name
     | None -> Errors.raise_error "Unknown identifier %s" name
@@ -170,20 +183,49 @@ module Acc = struct
     }
 
   let register_actor_label ~(way:stream_way) t (name : string) (label : string) =
-    let contexts, dom, case = Context.extend_domain t.contexts name label in
-    let v = find_actor ~way t name in
-    let proj = Context.projection_of contexts dom [case] in
-    let t = add_constraint0 t v (AtLeast (Projection proj)) in
-    { t with contexts; }, v, proj
+    let lname = name^"$"^label in
+    match StrMap.find_opt lname t.var_table with
+    | None ->
+      let vl = Variable.new_var () in
+      let t =
+        bind_var lname (RefActor (Label (vl, way))) t
+        |> bind_name vl lname
+        |> bind_type vl ValueType.TMoney
+        |> bind_actor vl way
+      in
+      t, vl
+    | Some (RefActor (Label (v, lway))) ->
+      if way <> lway then
+        Errors.raise_error "Cannot use label same label %s on both ways" label;
+      t, v
+    | Some _ ->
+      Errors.raise_error "(internal) %s[%s] should have been recognized as a \
+                          labeled actor"
+        name label
+
+    (* (\* let contexts, dom, case = Context.extend_domain t.contexts name label in *\) *)
+    (* (\* let proj = Context.projection_of contexts dom [case] in *\) *)
+    (* (\* let t = add_constraint0 t v (AtLeast (Projection proj)) in *\) *)
+    (* { t with contexts; }, v, proj *)
 
   let add_constraint t (v : Variable.t) (constr : constr_bound) =
     if Variable.Map.mem v t.actors then t else add_constraint0 t v constr
 
+  (* let filter_proj t (v : Variable.t) (proj : Context.projection) = *)
+  (*   if Variable.Map.mem v t.actors *)
+  (*   then Context.proj_filter_extensible t.contexts proj *)
+  (*   else Context.proj_filter_non_extensible t.contexts proj *)
+
+  (* let filter_shape t (v : Variable.t) (s : Context.shape) = *)
+  (*   if Variable.Map.mem v t.actors *)
+  (*   then Context.shape_filter_extensible t.contexts s *)
+  (*   else Context.shape_filter_non_extensible t.contexts s *)
+
   let resolve_constraints t =
     let rec resolve_var v t =
-      (* Format.printf "@[<v 2>resolve for %d@;" v; *)
+      Format.printf "@[<v 2>resolve for %d@;" v;
       match Variable.Map.find_opt v t.var_shapes with
-      | Some shape -> (* Format.printf "found !@]@;";  *)t, shape
+      | Some shape -> Format.printf "found !@]@;"; t, shape
       | None ->
         match Variable.Map.find_opt v t.constraints with
         | None ->
@@ -193,49 +235,53 @@ module Acc = struct
           },
           everything
         | Some constrs ->
-          let most, least =
+          let _most, least =
             List.fold_left (fun (m, l) ->
-                function AtMost c -> c::m, l | AtLeast c -> m, c::l)
+                function (* AtMost c -> c::m, l |  *)AtLeast c -> m, c::l)
               ([], []) constrs
           in
           let t, least_shape =
             List.fold_left (fun (t, shape) constr ->
                 match constr with
                 | Projection p ->
-                  (* Format.printf "constr proj: %a@;" (Context.print_projection t.contexts) p; *)
+                  (* let p = filter_proj t v p in *)
+                  Format.printf "constr proj: %a@;" (Context.print_projection t.contexts) p;
                   let pshape = Context.shape_of_projection t.contexts p in
-                  (* Format.printf "proj shape: %a@;" (Context.print_shape t.contexts) pshape; *)
+                  Format.printf "proj shape: %a@;" (Context.print_shape t.contexts) pshape;
                   let shape = Context.shape_add_precise t.contexts shape pshape in
                   (* add and slice *)
                   t, shape
-                | Shape (s, p) ->
-                  (* Format.printf "constr shape: %a _ %a@;" *)
-                  (*   (Context.print_shape t.contexts) s *)
-                  (*   (Context.print_projection t.contexts) p; *)
-                  let pshape = Context.shape_of_projection t.contexts p in
-                  let sshape = Context.shape_filter_strict_precise t.contexts s pshape in
-                  (* filterMustExist and slice *)
-                  let shape = Context.shape_add_precise t.contexts shape sshape in
-                  (* add and slice *)
-                  t, shape
+                (* | Shape (s, p) -> *)
+                (*   Format.printf "constr shape: %a _ %a@;" *)
+                (*     (Context.print_shape t.contexts) s *)
+                (*     (Context.print_projection t.contexts) p; *)
+                (*   let pshape = Context.shape_of_projection t.contexts p in *)
+                (*   let sshape = Context.shape_filter_strict_precise t.contexts s pshape in *)
+                (*   (\* filterMustExist and slice *\) *)
+                (*   let shape = Context.shape_add_precise t.contexts shape sshape in *)
+                (*   (\* add and slice *\) *)
+                (*   t, shape *)
                 | ShapeOfVar ((v, vp), p) ->
                   let t, vshape = resolve_var v t in
-                  (* Format.printf "constr varShape: %a _ %a _ %a@;" *)
-                  (*   (Context.print_shape t.contexts) vshape *)
-                  (*   (Context.print_projection t.contexts) vp *)
-                  (*   (Context.print_projection t.contexts) p; *)
+                  Format.printf "constr varShape: %a _ %a _ %a@;"
+                    (Context.print_shape t.contexts) vshape
+                    (Context.print_projection t.contexts) vp
+                    (Context.print_projection t.contexts) p;
                   (* let vpshape = Context.shape_of_projection t.contexts vp in *)
                   (* Format.printf "shape of proj: %a@;" *)
                   (*   (Context.print_shape t.contexts) vpshape; *)
                   let vshape =
-                    Context.projection_subshape_strict t.contexts vshape vp
+                    if Variable.Map.mem v t.actors then
+                      Context.shape_of_everything t.contexts
+                    else
+                      Context.projection_subshape_strict t.contexts vshape vp
                   in
                   (* filterMustExist and morePrecise *)
-                  (* Format.printf "shape of projd var: %a@;" *)
-                  (*   (Context.print_shape t.contexts) vshape; *)
+                  Format.printf "shape of projd var: %a@;"
+                    (Context.print_shape t.contexts) vshape;
                   let pshape = Context.fit_projection_to_shape p vshape in
-                  (* Format.printf "shape of proj: %a@;" *)
-                  (*   (Context.print_shape t.contexts) pshape; *)
+                  Format.printf "shape of proj: %a@;"
+                    (Context.print_shape t.contexts) pshape;
                   let sshape =
                     Context.shape_filter_strict_precise t.contexts vshape pshape
                   in
@@ -246,33 +292,33 @@ module Acc = struct
               )
               (t, Context.empty_shape) least
           in
-          List.iter (function
-              (* | Projection p -> *)
-              (*   let pshape = Context.shape_of_projection t.contexts p in *)
-              (*   Context.match_shape t.contexts least_shape pshape *)
-              (*   (\* filterMayNotExist and morePrecise *\) *)
-              (* | Shape (s, p) -> *)
-              (*   let pshape = Context.shape_of_projection t.contexts p in *)
-              (*   let rshape = *)
-              (*     Context.shape_filter_strict_loose t.contexts least_shape pshape *)
-              (*   in *)
-              (*   (\* filterMustExist and lessPrecise *\) *)
-              (*   Context.match_shape t.contexts rshape s *)
-              (*   (\* filterMayNotExist and morePrecise *\) *)
-              (* | ShapeOfVar ((v, vp), p) -> *)
-              (*   let t, vshape = resolve_var v t in *)
-              (*   let vpshape = Context.shape_of_projection t.contexts vp in *)
-              (*   let vshape = Context.refine_shape t.contexts vshape vpshape in *)
-              (*   (\* filterMustExist and lessPrecise *\) *)
-              (*   let pshape = Context.shape_of_projection t.contexts p in *)
-              (*   let rshape = Context.refine_shape t.contexts least_shape pshape in *)
-              (*   (\* filterMustExist and lessPrecise *\) *)
-              (*   Context.match_shape t.contexts rshape vshape *)
-              (*   (\* filterMayNotExist and morePrecise *\) *)
-              | _ -> Errors.raise_error "Upstream context constraints not implemented"
-            )
-            most;
-          (* Format.printf "done!@]@;@?"; *)
+          (* List.iter (function *)
+          (*     (\* | Projection p -> *\) *)
+          (*     (\*   let pshape = Context.shape_of_projection t.contexts p in *\) *)
+          (*     (\*   Context.match_shape t.contexts least_shape pshape *\) *)
+          (*     (\*   (\\* filterMayNotExist and morePrecise *\\) *\) *)
+          (*     (\* | Shape (s, p) -> *\) *)
+          (*     (\*   let pshape = Context.shape_of_projection t.contexts p in *\) *)
+          (*     (\*   let rshape = *\) *)
+          (*     (\*     Context.shape_filter_strict_loose t.contexts least_shape pshape *\) *)
+          (*     (\*   in *\) *)
+          (*     (\*   (\\* filterMustExist and lessPrecise *\\) *\) *)
+          (*     (\*   Context.match_shape t.contexts rshape s *\) *)
+          (*     (\*   (\\* filterMayNotExist and morePrecise *\\) *\) *)
+          (*     (\* | ShapeOfVar ((v, vp), p) -> *\) *)
+          (*     (\*   let t, vshape = resolve_var v t in *\) *)
+          (*     (\*   let vpshape = Context.shape_of_projection t.contexts vp in *\) *)
+          (*     (\*   let vshape = Context.refine_shape t.contexts vshape vpshape in *\) *)
+          (*     (\*   (\\* filterMustExist and lessPrecise *\\) *\) *)
+          (*     (\*   let pshape = Context.shape_of_projection t.contexts p in *\) *)
+          (*     (\*   let rshape = Context.refine_shape t.contexts least_shape pshape in *\) *)
+          (*     (\*   (\\* filterMustExist and lessPrecise *\\) *\) *)
+          (*     (\*   Context.match_shape t.contexts rshape vshape *\) *)
+          (*     (\*   (\\* filterMayNotExist and morePrecise *\\) *\) *)
+          (*     | _ -> Errors.raise_error "Upstream context constraints not implemented" *)
+          (*   ) *)
+          (*   most; *)
+          Format.printf "done!@]@;@?";
           { t with
             var_shapes = Variable.Map.add v least_shape t.var_shapes;
           },
@@ -358,27 +404,28 @@ let find_holder0 ~(way : stream_way) acc (h : holder) =
   | Actor (PlainActor name) ->
     acc, (Acc.find_actor ~way acc name, Context.any_projection)
   | Actor (LabeledActor (name, label)) ->
-    let acc, v, proj = Acc.register_actor_label ~way acc name label in
-    acc, (v, proj)
+    let acc, v = Acc.register_actor_label ~way acc name label in
+    acc, (v, Context.any_projection)
 
 let find_holder acc (h : holder) = find_holder0 ~way:Downstream acc h
 
 let find_holder_as_source acc (h : holder) = find_holder0 ~way:Upstream acc h
 
 let register_input acc (i : input_decl) =
-  let acc, v = Acc.register_input acc i.input_name i.input_type i.input_kind in
+  let acc, _v = Acc.register_input acc i.input_name i.input_type i.input_kind in
   if i.input_context = [] then acc else
-    let shape =
-      let enum_shapes =
-        List.map (fun ctx ->
-            Context.shape_of_projection (Acc.contexts acc)
-              (projection_of_context_selector acc ctx))
-          i.input_context
-      in
-      List.fold_left (Context.shape_add_disjoint acc.contexts)
-        Context.empty_shape enum_shapes
-    in
-    Acc.add_constraint acc v (AtMost (Shape (shape, Context.any_projection)))
+    assert false
+    (* let shape = *)
+    (*   let enum_shapes = *)
+    (*     List.map (fun ctx -> *)
+    (*         Context.shape_of_projection (Acc.contexts acc) *)
+    (*           (projection_of_context_selector acc ctx)) *)
+    (*       i.input_context *)
+    (*   in *)
+    (*   List.fold_left (Context.shape_add_disjoint acc.contexts) *)
+    (*     Context.empty_shape enum_shapes *)
+    (* in *)
+    (* Acc.add_constraint acc v (AtMost (Shape (shape, Context.any_projection))) *)
 
 let destination acc (flow : holder) ~(on_proj : Context.projection) =
   let acc, (v, proj) = find_holder acc flow in
