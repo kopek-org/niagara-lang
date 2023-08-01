@@ -12,13 +12,13 @@ module Acc = struct
 
   type derivation_mode = Strict | Inclusive
 
+  let contexts t = t.infos.contexts
+
   let make (infos : Ast.program_infos) =
     { infos;
       ctx_derivations = Variable.Map.empty;
       trees = Variable.Map.empty;
       events = Variable.Map.empty; }
-
-  let contexts t = t.infos.contexts
 
   let var_shape t (v : Variable.t) =
     match Variable.Map.find_opt v t.infos.var_shapes with
@@ -39,13 +39,13 @@ module Acc = struct
   let find_const_opt t (v : Variable.t) =
     Variable.Map.find_opt v t.infos.Ast.constants
 
-  let find_derivation_opt t (v : Variable.t) (ctx : Context.group) =
+  let find_derivation_opt t (v : Variable.t) (ctx : Context.Group.t) =
     match Variable.Map.find_opt v t.ctx_derivations with
     | None -> None
     | Some cgm ->
-      Context.GroupMap.find_opt ctx cgm
+      Context.Group.Map.find_opt ctx cgm
 
-  let get_derivative_var t (v : Variable.t) (ctx : Context.group) =
+  let get_derivative_var t (v : Variable.t) (ctx : Context.Group.t) =
     match find_derivation_opt t v ctx with
     | Some v -> t, v
     | None ->
@@ -58,12 +58,13 @@ module Acc = struct
           t.infos with
           var_info = Variable.Map.add dv { Variable.var_name } t.infos.var_info;
           types =  Variable.Map.add dv typ t.infos.types;
-          var_shapes = Variable.Map.add dv (Context.shape_of_groups [ctx]) t.infos.var_shapes;
+          var_shapes = Variable.Map.add dv
+              (Context.shape_of_groups [ctx]) t.infos.var_shapes;
         };
         ctx_derivations =
           Variable.Map.update v (function
-              | None -> Some (Context.GroupMap.singleton ctx dv)
-              | Some groups -> Some (Context.GroupMap.add ctx dv groups)
+              | None -> Some (Context.Group.Map.singleton ctx dv)
+              | Some groups -> Some (Context.Group.Map.add ctx dv groups)
             )
             t.ctx_derivations;
       }
@@ -76,14 +77,14 @@ module Acc = struct
       in
       t, dv
 
-  let derive_ctx_variables ~mode t (v : Variable.t) (ctx : Context.projection) =
+  let derive_ctx_variables ~mode t (v : Variable.t) (ctx : Context.Group.t) =
     let shape = var_shape t v in
     let subshape =
       match mode with
-      | Strict -> Context.projection_subshape_strict (contexts t) shape ctx
-      | Inclusive -> Context.projection_subshape_inclusive (contexts t) shape ctx
+      | Strict -> Context.shape_project shape ctx
+      | Inclusive -> Context.shape_overlap_subshape shape ctx
     in
-    Context.fold_shape (fun (t, vars) group ->
+    Context.shape_fold (fun (t, vars) group ->
         let t, v = get_derivative_var t v group in
         t, v::vars)
       (t, []) subshape
@@ -109,21 +110,11 @@ module Acc = struct
     t, v
 
   let add_redist t ~(source : Variable.t) (tree : RedistTree.tree) =
-    let add_tree_to_redists rs t =
-      match (t : RedistTree.tree) with
-      | RedistTree.Redist r ->
-        List.map (function
-            | RedistTree.Redist r' ->
-              RedistTree.Redist (RedistTree.merge_redist r' r)
-            | RedistTree.Branch _ as b -> b)
-          rs
-      | Branch _ -> t::rs
-    in
     let trees =
       Variable.Map.update source (function
           | None -> Some [tree]
           | Some existing_tree ->
-            Some (add_tree_to_redists existing_tree tree))
+            Some (tree::existing_tree))
         t.trees
     in
     { t with trees }
@@ -161,11 +152,10 @@ end
 let shape_of_ctx_var acc (v : Ast.contextualized_variable) =
   let v, proj = v in
   let vshape = Acc.var_shape acc v in
-  Context.projection_subshape_strict (Acc.contexts acc)
-    vshape proj
+  Context.shape_project vshape proj
 
-let resolve_projection_context ~context ~refinement =
-  if Context.is_any_projection refinement then context else refinement
+let resolve_projection_context acc ~context ~refinement =
+  if Context.is_any_projection (Acc.contexts acc) refinement then context else refinement
 
 let rec reduce_formula (f : formula) =
   match f with
@@ -382,7 +372,7 @@ let aggregate_vars ~view (typ : ValueType.t) (vars : Variable.t list) =
         (Binop (op, f, Variable (v, view))))
       (Variable (v, view)) vs
 
-let rec translate_formula ~(ctx : Context.projection) acc ~(view : flow_view)
+let rec translate_formula ~(ctx : Context.Group.t) acc ~(view : flow_view)
     (f : Ast.contextualized Ast.formula) =
   match f with
   | Literal l ->
@@ -395,7 +385,7 @@ let rec translate_formula ~(ctx : Context.projection) acc ~(view : flow_view)
       acc, (Literal l, t)
     | None ->
       let t = Acc.type_of acc v in
-      let proj = resolve_projection_context ~context:ctx ~refinement:proj in
+      let proj = resolve_projection_context acc ~context:ctx ~refinement:proj in
       let acc, v = Acc.derive_ctx_variables ~mode:Strict acc v proj in
       let f = aggregate_vars ~view t v in
       acc, (f, t)
@@ -411,9 +401,9 @@ let rec translate_formula ~(ctx : Context.projection) acc ~(view : flow_view)
   | Instant f -> translate_formula ~ctx acc ~view:AtInstant f
   | Total f -> translate_formula ~ctx acc ~view:Cumulated f
 
-let translate_redist ~(ctx : Context.projection) acc ~(dest : Ast.contextualized_variable)
+let translate_redist ~(ctx : Context.Group.t) acc ~(dest : Ast.contextualized_variable)
     (redist : Ast.contextualized Ast.redistribution) =
-  let proj = resolve_projection_context ~context:ctx ~refinement:(snd dest) in
+  let proj = resolve_projection_context acc ~context:ctx ~refinement:(snd dest) in
   let acc, dest = Acc.derive_ctx_variables ~mode:Inclusive acc (fst dest) proj in
   let dest =
     match dest with
@@ -440,7 +430,10 @@ let rec translate_event acc (event : Ast.contextualized Ast.event_expr) =
     let acc, e2 = translate_event acc e2 in
     acc, EvtOr(e1,e2)
   | EventFormula f ->
-    let acc, (f, t) = translate_formula ~ctx:Context.any_projection acc ~view:Cumulated f in
+    let acc, (f, t) =
+      translate_formula ~ctx:(Context.any_projection (Acc.contexts acc))
+        acc ~view:Cumulated f
+    in
     match (t : ValueType.t) with
     | TEvent -> acc, EvtCond f
     | TDate -> acc, EvtDate f
@@ -455,7 +448,7 @@ let lift_event acc (event : Ast.contextualized Ast.event_expr) =
     let acc, v = Acc.lift_event acc evt in
     acc, v
 
-let translate_redist_with_dest ~(ctx : Context.projection) acc
+let translate_redist_with_dest ~(ctx : Context.Group.t) acc
     ~(default_dest : Ast.contextualized_variable option)
     (WithVar (redist, dest) : Ast.contextualized Ast.redistrib_with_dest) =
   let dest =
@@ -468,7 +461,7 @@ let translate_redist_with_dest ~(ctx : Context.projection) acc
   let acc, redist = translate_redist ~ctx acc ~dest redist in
   acc, redist
 
-let rec translate_guarded_redist ~(ctx : Context.projection) acc
+let rec translate_guarded_redist ~(ctx : Context.Group.t) acc
     ~(default_dest : Ast.contextualized_variable option)
     (redist : Ast.contextualized Ast.guarded_redistrib) =
   match redist with
@@ -482,46 +475,41 @@ let rec translate_guarded_redist ~(ctx : Context.projection) acc
       | [] -> assert false
       | r::rs -> acc, RedistTree.Redist (List.fold_left RedistTree.merge_redist r rs)
     end
-  | Guardeds gs ->
-    translate_guard_group ~ctx acc ~default_dest gs
+  | Whens gs ->
+    let acc, gs = translate_condition_group ~ctx acc ~default_dest gs in
+    acc, RedistTree.When gs
+  | Branches { befores; afters } ->
+    let acc, befores = translate_condition_group ~ctx acc ~default_dest befores in
+    let acc, afters = translate_condition_group ~ctx acc ~default_dest afters in
+    let btree =
+      List.fold_right (fun (evt, before) after ->
+          RedistTree.Branch { evt; before; after }
+        )
+        befores RedistTree.(Redist NoInfo)
+    in
+    let tree =
+      List.fold_left (fun before (evt, after) ->
+          RedistTree.Branch { evt; before; after }
+        )
+        btree afters
+    in
+    acc, tree
 
-and translate_guard_group ~ctx acc ~default_dest
-    (group : (Ast.contextualized Ast.guard * Ast.contextualized Ast.guarded_redistrib) list)
+and translate_condition_group ~ctx acc ~default_dest
+    (group : Ast.contextualized Ast.conditional_redistrib list)
   =
-  let noinfo = RedistTree.Redist NoInfo in
-  let rec aux acc group
-      (partial : 'acc -> RedistTree.tree -> 'acc * RedistTree.tree) =
-    match group with
-    | [] -> partial acc noinfo
-    | (guard, redist)::group ->
-      let acc, tree = translate_guarded_redist ~ctx acc ~default_dest redist in
-      match (guard : Ast.contextualized Ast.guard) with
-      | Before event ->
-        let acc, evt = lift_event acc event in
-        let partial acc after =
-          partial acc (RedistTree.Branch {evt; before = tree; after})
-        in
-        aux acc group partial
-      | After event ->
-        let acc, evt = lift_event acc event in
-        let partial acc before =
-          match (before : RedistTree.tree) with
-          | Redist NoInfo ->
-            let acc, before = partial acc noinfo in
-            acc, RedistTree.Branch {evt; before; after = tree}
-          | _ -> Errors.raise_error "pre-event guard after post-event guard have \
-                                     undefined semantics"
-        in
-        aux acc group partial
-      | When _ -> assert false
-  in
-  aux acc group (fun acc tree -> acc, tree)
+  List.fold_left_map (fun acc (cond, g_redist) ->
+      let acc, evt = lift_event acc cond in
+      let acc, tree = translate_guarded_redist ~ctx acc ~default_dest g_redist in
+      acc, (evt, tree)
+    )
+    acc group
 
 let translate_operation acc (o : Ast.ctx_operation_decl) =
+  Format.printf "translate op '%s'@." o.ctx_op_label;
   let source_local_shape = shape_of_ctx_var acc o.ctx_op_source in
-  Context.fold_shape (fun acc group ->
-      let acc, source = Acc.get_derivative_var acc (fst o.ctx_op_source) group in
-      let ctx = Context.projection_of_group group in
+  Context.shape_fold (fun acc ctx ->
+      let acc, source = Acc.get_derivative_var acc (fst o.ctx_op_source) ctx in
       let acc, tree =
         translate_guarded_redist ~ctx acc ~default_dest:o.ctx_op_default_dest
           o.ctx_op_guarded_redistrib
@@ -531,11 +519,10 @@ let translate_operation acc (o : Ast.ctx_operation_decl) =
 
 let translate_default acc (d : Ast.ctx_default_decl) =
   let source_local_shape = shape_of_ctx_var acc d.ctx_default_source in
-  Context.fold_shape (fun acc group ->
-      let acc, source = Acc.get_derivative_var acc (fst d.ctx_default_source) group in
-      let proj = Context.projection_of_group group in
+  Context.shape_fold (fun acc ctx ->
+      let acc, source = Acc.get_derivative_var acc (fst d.ctx_default_source) ctx in
       let acc, dest =
-        Acc.derive_ctx_variables ~mode:Inclusive acc (fst d.ctx_default_dest) proj
+        Acc.derive_ctx_variables ~mode:Inclusive acc (fst d.ctx_default_dest) ctx
       in
       let tree =
         match dest with

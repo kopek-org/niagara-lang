@@ -153,7 +153,6 @@ pour Secteur(Commercial)
 sur assiette recette_nette_part_producteur
 quotepart 20% vers barbie[interessement]
 
-
 #barbie prend un bonus de 10000€ à 100000 entrees
 #ce bonus est donné par le producteur
 

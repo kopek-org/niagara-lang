@@ -21,7 +21,7 @@ open Ast
 %left MULT DIV ET
 %nonassoc TOTAL COURANT
 
-%on_error_reduce literal formula event_guard named actor
+%on_error_reduce literal formula named actor
 
 %start<Ast.source Ast.program> program
 
@@ -62,15 +62,25 @@ simple_exprs:
 
 sub_expression:
 | es = simple_exprs { es }
-| e = guarded_expr { Guardeds [e] }
 | LPAR es = expression RPAR { es }
 
 expression:
 | es = simple_exprs { es }
-| es = guarded_expr+ { Guardeds es }
+| es = branch_expr { Branches { befores = fst es; afters = snd es } }
+| es = when_expr+ { Whens es }
 
-guarded_expr:
-| g = event_guard ge = sub_expression { g, ge }
+branch_expr:
+| ae = after_expr+ { ([], ae) }
+| be = before_expr+ ae = after_expr* { (be, ae) }
+
+after_expr:
+| APRES g = event_expr se = sub_expression { (g, se) }
+
+before_expr:
+| AVANT g = event_expr se = sub_expression { (g, se) }
+
+when_expr:
+| QUAND g = event_expr se = sub_expression { (g, se) }
 
 source:
 | SUR p = pool { p }
@@ -210,11 +220,6 @@ event_expr:
 | f = formula { EventFormula f }
 | e1 = event_expr ET e2 = event_expr { EventConj(e1, e2) }
 | e1 = event_expr OU e2 = event_expr { EventDisj(e1, e2) }
-
-event_guard:
-| AVANT e = event_expr { Before e }
-| APRES e = event_expr { After e }
-| QUAND e = event_expr { When e }
 
 // Context
 

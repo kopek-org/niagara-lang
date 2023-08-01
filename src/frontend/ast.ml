@@ -35,7 +35,7 @@ type named =
   | Name of string * context_refinement
   | Holder of holder
 
-type contextualized_variable = Variable.t * Context.projection
+type contextualized_variable = Variable.t * Context.Group.t
 
 type _ formula =
   | Literal of literal
@@ -70,13 +70,15 @@ type _ event_expr =
   | EventConj : 'a event_expr * 'a event_expr -> 'a event_expr
   | EventDisj : 'a event_expr * 'a event_expr -> 'a event_expr
 
-type 'a guard =
-  | Before of 'a event_expr
-  | After of 'a event_expr
-  | When of 'a event_expr
+type 'a conditional_redistrib =
+  'a event_expr * 'a guarded_redistrib
 
-type 'a guarded_redistrib =
-  | Guardeds of ('a guard * 'a guarded_redistrib) list
+and 'a guarded_redistrib =
+  | Whens of 'a conditional_redistrib list
+  | Branches of {
+      befores : 'a conditional_redistrib list;
+      afters : 'a conditional_redistrib list;
+    }
   | Redists of 'a redistrib_with_dest list
 
 type context =

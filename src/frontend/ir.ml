@@ -62,6 +62,7 @@ module RedistTree = struct
 
   type tree =
     | Redist of redist
+    | When of (Variable.t * tree) list
     | Branch of { evt : Variable.t; before : tree; after : tree }
 
   type t = tree list
@@ -112,7 +113,7 @@ end
 
 type program = {
   infos : Ast.program_infos;
-  ctx_derivations : Variable.t Context.GroupMap.t Variable.Map.t;
+  ctx_derivations : Variable.t Context.Group.Map.t Variable.Map.t;
   trees : RedistTree.t Variable.Map.t;
   events : event Variable.Map.t;
 }

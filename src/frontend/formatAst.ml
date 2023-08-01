@@ -131,12 +131,6 @@ let rec print_event_expr : type a. program_infos -> Format.formatter -> a event_
       (print_event_expr infos) e1
       (print_event_expr infos) e2
 
-let print_guard (type a) infos fmt (g : a guard) =
-  match g with
-  | Before e -> Format.fprintf fmt "avant %a" (print_event_expr infos) e
-  | After e -> Format.fprintf fmt "apres %a" (print_event_expr infos) e
-  | When e -> Format.fprintf fmt "quand %a" (print_event_expr infos) e
-
 let print_redist (type a) infos fmt (redist : a redistribution) =
   match redist with
   | Part f -> Format.fprintf fmt "quotepart %a" (print_formula infos) f
@@ -163,10 +157,19 @@ let rec print_guarded_redistrib :
   match g_redist with
   | Redists rs ->
     Format.pp_print_list (print_redistrib_with_dest infos) fmt rs
-  | Guardeds gs ->
-    Format.pp_print_list (fun fmt (g, r)->
-        Format.fprintf fmt "@[<v 2>%a (@,%a)@]"
-          (print_guard infos) g (print_guarded_redistrib infos) r)
+  | Branches { befores; afters } ->
+    Format.pp_print_list (fun fmt (c, r)->
+        Format.fprintf fmt "@[<v 2>avant %a (@,%a)@]"
+          (print_event_expr infos) c (print_guarded_redistrib infos) r)
+      fmt befores;
+    Format.pp_print_list (fun fmt (c, r)->
+        Format.fprintf fmt "@[<v 2>apres %a (@,%a)@]"
+          (print_event_expr infos) c (print_guarded_redistrib infos) r)
+      fmt afters
+  | Whens gs ->
+    Format.pp_print_list (fun fmt (c, r)->
+        Format.fprintf fmt "@[<v 2>quand %a (@,%a)@]"
+          (print_event_expr infos) c (print_guarded_redistrib infos) r)
       fmt gs
 
 let print_declaration (type a) infos fmt (decl : a declaration) =
@@ -184,14 +187,14 @@ let print_declaration (type a) infos fmt (decl : a declaration) =
       print_type input.input_type
       print_input_context input.input_context
   | DHolderOperation op ->
-    Format.fprintf fmt "operation '%s' %a@,%a%a%a"
+    Format.fprintf fmt "@[<hv 2>operation '%s' %a@,%a%a%a@]"
       op.op_label
       (Format.pp_print_option print_destination) op.op_default_dest
       print_op_context op.op_context
       print_op_source op.op_source
       (print_guarded_redistrib infos) op.op_guarded_redistrib
   | DVarOperation op ->
-    Format.fprintf fmt "operation '%s' -> %a@,sur %a@;%a"
+    Format.fprintf fmt "@[<hv 2>operation '%s' -> %a@,sur %a@;%a@]"
       op.ctx_op_label
       (Format.pp_print_option (print_ctx_variable infos)) op.ctx_op_default_dest
       (print_ctx_variable infos) op.ctx_op_source
@@ -233,7 +236,7 @@ let print_declaration (type a) infos fmt (decl : a declaration) =
 let print_var_contexts infos fmt () =
   Variable.Map.iter (fun v shape ->
       Format.fprintf fmt "@[<hv 2>var %a@ %a@]@;"
-        (print_ctx_variable infos) (v, Context.any_projection)
+        (print_ctx_variable infos) (v, Context.any_projection (infos.contexts))
         (Context.print_shape infos.contexts) shape
     )
     infos.var_shapes

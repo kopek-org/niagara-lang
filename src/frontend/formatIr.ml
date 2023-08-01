@@ -115,6 +115,13 @@ let rec print_tree (infos : Ast.program_infos) fmt (t : RedistTree.tree) =
       (print_tree infos) before;
     Format.fprintf fmt "@[<hv 2>after@ %a@]@]@ done"
       (print_tree infos) after
+  | RedistTree.When cr ->
+    Format.pp_print_list
+      (fun fmt (evt, t) ->
+         Format.fprintf fmt "@[<hv 2>when %a@ @[do@ %a@]@]@ done"
+           (print_variable infos) evt
+           (print_tree infos) t)
+      fmt cr
 
 let print_trees (infos : Ast.program_infos) fmt (ts : RedistTree.t) =
   Format.fprintf fmt "@[<v>%a@]" (Format.pp_print_list (print_tree infos)) ts
