@@ -162,6 +162,7 @@ let rec print_guarded_redistrib :
         Format.fprintf fmt "@[<v 2>avant %a (@,%a)@]"
           (print_event_expr infos) c (print_guarded_redistrib infos) r)
       fmt befores;
+    Format.pp_print_break fmt 0 0;
     Format.pp_print_list (fun fmt (c, r)->
         Format.fprintf fmt "@[<v 2>apres %a (@,%a)@]"
           (print_event_expr infos) c (print_guarded_redistrib infos) r)

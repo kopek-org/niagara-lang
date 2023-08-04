@@ -15,8 +15,4 @@ let () =
   let prog = Frontend.Ast_to_ir.translate_program ctx_program in
   Frontend.FormatIr.print_program outfmt prog;
   Printf.printf "First pass OK\n%!";
-  let provs = Frontend.ConditionLifting.provenances_of_trees prog.trees in
-  Frontend.ConditionLifting.print_provenances outfmt provs;
-  let provs = Frontend.ConditionLifting.transitive_provenances prog in
-  Frontend.ConditionLifting.print_provenances outfmt provs
 

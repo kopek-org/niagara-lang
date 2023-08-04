@@ -75,6 +75,12 @@ module Acc = struct
         | Some kind ->
           { t with infos = { t.infos with inputs = Variable.Map.add dv kind t.infos.inputs }}
       in
+      let t =
+        match Variable.Map.find_opt v t.infos.actors with
+        | None -> t
+        | Some way ->
+          { t with infos = { t.infos with actors = Variable.Map.add dv way t.infos.actors }}
+      in
       t, dv
 
   let derive_ctx_variables ~mode t (v : Variable.t) (ctx : Context.Group.t) =

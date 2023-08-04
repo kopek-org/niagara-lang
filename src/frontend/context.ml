@@ -17,6 +17,7 @@ type domain_info = {
   domain_name : string;
   domain_cases : CaseSet.t;
   domain_case_offset : int;
+  domain_period : int;
 }
 
 type case_info = {
@@ -48,8 +49,8 @@ module Group = struct
   let everything_up_to n = (1 lsl (n+1)) - 1
 
   let add n g =
-    (* if n > max_val then *)
-    (*   Errors.raise_error "Added value exceeds group capacity"; *)
+    if n > max_val then
+      Errors.raise_error "Added value exceeds group capacity";
     g lor (1 lsl n)
 
   let is_empty g = g = 0
@@ -72,6 +73,17 @@ module Group = struct
       only_right = diff g2 g1;
     }
 
+  let select g (offset : int) (length : int) (period : int) =
+    let rec aux off len acc =
+      if off + len > max_val then acc else
+        let acc = add off acc in
+        if len = 0
+        then aux (off-length+period+1) (length -1) acc
+        else aux (off+1) (len-1) acc
+    in
+    let mask = aux offset (length -1) 0 in
+    inter g mask
+
 end
 
 type shape = Group.t list
@@ -81,7 +93,7 @@ let empty_world = {
   cases = CaseMap.empty;
   domain_table = StrMap.empty;
   case_table = StrMap.empty;
-  size = 0;
+  size = 1;
 }
 
 let empty_shape = []
@@ -215,7 +227,7 @@ let add_domain =
       StrMap.add dom domain world.domain_table
     in
     let size =
-      let s = (max 1 world.size) * (!c - domain) in
+      let s = world.size * (!c - domain) in
        if s > Group.max_val then
          Errors.raise_error "(internal) Too many contexts for %d bits bitvector"
            Group.max_val
@@ -225,14 +237,76 @@ let add_domain =
       DomainMap.add domain
         { domain_name = dom;
           domain_cases;
-          domain_case_offset = max 1 world.size;
+          domain_case_offset = world.size;
+          domain_period = size;
         }
         world.domains
     in
     { domains; domain_table; case_table; cases; size }
 
+let dommaps_of_group world (g : Group.t) =
+  let select_case_in_group dinfos d c g =
+    let off = dinfos.domain_case_offset in
+    let period = dinfos.domain_period in
+    let start = (c - d) * off in
+    (Group.select g start off period), start
+  in
+  let doms = world.domains in
+  let rec aux (d, infos) doms g =
+    let aux g =
+      let ndoms = DomainMap.remove d doms in
+      if DomainMap.is_empty ndoms then [DomainMap.empty] else
+        aux (DomainMap.choose ndoms) ndoms g
+    in
+    let case_split =
+      CaseSet.fold (fun c acc ->
+          let cg, align = select_case_in_group infos d c g in
+          if cg = 0 then acc else
+            IntMap.update (cg lsr align) (function
+                | None -> Some (CaseSet.singleton c, cg)
+                | Some (cs, csg) -> Some (CaseSet.add c cs, csg lor cg))
+              acc)
+        infos.domain_cases IntMap.empty
+    in
+    IntMap.fold (fun _ (cs, csg) acc ->
+        let odoms = aux csg in
+        List.map (DomainMap.add d cs) odoms
+        @ acc)
+      case_split []
+  in
+  aux (DomainMap.choose doms) doms g
+
+
+let print_domain world fmt (d : domain) =
+  let dom = (DomainMap.find d world.domains).domain_name in
+  Format.fprintf fmt "%s" dom
+
+let print_case world fmt (c : case) =
+  let case = (DomainMap.find c world.cases).case_name in
+  Format.fprintf fmt "%s" case
+
+let print_cases world fmt (cs : CaseSet.t) =
+  CaseSet.iter (fun c ->
+      Format.fprintf fmt "%a," (print_case world) c)
+    cs
+
+let print_dommap world fmt (dm : CaseSet.t DomainMap.t) =
+  Format.fprintf fmt "@[<hv 1>(";
+  DomainMap.iter (fun d cs ->
+      Format.fprintf fmt "%a(%a),@,"
+        (print_domain world) d
+        (print_cases world) cs)
+    dm;
+  Format.fprintf fmt "@])"
+
 let print_group world fmt (g : Group.t) =
-  Format.fprintf fmt "-%d- %X" world.size g
+  let dommaps = dommaps_of_group world g in
+  Format.fprintf fmt "@[<hv>%X@," g;
+    Format.pp_print_list
+      (fun fmt map ->
+        Format.fprintf fmt "- %a@ " (print_dommap world) map)
+      fmt dommaps;
+    Format.fprintf fmt "@]"
 
 let print_projection world fmt (p : Group.t) =
   if is_any_projection world p then
@@ -248,9 +322,9 @@ let print_shape world fmt (s : shape) =
     Format.fprintf fmt "{nothing}"
   else begin
     Format.fprintf fmt "@[<hv 2>{ ";
-    List.iter (fun group ->
-        Format.fprintf fmt "%a;@ " (print_group world) group)
-      s;
+    Format.pp_print_list ~pp_sep:(fun fmt () -> Format.fprintf fmt ";@ ")
+      (print_group world)
+      fmt s;
     Format.fprintf fmt "@]}"
   end
 
