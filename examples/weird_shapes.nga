@@ -1,0 +1,41 @@
+contexte X: - X1 - X2
+contexte Y: - Y1 - Y2 - Y3
+
+entree assiette a
+entree assiette k
+acteur g
+
+operation 'ab' vers assiette b
+pour Y(Y1,Y2)
+sur assiette a
+quotepart 100%
+
+operation 'ac' vers assiette c
+pour Y(Y2,Y3)
+sur assiette a
+quotepart 100%
+
+operation 'bg' vers g
+pour X(X1)
+pour Y(Y1,Y2)
+sur assiette b
+quotepart 100%
+
+operation 'cg1' vers g
+pour Y(Y3)
+sur assiette c
+quotepart 100%
+
+operation 'cg2' vers g
+pour X(X2)
+pour Y(Y2)
+sur assiette c
+quotepart 100%
+
+operation 'kg1' vers g
+pour X(X1)
+pour Y(Y1)
+sur assiette k
+quotepart 100%
+
+defaut sur assiette k vers g
