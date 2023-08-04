@@ -262,7 +262,7 @@ module Acc = struct
             | [] -> Context.shape_of_everything t.contexts
             | s::ss -> List.fold_left Context.shape_clip s ss
           in
-          let clipped_shape = Context.shape_project shape_from_vars uclip in
+          let clipped_shape = Context.shape_cut_out shape_from_vars uclip in
           let shape_with_projs =
             Context.Group.Set.fold (fun p s -> Context.shape_imprint_projection s p)
             projections clipped_shape
