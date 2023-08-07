@@ -293,7 +293,6 @@ let rec reduce_formula (f : formula) =
       | Literal _, Literal _ -> assert false
       | _ -> f
     end
-  | Binop ((IEq|REq|MEq|DEq|DrEq), _, _) -> f
 
 let translate_literal (l : Ast.literal) =
   match l with
@@ -344,19 +343,6 @@ let translate_binop (op : Ast.binop)
   | Div, TDuration, TRational -> Binop (DrDiv, f1, f2), ValueType.TDuration
   | _ -> Errors.raise_error "Mismatching types for binop"
 
-let translate_comp (comp : Ast.comp)
-    (f1, t1 : formula * ValueType.t)
-    (f2, t2 : formula * ValueType.t) =
-  match comp, t1, t2 with
-  | Eq, TInteger, TInteger -> Binop (IEq, f1, f2), ValueType.TEvent
-  | Eq, TInteger, TRational -> Binop (REq, RCast f1, f2), ValueType.TEvent
-  | Eq, TRational, TInteger -> Binop (REq, f1, RCast f2), ValueType.TEvent
-  | Eq, TRational, TRational -> Binop (REq, f1, f2), ValueType.TEvent
-  | Eq, TMoney, TMoney -> Binop (MEq, f1, f2), ValueType.TEvent
-  | Eq, TDate, TDate -> Binop (DEq, f1, f2), ValueType.TEvent
-  | Eq, TDuration, TDuration -> Binop (DrEq, f1, f2), ValueType.TEvent
-  | _ -> Errors.raise_error "Mismatching types for comp"
-
 let aggregate_vars ~view (typ : ValueType.t) (vars : Variable.t list) =
   let op =
     match typ with
@@ -400,10 +386,6 @@ let rec translate_formula ~(ctx : Context.Group.t) acc ~(view : flow_view)
     let acc, f1 = translate_formula ~ctx acc ~view f1 in
     let acc, f2 = translate_formula ~ctx acc ~view f2 in
     acc, (translate_binop op f1 f2)
-  | Comp (comp, f1, f2) ->
-    let acc, f1 = translate_formula ~ctx acc ~view f1 in
-    let acc, f2 = translate_formula ~ctx acc ~view f2 in
-    acc, (translate_comp comp f1 f2)
   | Instant f -> translate_formula ~ctx acc ~view:AtInstant f
   | Total f -> translate_formula ~ctx acc ~view:Cumulated f
 
@@ -424,6 +406,9 @@ let translate_redist ~(ctx : Context.Group.t) acc ~(dest : Ast.contextualized_va
     let acc, f = translate_formula ~ctx acc ~view:AtInstant f in
     acc, RedistTree.flat dest f
 
+let translate_comp (comp : Ast.comp) =
+  match comp with Eq -> Eq
+
 let rec translate_event acc (event : Ast.contextualized Ast.event_expr) =
   match event with
   | EventVar v -> acc, EvtVar v
@@ -435,16 +420,14 @@ let rec translate_event acc (event : Ast.contextualized Ast.event_expr) =
     let acc, e1 = translate_event acc e1 in
     let acc, e2 = translate_event acc e2 in
     acc, EvtOr(e1,e2)
-  | EventFormula f ->
-    let acc, (f, t) =
-      translate_formula ~ctx:(Context.any_projection (Acc.contexts acc))
-        acc ~view:Cumulated f
-    in
-    match (t : ValueType.t) with
-    | TEvent -> acc, EvtCond f
-    | TDate -> acc, EvtDate f
-    | TInteger | TRational
-    | TMoney | TDuration -> Errors.raise_error "Formula is not an event"
+  | EventComp (comp, f1, f2) ->
+    let ctx = Context.any_projection (Acc.contexts acc) in
+    let acc, (f1, t1) = translate_formula ~ctx acc ~view:Cumulated f1 in
+    let acc, (f2, t2) = translate_formula ~ctx acc ~view:Cumulated f2 in
+    let c = translate_comp comp in
+    if t1 <> t2 then
+      Errors.raise_error "Mismatched type for comparison";
+    acc, EvtComp (c, f1, f2)
 
 let lift_event acc (event : Ast.contextualized Ast.event_expr) =
   let acc, evt = translate_event acc event in

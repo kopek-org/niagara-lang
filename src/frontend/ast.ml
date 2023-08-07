@@ -42,7 +42,6 @@ type _ formula =
   | Named : named -> source formula
   | Variable : contextualized_variable -> contextualized formula
   | Binop : binop * 'a formula * 'a formula -> 'a formula
-  | Comp : comp * 'a formula * 'a formula -> 'a formula
   | Total : 'a formula -> 'a formula
   | Instant : 'a formula -> 'a formula
 
@@ -66,7 +65,7 @@ type _ redistrib_with_dest =
 type _ event_expr =
   | EventId : string -> source event_expr
   | EventVar : Variable.t -> contextualized event_expr
-  | EventFormula : 'a formula -> 'a event_expr
+  | EventComp : comp * 'a formula * 'a formula -> 'a event_expr
   | EventConj : 'a event_expr * 'a event_expr -> 'a event_expr
   | EventDisj : 'a event_expr * 'a event_expr -> 'a event_expr
 

@@ -109,10 +109,6 @@ let rec print_formula : type a. program_infos -> Format.formatter -> a formula -
       Format.fprintf fmt "@[<hov 2>(%a@ %s %a)@]"
         (print_formula infos) f1 op
         (print_formula infos) f2
-  | Comp (Eq, f1, f2) ->
-    Format.fprintf fmt "@[<hov 2>(%a@ %s %a)@]"
-      (print_formula infos) f1 "="
-      (print_formula infos) f2
   | Total f -> Format.fprintf fmt "(%a) total" (print_formula infos) f
   | Instant f -> Format.fprintf fmt "(%a) courant" (print_formula infos) f
 
@@ -121,7 +117,10 @@ let rec print_event_expr : type a. program_infos -> Format.formatter -> a event_
   match e with
   | EventId id -> Format.fprintf fmt "evenement %s" id
   | EventVar v -> Format.fprintf fmt "evenement %a" (print_variable infos) v
-  | EventFormula f -> print_formula infos fmt f
+  | EventComp (Eq, f1, f2) ->
+    Format.fprintf fmt "@[<hov 2>(%a@ %s %a)@]"
+      (print_formula infos) f1 "="
+      (print_formula infos) f2
   | EventConj (e1, e2) ->
     Format.fprintf fmt "@[<hov>(%a@ et %a)@]"
       (print_event_expr infos) e1

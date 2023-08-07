@@ -16,7 +16,6 @@ open Ast
 %nonassoc LIDENT
 %nonassoc LPAR
 
-%nonassoc EQ
 %left PLUS MINUS OU
 %left MULT DIV ET
 %nonassoc TOTAL COURANT
@@ -92,7 +91,6 @@ formula:
 | l = literal { Literal l }
 | n = named { Named n }
 | f1 = formula op = binop f2 = formula { Binop(op, f1, f2) }
-| f1 = formula op = comp f2 = formula { Comp(op, f1, f2) }
 | f = formula COURANT { Instant f }
 | f = formula TOTAL { Total f }
 | LPAR f = formula RPAR { f }
@@ -217,7 +215,7 @@ event_decl:
 
 event_expr:
 | EVENEMENT id = LIDENT { EventId id }
-| f = formula { EventFormula f }
+| f1 = formula c = comp f2 = formula { EventComp(c, f1, f2) }
 | e1 = event_expr ET e2 = event_expr { EventConj(e1, e2) }
 | e1 = event_expr OU e2 = event_expr { EventDisj(e1, e2) }
 

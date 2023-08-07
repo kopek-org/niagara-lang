@@ -27,11 +27,6 @@ type binop =
   | RDiv
   | MDiv
   | DrDiv
-  | IEq
-  | REq
-  | MEq
-  | DEq
-  | DrEq
 
 type flow_view =
   | AtInstant
@@ -43,11 +38,13 @@ type formula =
   | Binop of binop * formula * formula
   | RCast of formula
 
+type comp = Eq
+
 type event =
   | EvtVar of Variable.t
   | EvtAnd of event * event
   | EvtOr of event * event
-  | EvtCond of formula
+  | EvtComp of comp * formula * formula
   | EvtDate of formula
 
 module RedistTree = struct

@@ -407,10 +407,6 @@ let rec formula acc (f : source formula) ~(on_proj : Context.Group.t) =
     let acc, f1 = formula acc f1 ~on_proj in
     let acc, f2 = formula acc f2 ~on_proj in
     acc, Binop (op, f1, f2)
-  | Comp (op, f1, f2) ->
-    let acc, f1 = formula acc f1 ~on_proj in
-    let acc, f2 = formula acc f2 ~on_proj in
-    acc, Comp (op, f1, f2)
   | Total f ->
     let acc, f = formula acc f ~on_proj in
     acc, Total f
@@ -423,9 +419,10 @@ let rec event_expr acc (e : source event_expr) ~(on_proj : Context.Group.t) =
   | EventId name ->
     let v = Acc.find_event acc name in
     acc, EventVar v
-  | EventFormula f ->
-    let acc, f = formula acc f ~on_proj in
-    acc, EventFormula f
+  | EventComp (op, f1, f2) ->
+    let acc, f1 = formula acc f1 ~on_proj in
+    let acc, f2 = formula acc f2 ~on_proj in
+    acc, EventComp (op, f1, f2)
   | EventConj (e1, e2) ->
     let acc, e1 = event_expr acc e1 ~on_proj in
     let acc, e2 = event_expr acc e2 ~on_proj in

@@ -46,11 +46,6 @@ let print_binop fmt (op : binop) =
     | RDiv -> "/r"
     | MDiv -> "/m"
     | DrDiv -> "/dr"
-    | IEq -> "=i"
-    | REq -> "=r"
-    | MEq -> "=m"
-    | DEq -> "=d"
-    | DrEq -> "=dr"
   in
   Format.pp_print_string fmt op
 
@@ -81,7 +76,10 @@ let rec print_event (infos : Ast.program_infos) fmt (ev : event) =
     Format.fprintf fmt "@[<hv 2>(%a@ || %a)@]"
       (print_event infos) ev1
       (print_event infos) ev2
-  | EvtCond f
+  | EvtComp (Eq, f1, f2) ->
+    Format.fprintf fmt "@[<hv 2>(%a@ = %a)@]"
+      (print_formula infos) f1
+      (print_formula infos) f2
   | EvtDate f -> print_formula infos fmt f
 
 let print_redist (infos : Ast.program_infos) fmt (r : RedistTree.redist) =
