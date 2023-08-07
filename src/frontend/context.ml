@@ -274,7 +274,8 @@ let dommaps_of_group world (g : Group.t) =
         @ acc)
       case_split []
   in
-  aux (DomainMap.choose doms) doms g
+  if DomainMap.is_empty doms then [] else
+    aux (DomainMap.choose doms) doms g
 
 
 let print_domain world fmt (d : domain) =
