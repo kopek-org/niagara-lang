@@ -1,0 +1,177 @@
+### INPUTS ###
+
+1: frais_edition_distibuteur_du_desert += 10000$
+2: recette_brute_distibuteur(Salle, France, Non_commercial) += 6000$
+3: recette_brute_distibuteur(Salle, France, Commercial) += 20000$
+4: recette_brute_distibuteur(Video, France, Commercial) += 80000$
+5: entree_salle_France += 150000
+6: ventes_tvsvod(TV, SVOD, France, Commercial) += 10000$
+7: frais_edition_vendeur_scorpion += 12000$
+8: recette_brute_vendeur(tout Support, Etranger, Commercial) += 44916.67$
+9: frais_edition_distibuteur_du_desert += 10000$
+10: recette_brute_distibuteur(Salle, France, Commercial) += 10000$
+
+
+### OUTPUTS ###
+
+1: - frais_edition_distributeur_du_desert : { 10000$, 10000$ }
+
+   ++ switch before event recuperation_frais_edition_distributeur :
+   - [nothing to attribute]
+
+2: - recette_brute_distibuteur(Salle, France, Non_commercial) : { 6000$, 6000$ }
+     3000$ -> distributeur_du_desert$commission_cinema_non_commerciale
+     3000$ -> recette_nette_commission_distributeur(Salle, Video, France, Non_commercial)
+   - recette_nette_commission_distributeur(Salle, Video, France, Non_commercial)
+       : { 3000$, 3000$ }
+     3000$ -> distributeur_du_desert$frais_edition
+   - distributeur_du_desert : { 6000$, 6000$ }
+     $ commission_cinema_non_commerciale : { 3000$, 3000$ }
+     $ frais_edition : { 3000$, 3000$ }
+
+3: - recette_brute_distibuteur(Salle, France, Commercial) : { 10000$, 10000$ }
+     3000$ -> distributeur_du_desert$commission_cinema
+     7000$ -> recette_nette_commission_distributeur(Salle, Video, France, Commercial)
+   - recette_nette_commission_distributeur(Salle, Video, France, Commercial)
+       : { 7000$, 7000$ }
+     7000$ -> distributeur_du_desert$frais_edition
+   - distributeur_du_desert : { 10000$, 16000$ }
+     $ commission_cinema : { 3000$, 3000$ }
+     $ frais_edition : { 7000$, 10000$ }
+
+   ++ switch after event recuperation_frais_edition_distributeur :
+   - recette_brute_distibuteur(Salle, France, Commercial) : { 10000$, 20000$ }
+     3000$ -> distributeur_du_desert$commission_cinema
+     7000$ -> recette_nette_commission_distributeur(Salle, Video, France, Commercial)
+   - recette_nette_commission_distributeur(Salle, Video, France, Commercial)
+       : { 7000$, 14000$ }
+     7000$ -> recette_nette_part_producteur(salle, Video, France, Commercial)
+   - recette_nette_part_producteur(salle, Video, France, Commercial) : { 7000$, 7000$ }
+     5600$ -> distributeur_du_desert$minimum_garanti
+     1400$ -> barbie$interessement
+   - distributeur_du_desert : { 8600$, 24600$ }
+     $ commission_cinema : { 3000$, 6000$ }
+     $ minimum_garanti : { 5600$, 5600$ }
+   - barbie : { 1400$, 1400$ }
+     $ interessement : { 1400$, 1400$ }
+
+4: - recette_brute_distibuteur(Video, France, Commercial) : { 74000$, 74000$ }
+     18500$ -> distributeur_du_desert$commission_video
+     55500$ -> recette_nette_commission_distributeur(Salle, Video, France, Commercial)
+   - recette_nette_commission_distributeur(Salle, Video, France, Commercial)
+       : { 55500$, 69500$ }
+     55500$ -> recette_nette_part_producteur(Salle, Video, France, Commercial)
+   - recette_nette_part_producteur(Salle, Video, France, Commercial) : { 55500$, 62500$ }
+     44400$ -> distributeur_du_desert$minimum_garanti
+     11100$ -> les_production_du_chameau$rnpp_france_residuelle
+   - les_production_du_chameau : { 11100$, 11100$ }
+     $ rnpp_france_residuelle : { 11100$, 11100$ }
+   - distributeur_du_desert : { 62900$, 87500$ }
+     $ minimum_garanti : { 44400$, 50000$ }
+     $ commission_video : { 18500$, 18500$ }
+
+   ++ switch after event recuperation_minimum_garanti :
+   - recette_brute_distibuteur(Video, France, Commercial) : { 6000$, 80000$ }
+     1500$ -> distributeur_du_desert$commission_video
+     4500$ -> recette_nette_commission_distributeur(Salle, Video, France, Commercial)
+   - recette_nette_commission_distributeur(Salle, Video, France, Commercial)
+       : { 4500$, 74000$ }
+     4500$ -> recette_nette_part_producteur(Salle, Video, France, Commercial)
+   - recette_nette_part_producteur(Salle, Video, France, Commercial) : { 4500$, 67000$ }
+     450$ -> dromadaire_film$france
+     900$ -> barbie$interessement
+     3150$ -> les_production_du_chameau$rnpp_france_residuelle
+   - distributeur_du_desert : { 1500$, 89000$ }
+     $ commission_video : { 1500$, 2000$ }
+   - les_production_du_chameau : { 3150$, 14250$ }
+     $ rnpp_france_residuelle : { 3150$, 14250$ }
+   - dromadaire_film : { 450$, 450$ }
+     $ france : { 450$, 450$ }
+   - barbie : { 900$, 2300$ }
+     $ interessement : { 900$, 2300$ }
+
+5: - entree_salle_France : { 100000, 100000 }
+
+   ++ switch after event seuil_100000_entrees
+   - entree_salles_France : { 50000, 150000 }
+   - les_productions_du_chameau : as provider
+     10000$ -> barbie$bonus_nombre_entrees
+   - barbie : { 10000$, 12300$ }
+     $ bonus_nombre_entrees : { 10000$, 10000$ }
+
+6: - ventes_tvsvod(TV, SVOD, France, Commercial) : { 10000$, 10000$ }
+     2000$ -> les_productions_du_chameau$commission
+     8000$ -> recette_nette_part_producteur(TV, SVOD, France, Commercial)
+   - recette_nette_part_producteur(TV, SVOD, France, Commercial) : { 8000$, 8000$ }
+     3200$ -> dromadaire_film$tv_svod
+     1600$ -> barbie$interessement
+     3200$ -> les_productions_du_chameau$rnpp_france_residuelle
+   - les_productions_du_chameau : { 3200$, 17450$ }
+     $ rnpp_france_residuelle : { 3200$, 17450$ }
+   - barbie : { 1600$, 13900$ }
+     $ interessement : { 1600$, 3900$ }
+   - dromadaire_film : { 3200$, 3650$ }
+     $ tv_svod : { 3200$, 3200$ }
+   - les_productions_du_chameau : { 2000$, 16250$ }
+     $ commission : { 2000$, 2000$ }
+
+7: - frais_edition_vendeur_scorpion : { 12000$, 12000$ }
+
+   ++ switch before event recuperation_frais_edition_scorpion :
+   - [nothing to attribute]
+
+8: - recette_brute_vendeur(tout Support, Etranger, Commercial) : { 16000$, 16000$ }
+     4000$ -> vendeur_scorpion$commission_vendeur
+     12000$ -> recette_nette_commission_vendeur(tout Support, Etranger, Commercial)
+   - recette_nette_commission_vendeur(tout Support, Etranger, Commercial)
+       : { 12000$, 12000$ }
+     12000$ -> vendeur_scorpion$frais_edition_vendeur_scorpion
+   - vendeur_scorpion : { 12000$, 12000$ }
+     $ frais_edition_vendeur_scorpion : { 12000$; 12000$ }
+
+   ++ switch after recuperation_frais_edition_scorpion
+   - recette_brute_vendeur(tout Support, Etranger, Commercial) : { 22916.67$, 38916.67$ }
+     5729.17$ -> vendeur_scorpion$commission_vendeur
+     17187.50$ -> recette_nette_commission_vendeur(tout Support, Etranger, Commercial)
+   - recette_nette_commission_vendeur(tout Support, Etranger, Commercial)
+       : { 17187.50$, 29187.50$ }
+     17187.50$ -> recette_nette_part_producteur(tout Support, Etranger, Commercial)
+   - recette_nette_part_producteur(tout Support, Etranger, Commercial)
+       : { 17187.50$, 17187.50$ }
+     13750$ -> les_productions_du_chameau$rnpp_residuelle_etranger
+     3437.50$ -> barbie$interessement
+   - les_productions_du_chameau : { 13750$, 30000$ }
+     $ rnpp_residuelle_etranger : { 13750$, 13750$ }
+   - barbie : { 3437.50$, 17337.50$ }
+     $ interessement : { 3437.50$, 7337.50$ }
+
+   ++ switch after recup_risque_prod :
+   - recette_brute_vendeur(tout Support, Etranger, Commercial) : { 10000$, 48916.67$ }
+     1500$ -> vendeur_scorpion$commission_vendeur
+     8500$ -> recette_nette_commission_vendeur(tout Support, Etranger, Commercial)
+   - recette_nette_commission_vendeur(tout Support, Etranger, Commercial)
+       : { 8500$, 37687.50$ }
+     8500$ -> recette_nette_part_producteur(tout Support, Etranger, Commercial)
+   - recette_nette_part_producteur(tout Support, Etranger, Commercial)
+       : { 8500$, 25687.50$ }
+     5100$ -> les_productions_du_chameau$rnpp_residuelle_etranger
+     1700$ -> dromadaire_film$etranger
+     1700$ -> barbie$interessement
+   - les_productions_du_chameau : { 5100$, 35100$ }
+     $ rnpp_residuelle_etranger : { 5100$, 18850$ }
+   - barbie : { 1700$, 19037.50$ }
+     $ interessement : { 1700$, 9037.50$ }
+
+9: - frais_edition_distributeur_du_desert : { 10000$, 20000$ }
+
+   ++ switch before event recuperation_frais_edition_distributeur :
+   - [nothing to attribute]
+
+10: - recette_brute_distibuteur(Salle, France, Commercial) : { 10000$, 30000$ }
+      2000$ -> distributeur_du_dessert
+      8000$ -> recette_nette_commission_distributeur(Salle, Video, France, Commercial)
+    - recette_nette_commission_distributeur(Salle, Video, France, Commercial)
+        : { 8000$, 82000$ }
+      8000$ -> distributeur_du_desert$frais_edition
+    - distributeur_du_desert : { 10000$, 99000$ }
+      $ frais_edition : { 8000$, 18000$ }
