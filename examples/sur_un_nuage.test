@@ -126,7 +126,8 @@
    - recette_nette_commission_vendeur(tout Support, Etranger, Commercial)
        : { 12000$, 12000$ }
      12000$ -> vendeur_scorpion$frais_edition_vendeur_scorpion
-   - vendeur_scorpion : { 12000$, 12000$ }
+   - vendeur_scorpion : { 16000$, 16000$ }
+     $ commission_vendeur : { 4000$, 4000$ }
      $ frais_edition_vendeur_scorpion : { 12000$; 12000$ }
 
    ++ switch after recuperation_frais_edition_scorpion
@@ -140,6 +141,8 @@
        : { 17187.50$, 17187.50$ }
      13750$ -> les_productions_du_chameau$rnpp_residuelle_etranger
      3437.50$ -> barbie$interessement
+   - vendeur_scorpion : { 5729.17$, 21729.17$ }
+     $ commission_vendeur : { 5729.17$, 9729.17$ }
    - les_productions_du_chameau : { 13750$, 30000$ }
      $ rnpp_residuelle_etranger : { 13750$, 13750$ }
    - barbie : { 3437.50$, 17337.50$ }
@@ -157,8 +160,12 @@
      5100$ -> les_productions_du_chameau$rnpp_residuelle_etranger
      1700$ -> dromadaire_film$etranger
      1700$ -> barbie$interessement
+   - vendeur_scorpion : { 1500$, 23229.17$ }
+     $ commission_vendeur : { 1500$, 11229.17$ }
    - les_productions_du_chameau : { 5100$, 35100$ }
      $ rnpp_residuelle_etranger : { 5100$, 18850$ }
+   - dromadaire_film : { 1700$, 5350$ }
+     $ etranger : { 1700$, 1700$ }
    - barbie : { 1700$, 19037.50$ }
      $ interessement : { 1700$, 9037.50$ }
 
