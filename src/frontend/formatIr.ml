@@ -7,7 +7,7 @@ let print_variable (infos : Ast.program_infos) fmt (v : Variable.t) =
     | Some s -> s
     | None -> Context.empty_shape
   in
-  Format.fprintf fmt "%s/%d%a"
+  Format.fprintf fmt "@[<hv 2>%s/%d@,%a@]"
     var_name v
     (Context.print_shape infos.contexts) shape
 
@@ -46,11 +46,6 @@ let print_binop fmt (op : binop) =
     | RDiv -> "/r"
     | MDiv -> "/m"
     | DrDiv -> "/dr"
-    | IEq -> "=i"
-    | REq -> "=r"
-    | MEq -> "=m"
-    | DEq -> "=d"
-    | DrEq -> "=dr"
   in
   Format.pp_print_string fmt op
 
@@ -81,7 +76,10 @@ let rec print_event (infos : Ast.program_infos) fmt (ev : event) =
     Format.fprintf fmt "@[<hv 2>(%a@ || %a)@]"
       (print_event infos) ev1
       (print_event infos) ev2
-  | EvtCond f
+  | EvtComp (Eq, f1, f2) ->
+    Format.fprintf fmt "@[<hv 2>(%a@ = %a)@]"
+      (print_formula infos) f1
+      (print_formula infos) f2
   | EvtDate f -> print_formula infos fmt f
 
 let print_redist (infos : Ast.program_infos) fmt (r : RedistTree.redist) =
@@ -91,7 +89,10 @@ let print_redist (infos : Ast.program_infos) fmt (r : RedistTree.redist) =
     Format.fprintf fmt "@[<hv>";
     Variable.Map.iter (fun v s ->
         Format.fprintf fmt "%.2f%% -> %a@ " (s*.100.) (print_variable infos) v)
-      sh;
+      sh.expressed;
+    Format.pp_print_option
+      (fun fmt -> Format.fprintf fmt "default -> %a" (print_variable infos))
+      fmt sh.remainder;
     Format.fprintf fmt "@]"
   | RedistTree.Flats fs ->
     Format.fprintf fmt "@[<hv 2>";
@@ -105,13 +106,23 @@ let print_redist (infos : Ast.program_infos) fmt (r : RedistTree.redist) =
 let rec print_tree (infos : Ast.program_infos) fmt (t : RedistTree.tree) =
   match t with
   | RedistTree.Redist r -> (print_redist infos) fmt r
-  | RedistTree.Branch (cv, tb, ta) ->
+  | RedistTree.Branch {evt; before; after} ->
     Format.fprintf fmt "@[<hv 2>branch on %a@ "
-      (print_variable infos) cv;
+      (print_variable infos) evt;
     Format.fprintf fmt "@[<hv 2>before@ %a@]@ "
-      (print_tree infos) tb;
+      (print_tree infos) before;
     Format.fprintf fmt "@[<hv 2>after@ %a@]@]@ done"
-      (print_tree infos) ta
+      (print_tree infos) after
+  | RedistTree.When cr ->
+    Format.pp_print_list
+      (fun fmt (evt, t) ->
+         Format.fprintf fmt "@[<hv 2>when %a@ @[do@ %a@]@]@ done"
+           (print_variable infos) evt
+           (print_tree infos) t)
+      fmt cr
+
+let print_trees (infos : Ast.program_infos) fmt (ts : RedistTree.t) =
+  Format.fprintf fmt "@[<v>%a@]" (Format.pp_print_list (print_tree infos)) ts
 
 let print_program fmt (p : program) =
   Format.fprintf fmt "@[<v 2>Events:@,";
@@ -124,6 +135,6 @@ let print_program fmt (p : program) =
   Variable.Map.iter (fun v t ->
       Format.fprintf fmt "@[<hv 2>%a:@ %a@]@,"
         (print_variable p.infos) v
-        (print_tree p.infos) t)
+        (print_trees p.infos) t)
     p.trees;
   Format.fprintf fmt "@."

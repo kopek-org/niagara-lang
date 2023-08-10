@@ -1,0 +1,189 @@
+# Titre du film : Sur un nuage
+# Réalisateur : Jean-Sébastien OCAML
+# Date de sortie : 2023/03/14
+
+# LES CONTEXTES
+
+contexte Support :
+- Salle
+- TV
+- Video
+- SVOD
+
+contexte Territoire :
+- France
+- Etranger
+
+contexte Secteur :
+- Commercial
+- Non_commercial
+
+# Les ACTEURS
+
+acteur les_productions_du_chameau #prod
+acteur distributeur_du_desert
+acteur vendeur_scorpion
+acteur dromadaire_film  #coproducteur
+acteur barbie   #talent
+
+# LES ENTREES
+#contextes attendus : rbd (France + Salle et Video + Commercial sur la salle) / vente_tvsvod (France + groupe TVSVOD) / rbv(Etranger)
+entree assiette recette_brute_distributeur
+entree assiette vente_tvsvod
+entree assiette recette_brute_vendeur
+
+entree frais_edition_distributeur_du_desert type argent
+entree frais_edition_vendeur_scorpion type argent
+entree entree_salle_France type entier
+
+# LES CONSTANTES
+constante minimum_garanti_distributeur_du_desert : 50000$
+constante risque_prod : 30000$
+
+# CONTRAT DISTRIBUTEUR DU DESERT
+# le distributeur prend une commission sur la salle (variable en fonction du nombre d'entrées); et sur la vidéo et ça se déverse dans l'assiette recette_nette_commission_distributeur
+# puis il récupert ses frais d'édition sur cette assiette recette_nette_commission_distributeur
+# puis tout se déverse dans l'assiette recette_nette_part_producteur
+# puis il récupert son minimum garanti (50000$) sur 80% de cette assiette recette_nette_part_producteur
+
+evenement seuil_100000_entrees
+atteint quand entree_salle_France total = 100000
+
+evenement recuperation_frais_edition_distributeur
+atteint quand distributeur_du_desert[frais_edition] = frais_edition_distributeur_du_desert
+
+evenement recuperation_minimum_garanti
+atteint quand distributeur_du_desert[minimum_garanti] = minimum_garanti_distributeur_du_desert
+
+operation 'commission salle vers distributeur'
+pour Territoire(France)
+pour Support(Salle)
+pour Secteur(Commercial)
+sur assiette recette_brute_distributeur
+avant evenement seuil_100000_entrees
+quotepart 30% vers distributeur_du_desert[commission_cinema]
+quotepart 70% vers assiette recette_nette_commission_distributeur
+apres evenement seuil_100000_entrees
+quotepart 20% vers distributeur_du_desert
+quotepart 80% vers assiette recette_nette_commission_distributeur
+
+operation 'commission non commercial vers distributeur'
+pour Territoire(France)
+pour Support(Salle)
+pour Secteur(Non_commercial)
+sur assiette recette_brute_distributeur
+quotepart 50% vers distributeur_du_desert[commission_cinema_non_commerciale]
+quotepart 50% vers assiette recette_nette_commission_distributeur
+
+operation 'commission video vers distributeur'
+pour Territoire(France)
+pour Support(Video)
+sur assiette recette_brute_distributeur
+quotepart 25% vers distributeur_du_desert[commission_video]
+quotepart 75% vers assiette recette_nette_commission_distributeur
+
+operation 'recuperation frais edition vers distributeur'
+pour Territoire(France)
+pour Support(Salle, Video)
+sur assiette recette_nette_commission_distributeur
+avant evenement recuperation_frais_edition_distributeur
+quotepart 100% vers distributeur_du_desert[frais_edition]
+apres evenement recuperation_frais_edition_distributeur
+quotepart 100% vers assiette recette_nette_part_producteur
+
+operation 'recuperation minimum garanti distributeur'
+pour Territoire(France)
+pour Support(Salle, Video)
+sur assiette recette_nette_part_producteur
+avant evenement recuperation_minimum_garanti
+quotepart 80% vers distributeur_du_desert[minimum_garanti]
+
+#ce qui reste dans la rnpp va pour le producteur
+defaut sur assiette recette_nette_part_producteur(France) vers les_productions_du_chameau[rnpp_france_residuelle]
+
+# CONTRAT VENDEUR SCORPION
+# le vendeur prend une commission sur tous les supports (commission variable en fonction de la récuperation des frais d'éditions) puis verse le reste dans l'assiette recette_nette_commission_vendeur
+# puis il récupert ses frais d'édition sur cette assiette recette_nette_commission_vendeur
+# puis tout se déverse dans l'assiette recette_nette_part_producteur
+
+evenement recuperation_frais_edition_scorpion
+atteint quand vendeur_scorpion[frais_edition_vendeur_scorpion] = frais_edition_vendeur_scorpion
+
+operation 'commission vers vendeur'
+pour Territoire(Etranger)
+pour tout Support
+sur assiette recette_brute_vendeur
+avant evenement recuperation_frais_edition_scorpion
+quotepart 25% vers vendeur_scorpion[commission_vendeur]
+quotepart 75% vers assiette recette_nette_commission_vendeur
+apres evenement recuperation_frais_edition_scorpion
+quotepart 15% vers vendeur_scorpion[commission_vendeur]
+quotepart 85% vers assiette recette_nette_commission_vendeur
+
+operation 'recuperation frais d éditions vers vendeur'
+pour Territoire(Etranger)
+sur assiette recette_nette_commission_vendeur
+avant evenement recuperation_frais_edition_scorpion
+quotepart 100% vers vendeur_scorpion[frais_edition_vendeur_scorpion]
+apres evenement recuperation_frais_edition_scorpion
+quotepart 100% vers assiette recette_nette_part_producteur
+
+#ce qui reste dans la rnpp va pour le producteur
+defaut sur assiette recette_nette_part_producteur(Etranger) vers les_productions_du_chameau[rnpp_residuelle_etranger]
+
+# CONTRAT LES PRODUCTIONS DU CHAMEAU
+# le producteur prend une commission sur les ventes TV ou SVOD
+# ce qui reste va dans l'assiette recette_nette_part_producteur
+
+operation 'commission sur vente tv vers production'
+pour Support(TV,SVOD)
+pour Territoire(France)
+sur assiette vente_tvsvod
+quotepart 20% vers les_productions_du_chameau[commission]
+quotepart 80% vers assiette recette_nette_part_producteur
+
+
+# CONTRAT BARBIE
+# barbie prend 20% de toutes les recette_nette_part_producteur
+
+operation 'interessement sur les recettes du film'
+pour tout Support
+pour tout Territoire
+pour Secteur(Commercial)
+sur assiette recette_nette_part_producteur
+quotepart 20% vers barbie[interessement]
+
+#barbie prend un bonus de 10000€ à 100000 entrees
+#ce bonus est donné par le producteur
+
+operation 'bonus sur le nombre d entrees'
+par les_productions_du_chameau
+quand evenement seuil_100000_entrees
+bonus 10000$ vers barbie[bonus_nombre_entrees]
+
+# CONTRAT COPRO DROMADAIRE
+# le coproducteur a 10% de la rnpp France une fois que le distributeur a récupéré son minimum garanti.
+# le coproducteur a 40 % de la recette_nette_part_producteur TV SVOD
+# le coproducteur a 20% de l'étranger une fois que le producteur a récupéré un risque de 30000$
+
+evenement recup_risque_prod
+atteint quand les_productions_du_chameau = risque_prod
+
+operation 'part copro sur france'
+pour Territoire(France)
+pour Support(Salle, Video)
+sur assiette recette_nette_part_producteur
+apres evenement recuperation_minimum_garanti
+quotepart 10% vers dromadaire_film[france]
+
+operation 'part copro sur tv '
+pour Territoire(France)
+pour Support(TV, SVOD)
+sur assiette recette_nette_part_producteur
+quotepart 40% vers dromadaire_film[tv_svod]
+
+operation 'part copro sur etranger'
+pour Territoire(Etranger)
+sur assiette recette_nette_part_producteur
+apres evenement recup_risque_prod
+quotepart 20% vers dromadaire_film[etranger]

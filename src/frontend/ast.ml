@@ -35,14 +35,13 @@ type named =
   | Name of string * context_refinement
   | Holder of holder
 
-type contextualized_variable = Variable.t * Context.projection
+type contextualized_variable = Variable.t * Context.Group.t
 
 type _ formula =
   | Literal of literal
   | Named : named -> source formula
   | Variable : contextualized_variable -> contextualized formula
   | Binop : binop * 'a formula * 'a formula -> 'a formula
-  | Comp : comp * 'a formula * 'a formula -> 'a formula
   | Total : 'a formula -> 'a formula
   | Instant : 'a formula -> 'a formula
 
@@ -66,19 +65,20 @@ type _ redistrib_with_dest =
 type _ event_expr =
   | EventId : string -> source event_expr
   | EventVar : Variable.t -> contextualized event_expr
-  | EventFormula : 'a formula -> 'a event_expr
+  | EventComp : comp * 'a formula * 'a formula -> 'a event_expr
   | EventConj : 'a event_expr * 'a event_expr -> 'a event_expr
   | EventDisj : 'a event_expr * 'a event_expr -> 'a event_expr
 
-type 'a guard =
-  | Before of 'a event_expr
-  | After of 'a event_expr
-  | When of 'a event_expr
+type 'a conditional_redistrib =
+  'a event_expr * 'a guarded_redistrib
 
-type 'a guarded_redistrib =
-  | Guarded of 'a guard * 'a guarded_redistrib
-  | Redist of 'a redistrib_with_dest
-  | Seq of 'a guarded_redistrib list
+and 'a guarded_redistrib =
+  | Whens of 'a conditional_redistrib list
+  | Branches of {
+      befores : 'a conditional_redistrib list;
+      afters : 'a conditional_redistrib list;
+    }
+  | Redists of 'a redistrib_with_dest list
 
 type context =
   | Forall of string

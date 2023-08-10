@@ -75,7 +75,7 @@ let print_variable infos fmt (v : Variable.t) =
   Format.fprintf fmt "%s/%d" vinfos.var_name v
 
 let print_ctx_variable infos fmt ((v, proj) : contextualized_variable) =
-  Format.fprintf fmt "%a%a" (print_variable infos) v
+  Format.fprintf fmt "@[<hv 2>%a@,%a@]" (print_variable infos) v
     (Context.print_projection infos.contexts) proj
 
 let print_literal fmt (lit : literal) =
@@ -109,10 +109,6 @@ let rec print_formula : type a. program_infos -> Format.formatter -> a formula -
       Format.fprintf fmt "@[<hov 2>(%a@ %s %a)@]"
         (print_formula infos) f1 op
         (print_formula infos) f2
-  | Comp (Eq, f1, f2) ->
-    Format.fprintf fmt "@[<hov 2>(%a@ %s %a)@]"
-      (print_formula infos) f1 "="
-      (print_formula infos) f2
   | Total f -> Format.fprintf fmt "(%a) total" (print_formula infos) f
   | Instant f -> Format.fprintf fmt "(%a) courant" (print_formula infos) f
 
@@ -121,7 +117,10 @@ let rec print_event_expr : type a. program_infos -> Format.formatter -> a event_
   match e with
   | EventId id -> Format.fprintf fmt "evenement %s" id
   | EventVar v -> Format.fprintf fmt "evenement %a" (print_variable infos) v
-  | EventFormula f -> print_formula infos fmt f
+  | EventComp (Eq, f1, f2) ->
+    Format.fprintf fmt "@[<hov 2>(%a@ %s %a)@]"
+      (print_formula infos) f1 "="
+      (print_formula infos) f2
   | EventConj (e1, e2) ->
     Format.fprintf fmt "@[<hov>(%a@ et %a)@]"
       (print_event_expr infos) e1
@@ -130,12 +129,6 @@ let rec print_event_expr : type a. program_infos -> Format.formatter -> a event_
     Format.fprintf fmt "@[<hov>(%a@ ou %a)@]"
       (print_event_expr infos) e1
       (print_event_expr infos) e2
-
-let print_guard (type a) infos fmt (g : a guard) =
-  match g with
-  | Before e -> Format.fprintf fmt "avant %a" (print_event_expr infos) e
-  | After e -> Format.fprintf fmt "apres %a" (print_event_expr infos) e
-  | When e -> Format.fprintf fmt "quand %a" (print_event_expr infos) e
 
 let print_redist (type a) infos fmt (redist : a redistribution) =
   match redist with
@@ -146,22 +139,38 @@ let print_redist (type a) infos fmt (redist : a redistribution) =
       (print_formula infos) f
       print_holder p
 
+let print_redistrib_with_dest (type a) infos fmt (r : a redistrib_with_dest) =
+  match r with
+  | WithHolder (redist, dest) ->
+    Format.fprintf fmt "%a %a"
+      (print_redist infos) redist
+      (Format.pp_print_option print_destination) dest
+  | WithVar (redist, dest) ->
+    Format.fprintf fmt "%a -> %a"
+      (print_redist infos) redist
+      (Format.pp_print_option (print_ctx_variable infos)) dest
+
 let rec print_guarded_redistrib :
   type a. Ast.program_infos -> Format.formatter -> a guarded_redistrib -> unit =
   fun infos fmt g_redist ->
   match g_redist with
-  | Redist (WithHolder (redist, dest)) ->
-    Format.fprintf fmt "%a %a"
-      (print_redist infos) redist
-      (Format.pp_print_option print_destination) dest
-  | Redist (WithVar (redist, dest)) ->
-    Format.fprintf fmt "%a -> %a"
-      (print_redist infos) redist
-      (Format.pp_print_option (print_ctx_variable infos)) dest
-  | Guarded (g, r) ->
-    Format.fprintf fmt "@[<v 2>%a (@,%a)@]"
-      (print_guard infos) g (print_guarded_redistrib infos) r
-  | Seq gs -> Format.pp_print_list (print_guarded_redistrib infos) fmt gs
+  | Redists rs ->
+    Format.pp_print_list (print_redistrib_with_dest infos) fmt rs
+  | Branches { befores; afters } ->
+    Format.pp_print_list (fun fmt (c, r)->
+        Format.fprintf fmt "@[<v 2>avant %a (@,%a)@]"
+          (print_event_expr infos) c (print_guarded_redistrib infos) r)
+      fmt befores;
+    Format.pp_print_break fmt 0 0;
+    Format.pp_print_list (fun fmt (c, r)->
+        Format.fprintf fmt "@[<v 2>apres %a (@,%a)@]"
+          (print_event_expr infos) c (print_guarded_redistrib infos) r)
+      fmt afters
+  | Whens gs ->
+    Format.pp_print_list (fun fmt (c, r)->
+        Format.fprintf fmt "@[<v 2>quand %a (@,%a)@]"
+          (print_event_expr infos) c (print_guarded_redistrib infos) r)
+      fmt gs
 
 let print_declaration (type a) infos fmt (decl : a declaration) =
   match decl with
@@ -178,14 +187,14 @@ let print_declaration (type a) infos fmt (decl : a declaration) =
       print_type input.input_type
       print_input_context input.input_context
   | DHolderOperation op ->
-    Format.fprintf fmt "operation '%s' %a@,%a%a%a"
+    Format.fprintf fmt "@[<hv 2>operation '%s' %a@,%a%a%a@]"
       op.op_label
       (Format.pp_print_option print_destination) op.op_default_dest
       print_op_context op.op_context
       print_op_source op.op_source
       (print_guarded_redistrib infos) op.op_guarded_redistrib
   | DVarOperation op ->
-    Format.fprintf fmt "operation '%s' -> %a@,sur %a@;%a"
+    Format.fprintf fmt "@[<hv 2>operation '%s' -> %a@,sur %a@;%a@]"
       op.ctx_op_label
       (Format.pp_print_option (print_ctx_variable infos)) op.ctx_op_default_dest
       (print_ctx_variable infos) op.ctx_op_source
@@ -226,8 +235,8 @@ let print_declaration (type a) infos fmt (decl : a declaration) =
 
 let print_var_contexts infos fmt () =
   Variable.Map.iter (fun v shape ->
-      Format.fprintf fmt "var %a %a@;"
-        (print_ctx_variable infos) (v, Context.any_projection)
+      Format.fprintf fmt "@[<hv 2>var %a@ %a@]@;"
+        (print_ctx_variable infos) (v, Context.any_projection (infos.contexts))
         (Context.print_shape infos.contexts) shape
     )
     infos.var_shapes

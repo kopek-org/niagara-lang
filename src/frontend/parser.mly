@@ -16,12 +16,11 @@ open Ast
 %nonassoc LIDENT
 %nonassoc LPAR
 
-%nonassoc EQ
 %left PLUS MINUS OU
 %left MULT DIV ET
 %nonassoc TOTAL COURANT
 
-%on_error_reduce literal formula event_guard named actor
+%on_error_reduce literal formula named actor
 
 %start<Ast.source Ast.program> program
 
@@ -32,13 +31,13 @@ open Ast
 operation:
 | OPERATION op_label = LABEL op_default_dest = destinataire?
     op_context = op_context* op_source = source
-    exprs = expression_group
+    exprs = expression
  {{
    op_label;
    op_default_dest;
    op_context;
    op_source;
-   op_guarded_redistrib = Seq exprs;
+   op_guarded_redistrib = exprs;
   }}
 
 advance:
@@ -57,20 +56,30 @@ simple_expr:
 | RETROCESSION f = formula SUR h = holder d = destinataire?
   { Retrocession (f, h), d}
 
-expression_group:
-| es = simple_expr+ { List.map (fun (e, d) -> Redist (WithHolder (e, d))) es }
-| es = guarded_expr+ { es }
+simple_exprs:
+| es = simple_expr+ { Redists (List.map (fun (e, d) -> WithHolder (e, d)) es) }
+
+sub_expression:
+| es = simple_exprs { es }
+| LPAR es = expression RPAR { es }
 
 expression:
-| es = simple_expr+
-  { match es with
-    | [e, d] -> Redist (WithHolder (e, d))
-    | _ -> Seq (List.map (fun (e, d) -> Redist (WithHolder (e, d))) es) }
-| e = guarded_expr { e }
-| LPAR es = expression_group RPAR { Seq es }
+| es = simple_exprs { es }
+| es = branch_expr { Branches { befores = fst es; afters = snd es } }
+| es = when_expr+ { Whens es }
 
-guarded_expr:
-| g = event_guard ge = expression { Guarded (g, ge) }
+branch_expr:
+| ae = after_expr+ { ([], ae) }
+| be = before_expr+ ae = after_expr* { (be, ae) }
+
+after_expr:
+| APRES g = event_expr se = sub_expression { (g, se) }
+
+before_expr:
+| AVANT g = event_expr se = sub_expression { (g, se) }
+
+when_expr:
+| QUAND g = event_expr se = sub_expression { (g, se) }
 
 source:
 | SUR p = pool { p }
@@ -82,7 +91,6 @@ formula:
 | l = literal { Literal l }
 | n = named { Named n }
 | f1 = formula op = binop f2 = formula { Binop(op, f1, f2) }
-| f1 = formula op = comp f2 = formula { Comp(op, f1, f2) }
 | f = formula COURANT { Instant f }
 | f = formula TOTAL { Total f }
 | LPAR f = formula RPAR { f }
@@ -207,14 +215,9 @@ event_decl:
 
 event_expr:
 | EVENEMENT id = LIDENT { EventId id }
-| f = formula { EventFormula f }
+| f1 = formula c = comp f2 = formula { EventComp(c, f1, f2) }
 | e1 = event_expr ET e2 = event_expr { EventConj(e1, e2) }
 | e1 = event_expr OU e2 = event_expr { EventDisj(e1, e2) }
-
-event_guard:
-| AVANT e = event_expr { Before e }
-| APRES e = event_expr { After e }
-| QUAND e = event_expr { When e }
 
 // Context
 
