@@ -17,38 +17,68 @@ type binop =
 
 type comp = Eq
 
-type context_refinement_item =
+type context_refinement_item = {
+  cri_loc : Pos.t;
+  cri_desc : context_refinement_item_desc;
+}
+
+and context_refinement_item_desc =
   | CCase of string
   | CFullDomain of string
 
 type context_refinement = context_refinement_item list
 
-type actor =
+type actor = {
+  actor_loc : Pos.t;
+  actor_desc : actor_desc;
+}
+
+and actor_desc =
   | PlainActor of string
   | LabeledActor of string * string
 
-type holder =
+type holder = {
+  holder_loc : Pos.t;
+  holder_desc : holder_desc;
+}
+
+and holder_desc =
   | Pool of string * context_refinement
   | Actor of actor
 
-type named =
+type named = {
+  named_loc : Pos.t;
+  named_desc : named_desc;
+}
+
+and named_desc =
   | Name of string * context_refinement
   | Holder of holder
 
 type contextualized_variable = Variable.t * Context.Group.t
 
-type _ formula =
-  | Literal of literal
-  | Named : named -> source formula
-  | Variable : contextualized_variable -> contextualized formula
-  | Binop : binop * 'a formula * 'a formula -> 'a formula
-  | Total : 'a formula -> 'a formula
-  | Instant : 'a formula -> 'a formula
+type 'a formula = {
+  formula_loc : Pos.t;
+  formula_desc : 'a formula_desc;
+}
 
-type _ redistribution =
-  | Part : 'a formula -> 'a redistribution
-  | Flat : 'a formula -> 'a redistribution
-  | Retrocession : source formula * holder -> source redistribution
+and _ formula_desc =
+  | Literal of literal
+  | Named : named -> source formula_desc
+  | Variable : contextualized_variable -> contextualized formula_desc
+  | Binop : binop * 'a formula * 'a formula -> 'a formula_desc
+  | Total : 'a formula -> 'a formula_desc
+  | Instant : 'a formula -> 'a formula_desc
+
+type 'a redistribution = {
+  redistribution_loc : Pos.t;
+  redistribution_desc : 'a redistribution_desc;
+}
+
+and _ redistribution_desc =
+  | Part : 'a formula -> 'a redistribution_desc
+  | Flat : 'a formula -> 'a redistribution_desc
+  | Retrocession : source formula * holder -> source redistribution_desc
 
 (* type _ opposition = *)
 (*   | NoOpposition : 'a opposition *)
@@ -62,12 +92,17 @@ type _ redistrib_with_dest =
 
 (* type redistrib_with_dest = redistribution * (holder * opposition) option *)
 
-type _ event_expr =
-  | EventId : string -> source event_expr
-  | EventVar : Variable.t -> contextualized event_expr
-  | EventComp : comp * 'a formula * 'a formula -> 'a event_expr
-  | EventConj : 'a event_expr * 'a event_expr -> 'a event_expr
-  | EventDisj : 'a event_expr * 'a event_expr -> 'a event_expr
+type 'a event_expr = {
+  event_expr_loc : Pos.t;
+  event_expr_desc : 'a event_expr_desc;
+}
+
+and _ event_expr_desc =
+  | EventId : string -> source event_expr_desc
+  | EventVar : Variable.t -> contextualized event_expr_desc
+  | EventComp : comp * 'a formula * 'a formula -> 'a event_expr_desc
+  | EventConj : 'a event_expr * 'a event_expr -> 'a event_expr_desc
+  | EventDisj : 'a event_expr * 'a event_expr -> 'a event_expr_desc
 
 type 'a conditional_redistrib =
   'a event_expr * 'a guarded_redistrib
@@ -85,6 +120,7 @@ type context =
   | Cases of string * string list
 
 type operation_decl = {
+  op_loc : Pos.t;
   op_label : string;
   op_default_dest : holder option;
   (* op_default_dest : (holder * opposition) option; *)
@@ -116,6 +152,7 @@ type ctx_advance_decl = {
 }
 
 type event_decl = {
+  event_loc : Pos.t;
   event_name : string;
   event_expr : source event_expr;
 }
@@ -138,13 +175,17 @@ type context_decl = {
 type input_kind = ReadOnly | Attributable
 
 type input_decl = {
+  input_loc : Pos.t;
   input_name : string;
   input_context : context list list;
   input_type : ValueType.t;
   input_kind : input_kind;
 }
 
-type actor_decl = string
+type actor_decl = {
+  actor_decl_loc : Pos.t;
+  actor_decl_desc : string
+}
 
 type stream_way = Upstream | Downstream
 
@@ -205,3 +246,73 @@ type program_infos = {
 type _ program =
   | Source : source declaration list -> source program
   | Contextualized : program_infos * contextualized declaration list -> contextualized program
+
+
+let actor ?(loc = Pos.dummy) desc = {
+  actor_loc = loc;
+  actor_desc = desc;
+}
+
+let holder ?(loc = Pos.dummy) desc = {
+  holder_loc = loc;
+  holder_desc = desc;
+}
+
+let named ?(loc = Pos.dummy) desc = {
+  named_loc = loc;
+  named_desc = desc;
+}
+
+let formula ?(loc = Pos.dummy) desc = {
+  formula_loc = loc;
+  formula_desc = desc;
+}
+
+let redistribution ?(loc = Pos.dummy) desc = {
+  redistribution_loc = loc;
+  redistribution_desc = desc;
+}
+
+let event_expr ?(loc = Pos.dummy) desc = {
+  event_expr_loc = loc;
+  event_expr_desc = desc;
+}
+
+let actor_decl ?(loc = Pos.dummy) desc = {
+  actor_decl_loc = loc;
+  actor_decl_desc = desc;
+}
+
+let input_decl ?(loc = Pos.dummy) ~kind ~context ~typ name = {
+  input_loc = loc;
+  input_name = name;
+  input_context = context;
+  input_type = typ;
+  input_kind = kind;
+}
+
+let event_decl ?(loc = Pos.dummy) name expr = {
+  event_loc = loc;
+  event_name = name;
+  event_expr = expr;
+}
+
+let context_refinement_item ?(loc = Pos.dummy) desc = {
+  cri_loc = loc;
+  cri_desc = desc;
+}
+
+let operation_decl 
+  ?(loc = Pos.dummy) 
+  ?default_dest 
+  ?(context = [])
+  ~source 
+  ~guarded_redistrib
+  label = {
+  op_loc = loc;
+  op_label = label;
+  op_default_dest = default_dest;
+  op_context = context;
+  op_source = source;
+  op_guarded_redistrib = guarded_redistrib;
+}

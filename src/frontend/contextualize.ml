@@ -323,7 +323,7 @@ let projection_of_context_refinement acc (ctx : context_refinement) =
   let contexts = Acc.contexts acc in
   let proj =
     List.fold_left (fun proj item ->
-        match item with
+        match item.cri_desc with
         | CFullDomain dom ->
           let dom = Context.find_domain contexts dom in
           Context.DomainMap.update dom (function
@@ -344,7 +344,7 @@ let projection_of_context_refinement acc (ctx : context_refinement) =
   Context.group_of_selection contexts proj
 
 let find_holder0 ~(way : stream_way) acc (h : holder) =
-  match h with
+  match h.holder_desc with
   | Pool (name, ctx) ->
     let proj = projection_of_context_refinement acc ctx in
     begin match Acc.find_pool_opt acc name with
@@ -353,9 +353,9 @@ let find_holder0 ~(way : stream_way) acc (h : holder) =
       let acc, v = Acc.register_pool acc name in
       acc, (v, proj)
     end
-  | Actor (PlainActor name) ->
+  | Actor {actor_desc = PlainActor name; _} ->
     acc, (Acc.find_actor ~way acc name, Context.any_projection (Acc.contexts acc))
-  | Actor (LabeledActor (name, label)) ->
+  | Actor {actor_desc = LabeledActor (name, label); _} ->
     let acc, v = Acc.register_actor_label ~way acc name label in
     acc, (v, Context.any_projection (Acc.contexts acc))
 
@@ -383,7 +383,7 @@ let destination_opt acc (flow : holder option) =
 
 let named acc (named : named) ~(on_proj : Context.Group.t) =
   let acc, (v, proj) =
-    match named with
+    match named.named_desc with
     | Name (name, ctx) ->
       let v = Acc.find_misc_var ~way:Downstream acc name in
       let proj = projection_of_context_refinement acc ctx in
@@ -398,53 +398,55 @@ let named acc (named : named) ~(on_proj : Context.Group.t) =
   acc, (v, proj)
 
 let rec formula acc (f : source formula) ~(on_proj : Context.Group.t) =
-  match f with
-  | Literal l -> acc, Literal l
+  match f.formula_desc with
+  | Literal l -> acc, {f with formula_desc = Literal l}
   | Named n ->
     let acc, v = named acc n ~on_proj in
-    acc, Variable v
+    acc, {f with formula_desc = Variable v}
   | Binop (op, f1, f2) ->
     let acc, f1 = formula acc f1 ~on_proj in
     let acc, f2 = formula acc f2 ~on_proj in
-    acc, Binop (op, f1, f2)
+    acc, {f with formula_desc = Binop (op, f1, f2)}
   | Total f ->
     let acc, f = formula acc f ~on_proj in
-    acc, Total f
+    acc, {f with formula_desc = Total f}
   | Instant f ->
     let acc, f = formula acc f ~on_proj in
-    acc, Instant f
+    acc, {f with formula_desc = Instant f}
 
 let rec event_expr acc (e : source event_expr) ~(on_proj : Context.Group.t) =
-  match e with
+  match e.event_expr_desc with
   | EventId name ->
     let v = Acc.find_event acc name in
-    acc, EventVar v
+    acc, {e with event_expr_desc = EventVar v}
   | EventComp (op, f1, f2) ->
     let acc, f1 = formula acc f1 ~on_proj in
     let acc, f2 = formula acc f2 ~on_proj in
-    acc, EventComp (op, f1, f2)
+    acc, {e with event_expr_desc = EventComp (op, f1, f2)}
   | EventConj (e1, e2) ->
     let acc, e1 = event_expr acc e1 ~on_proj in
     let acc, e2 = event_expr acc e2 ~on_proj in
-    acc, EventConj (e1, e2)
+    acc, {e with event_expr_desc = EventConj (e1, e2)}
   | EventDisj (e1, e2) ->
     let acc, e1 = event_expr acc e1 ~on_proj in
     let acc, e2 = event_expr acc e2 ~on_proj in
-    acc, EventDisj (e1, e2)
+    acc, {e with event_expr_desc = EventDisj (e1, e2)}
 
 let redistribution acc (redist : source redistribution) ~(on_proj : Context.Group.t) =
-  match redist with
+  match redist.redistribution_desc with
   | Part f ->
     let acc, f = formula acc f ~on_proj in
-    acc, Part f
+    acc, {redist with redistribution_desc = Part f}
   | Flat f ->
     let acc, f = formula acc f ~on_proj in
-    acc, Flat f
+    acc, {redist with redistribution_desc = Flat f}
   | Retrocession (f, p) ->
     (* syntactic sugar *)
-    let f = Binop (Mult, f, Named (Holder p)) in
+    let left_operand = f in
+    let right_operand = Ast.formula (Named (Ast.named (Holder p))) in
+    let f = Ast.formula (Binop (Mult, left_operand, right_operand)) in
     let acc, f = formula acc f ~on_proj in
-    acc, Flat f
+    acc, {redist with redistribution_desc = Flat f}
 
 let redist_with_dest acc (WithHolder (redist, dest) : source redistrib_with_dest)
     ~(on_proj : Context.Group.t) =
@@ -534,7 +536,9 @@ let constant acc (c : const_decl) =
 
 let advance acc (a : advance_decl) =
   let acc, output = find_holder acc a.adv_output in
-  let acc, provider = find_holder acc (Actor a.adv_provider) in
+  let acc, provider = 
+    let holder = holder ~loc:a.adv_provider.actor_loc (Actor a.adv_provider) in
+    find_holder acc holder in
   let acc, amount =
     formula acc a.adv_amount
       ~on_proj:(Context.any_projection (Acc.contexts acc))
@@ -550,7 +554,7 @@ let advance acc (a : advance_decl) =
 let declaration acc (decl : source declaration) =
   match decl with
   | DInput i -> register_input acc i, None
-  | DActor a -> Acc.register_actor acc a, None
+  | DActor a -> Acc.register_actor acc a.actor_decl_desc, None
   | DContext c ->
     Acc.register_context_domain acc c.context_type_name c.context_type_cases, None
   | DHolderOperation o ->

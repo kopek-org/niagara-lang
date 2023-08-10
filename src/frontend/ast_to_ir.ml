@@ -366,7 +366,7 @@ let aggregate_vars ~view (typ : ValueType.t) (vars : Variable.t list) =
 
 let rec translate_formula ~(ctx : Context.Group.t) acc ~(view : flow_view)
     (f : Ast.contextualized Ast.formula) =
-  match f with
+  match f.formula_desc with
   | Literal l ->
     let l, t = translate_literal l in
     acc, (Literal l, t)
@@ -398,7 +398,7 @@ let translate_redist ~(ctx : Context.Group.t) acc ~(dest : Ast.contextualized_va
     | [dest] -> dest
     | _ -> Errors.raise_error "(internal) Destination context inapplicable"
   in
-  match redist with
+  match redist.redistribution_desc with
   | Part f ->
     let acc, (f, ft) = translate_formula ~ctx acc ~view:AtInstant f in
     acc, RedistTree.share dest (reduce_formula f, ft)
@@ -410,7 +410,7 @@ let translate_comp (comp : Ast.comp) =
   match comp with Eq -> Eq
 
 let rec translate_event acc (event : Ast.contextualized Ast.event_expr) =
-  match event with
+  match event.event_expr_desc with
   | EventVar v -> acc, EvtVar v
   | EventConj (e1, e2) ->
     let acc, e1 = translate_event acc e1 in
