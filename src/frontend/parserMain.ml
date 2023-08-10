@@ -5,7 +5,8 @@ let accept program = program
 let fail checkpoint =
   match checkpoint with
   | I.HandlingError env ->
-    Errors.raise_error "Parsing error" ~with_pos:(I.positions env)
+    let start, stop = I.positions env in
+    Errors.raise_error "Parsing error" ~with_pos:(Pos.make ~start ~stop)
       ~span:(ParserErrors.message (I.current_state_number env))
   | _ -> assert false
 

@@ -2,7 +2,7 @@
 let raise_error ?(with_pos=Pos.dummy) ?span fmt =
   Format.kfprintf
     (fun fmt ->
-       Format.fprintf fmt " %a:\n" Pos.print with_pos;
+       Format.fprintf fmt " %a:\n" Pos.pp with_pos;
        (match span with
         | None -> ()
         | Some span -> Format.fprintf fmt "%s\n" span);
