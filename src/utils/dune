@@ -1,4 +1,5 @@
 (library
   (name utils)
+  (public_name niagara-lang-lib.utils)
   (wrapped false)
 )
