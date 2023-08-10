@@ -1,6 +1,8 @@
 %{
 open CalendarLib
 open Ast
+
+let pos (start, stop) = Pos.make ~start ~stop
 %}
 
 %token OPERATION QUOTEPART BONUS SUR ASSIETTE ANS MOIS ENTREE LBRA RBRA DEFAUT
@@ -32,13 +34,15 @@ operation:
 | OPERATION op_label = LABEL op_default_dest = destinataire?
     op_context = op_context* op_source = source
     exprs = expression
- {{
-   op_label;
-   op_default_dest;
-   op_context;
-   op_source;
-   op_guarded_redistrib = exprs;
-  }}
+{ 
+  operation_decl 
+    ~loc:(pos $sloc)
+    op_label
+    ?default_dest:op_default_dest
+    ~context:op_context
+    ~source:op_source
+    ~guarded_redistrib:exprs
+}
 
 advance:
 | AVANCE adv_label = LABEL SUR adv_output = holder PAR
@@ -51,10 +55,16 @@ advance:
   }}
 
 simple_expr:
-| QUOTEPART f = formula d = destinataire? { Part f, d }
-| BONUS f = formula d = destinataire? { Flat f, d }
+| QUOTEPART f = formula d = destinataire? { 
+  redistribution ~loc:f.formula_loc (Part f), d 
+}
+| BONUS f = formula d = destinataire? { 
+  redistribution ~loc:f.formula_loc (Flat f), d
+}
 | RETROCESSION f = formula SUR h = holder d = destinataire?
-  { Retrocession (f, h), d}
+  { let start, stop = $startpos(f), $endpos(h) in
+    redistribution ~loc:(Pos.make ~start ~stop) (Retrocession (f, h)), d
+  }
 
 simple_exprs:
 | es = simple_expr+ { Redists (List.map (fun (e, d) -> WithHolder (e, d)) es) }
@@ -83,17 +93,22 @@ when_expr:
 
 source:
 | SUR p = pool { p }
-| PAR a = actor { Actor a }
+| PAR a = actor { holder ~loc:(pos $sloc) (Actor a) }
 
 // Formula
 
 formula:
+| fd = formula_desc { formula ~loc:(pos $sloc) fd }
+| LPAR f = formula RPAR { f }
+;
+
+formula_desc:
 | l = literal { Literal l }
 | n = named { Named n }
 | f1 = formula op = binop f2 = formula { Binop(op, f1, f2) }
 | f = formula COURANT { Instant f }
 | f = formula TOTAL { Total f }
-| LPAR f = formula RPAR { f }
+;
 
 %inline binop:
 | PLUS { Add }
@@ -107,34 +122,54 @@ formula:
 named:
 | n = LIDENT c = ioption(context_refinement)
     { let ctx = Option.fold c ~none:[] ~some:(fun c -> c) in
-      Name (n, ctx)
+      named ~loc:(pos $sloc) (Name (n, ctx))
     }
-| a = labeled_actor { Holder (Actor a) }
-| p = pool { Holder p }
+| a = labeled_actor {
+  let loc = pos $sloc in 
+  named ~loc (Holder (holder ~loc (Actor a))) 
+}
+| p = pool { named ~loc:(pos $sloc) (Holder p) }
 
 holder:
-| a = actor { Actor a }
+| a = actor { holder ~loc:(pos $sloc) (Actor a) }
 | p = pool { p }
 
 actor:
+| a = actor_desc; {actor ~loc:(pos $sloc) a}
+;
+
+actor_desc:
 | a = LIDENT { PlainActor a }
-| la = labeled_actor { la }
+| la = labeled_actor_desc { la }
+;
 
 labeled_actor:
+| a = labeled_actor_desc; {actor ~loc:(pos $sloc) a}
+;
+
+labeled_actor_desc:
 | a = LIDENT LBRA l = LIDENT RBRA { LabeledActor(a, l) }
+;
 
 pool:
 | ASSIETTE p = LIDENT c = ioption(context_refinement)
     { let ctx = Option.fold c ~none:[] ~some:(fun c -> c) in
-      Pool(p, ctx)
+      holder ~loc:(pos $sloc) (Pool(p, ctx))
     }
 
 context_refinement:
 | LPAR c = separated_nonempty_list(COMMA,context_refine_item) RPAR { c }
 
 context_refine_item:
+| crid = context_refinement_item_desc { 
+  context_refinement_item ~loc:(pos $sloc) crid
+}
+;
+
+context_refinement_item_desc:
 | c = UIDENT { CCase c }
 | TOUT ct = UIDENT { CFullDomain ct }
+;
 
 literal:
 | i = INT { LitInt i }
@@ -162,19 +197,23 @@ duration_month:
 
 input_decl:
 | ENTREE input_name = LIDENT input_type = input_type input_context = loption(input_context_decl)
- {{
-   input_name;
-   input_context;
-   input_type;
-   input_kind = ReadOnly;
- }}
+{
+  input_decl 
+    ~loc:(pos $sloc)
+    ~context:input_context
+    ~typ:input_type
+    ~kind:ReadOnly
+    input_name
+}
 | ENTREE ASSIETTE input_name = LIDENT input_context = loption(input_context_decl)
- {{
-   input_name;
-   input_context;
-   input_type = TMoney;
-   input_kind = Attributable;
- }}
+{ 
+  input_decl 
+    ~loc:(pos $sloc)
+    ~context:input_context
+    ~typ:TMoney
+    ~kind:Attributable
+    input_name
+ }
 
 input_context_decl:
 | CONTEXTUALISEE PAR ctx = input_context_list { ctx }
@@ -195,7 +234,7 @@ base_type:
 | ARGENT { TMoney }
 
 actor_decl:
-| ACTEUR id = LIDENT { id }
+| ACTEUR id = LIDENT { actor_decl ~loc:(pos $sloc) id }
 
 destinataire:
 | VERS d = holder { d }
@@ -211,14 +250,18 @@ destinataire:
 
 event_decl:
 | EVENEMENT event_name = LIDENT ATTEINT QUAND event_expr = event_expr
- {{ event_name; event_expr; }}
+ { event_decl ~loc:(pos $sloc) event_name event_expr }
 
 event_expr:
+| eed = event_expr_desc { event_expr ~loc:(pos $sloc) eed }
+;
+
+event_expr_desc:
 | EVENEMENT id = LIDENT { EventId id }
 | f1 = formula c = comp f2 = formula { EventComp(c, f1, f2) }
 | e1 = event_expr ET e2 = event_expr { EventConj(e1, e2) }
 | e1 = event_expr OU e2 = event_expr { EventDisj(e1, e2) }
-
+;
 // Context
 
 context_decl:

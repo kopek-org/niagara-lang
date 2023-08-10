@@ -31,7 +31,7 @@ let print_input_context fmt (ctx : context list list) =
   end
 
 let print_context_refinement_item fmt (item : context_refinement_item) =
-  match item with
+  match item.cri_desc with
   | CCase c -> Format.pp_print_string fmt c
   | CFullDomain d -> Format.fprintf fmt "tout %s" d
 
@@ -47,14 +47,14 @@ let print_op_context fmt (ctx : context list) =
     ctx
 
 let print_actor fmt (a : actor) =
-  match a with
+  match a.actor_desc with
   | PlainActor name ->
     Format.fprintf fmt "%s" name
   | LabeledActor (name, label) ->
     Format.fprintf fmt "%s[%s]" name label
 
 let print_holder fmt (holder : holder) =
-  match holder with
+  match holder.holder_desc with
   | Pool (name, ctx) ->
     Format.fprintf fmt "assiette %s%a" name
       print_context_refinement ctx
@@ -62,7 +62,7 @@ let print_holder fmt (holder : holder) =
 
 let print_op_source fmt (src : holder) =
   Format.fprintf fmt "%s %a@;"
-    (match src with
+    (match src.holder_desc with
      | Pool (_, _) -> "sur"
      | Actor _ -> "par")
     print_holder src
@@ -89,13 +89,13 @@ let print_literal fmt (lit : literal) =
   | LitDate d -> CalendarLib__Printer.Date.fprint "%Y/%m/%d" fmt d
 
 let print_named fmt (named : named) =
-  match named with
+  match named.named_desc with
   | Name (name, ctx) -> Format.fprintf fmt "%s%a" name print_context_refinement ctx
   | Holder h -> print_holder fmt h
 
 let rec print_formula : type a. program_infos -> Format.formatter -> a formula -> unit =
   fun infos fmt f ->
-  match f with
+  match f.formula_desc with
   | Literal l -> print_literal fmt l
   | Named n -> print_named fmt n
   | Variable v -> print_ctx_variable infos fmt v
@@ -114,7 +114,7 @@ let rec print_formula : type a. program_infos -> Format.formatter -> a formula -
 
 let rec print_event_expr : type a. program_infos -> Format.formatter -> a event_expr -> unit =
   fun infos fmt e ->
-  match e with
+  match e.event_expr_desc with
   | EventId id -> Format.fprintf fmt "evenement %s" id
   | EventVar v -> Format.fprintf fmt "evenement %a" (print_variable infos) v
   | EventComp (Eq, f1, f2) ->
@@ -131,7 +131,7 @@ let rec print_event_expr : type a. program_infos -> Format.formatter -> a event_
       (print_event_expr infos) e2
 
 let print_redist (type a) infos fmt (redist : a redistribution) =
-  match redist with
+  match redist.redistribution_desc with
   | Part f -> Format.fprintf fmt "quotepart %a" (print_formula infos) f
   | Flat f -> Format.fprintf fmt "bonus %a" (print_formula infos) f
   | Retrocession (f, p) ->
@@ -180,7 +180,7 @@ let print_declaration (type a) infos fmt (decl : a declaration) =
       (Format.pp_print_list (fun fmt c -> Format.fprintf fmt"- %s" c))
       ctx.context_type_cases
   | DActor a ->
-    Format.fprintf fmt "acteur %s" a
+    Format.fprintf fmt "acteur %s" a.actor_decl_desc
   | DInput input ->
     Format.fprintf fmt "entree %s type %a %a"
       input.input_name
