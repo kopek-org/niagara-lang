@@ -11,7 +11,8 @@
     (ocaml (>= 4.13))
     (sedlex (>= 3.0))
     menhir
-    (calendar (>= 3.0)))
+    (calendar (>= 3.0))
+    (logs (>= 0.7.0)))
 )
 
 (package
