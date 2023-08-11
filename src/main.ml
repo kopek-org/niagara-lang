@@ -16,3 +16,14 @@ let () =
   Frontend.FormatIr.print_program outfmt prog;
   Printf.printf "First pass OK\n%!";
 
+  let provs = Frontend.ConditionLifting.provenance_expressions prog in
+  Format.fprintf outfmt "@[<hv 2>Direct provenances:@ %a@]@,"
+    Frontend.ConditionLifting.print_provenances provs;
+  let tprovs = Frontend.ConditionLifting.prov_transitivity provs in
+  Format.fprintf outfmt "@[<hv 2>Transitive provenances:@ %a@]@,"
+    Frontend.ConditionLifting.print_provenances tprovs;
+
+  let eqs = Frontend.ConditionLifting.condition_equations prog tprovs in
+  Format.fprintf outfmt "@[<hv 2>Equations:@ %a@]@,"
+    Frontend.ConditionLifting.print_conditions eqs;
+
