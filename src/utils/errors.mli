@@ -33,3 +33,5 @@ val raise_error :
   ?with_pos:Pos.t -> 
   ?span:string -> 
   ('a, Format.formatter, unit, unit, unit, 'b) format6 -> 'a
+
+val init : ?reporter:Logs.reporter -> unit -> unit

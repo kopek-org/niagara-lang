@@ -63,5 +63,6 @@ let raise_error ?with_pos ?span fmt =
     failwith "error" in
   Fmt.kstr k fmt
 
-let () =
-  set_reporter (Logs_fmt.reporter ())
+let init : ?reporter:Logs.reporter -> unit -> unit = 
+  fun ?(reporter = Logs_fmt.reporter ()) () ->
+    set_reporter reporter
