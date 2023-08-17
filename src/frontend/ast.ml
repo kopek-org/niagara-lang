@@ -302,11 +302,11 @@ let context_refinement_item ?(loc = Pos.dummy) desc = {
   cri_desc = desc;
 }
 
-let operation_decl 
-  ?(loc = Pos.dummy) 
-  ?default_dest 
+let operation_decl
+  ?(loc = Pos.dummy)
+  ?default_dest
   ?(context = [])
-  ~source 
+  ~source
   ~guarded_redistrib
   label = {
   op_loc = loc;

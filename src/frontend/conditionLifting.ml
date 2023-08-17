@@ -154,7 +154,6 @@ let prov_exprs_union (p1 : prov_exprs) (p2 : prov_exprs) =
       Some (merge_sourced_expr expr1 expr2))
     p1 p2
 
-
 let formula_prov (provs : prov_exprs) (cf : formula) : expr sourced =
   match cf with
   | Literal l ->
@@ -183,25 +182,26 @@ let formula_prov (provs : prov_exprs) (cf : formula) : expr sourced =
   | Binop (_, _, _) -> assert false
   | RCast _ -> assert false
 
-let redist_prov (src : Variable.t) (r : RedistTree.redist) : prov_exprs =
+let redist_prov (type a) (src : Variable.t) (r : a RedistTree.redist) : prov_exprs =
   match r with
   | RedistTree.NoInfo -> Variable.Map.empty
-  | RedistTree.Shares { expressed; remainder } ->
-    assert (remainder = None);
+  | RedistTree.Shares shares ->
     Variable.Map.map (fun f ->
         { pinned_src =
             Variable.Map.singleton src (Factor (f, Src));
           other_src = Zero;
         })
-      expressed
+      shares
   | RedistTree.Flats fs ->
     Variable.Map.map (formula_prov Variable.Map.empty) fs
 
-let rec tree_prov (src : Variable.t) (tree : RedistTree.tree) : prov_exprs =
+let rec tree_prov : type a. Variable.t -> a RedistTree.tree -> prov_exprs =
+  fun src tree ->
   match tree with
-  | RedistTree.Redist r -> redist_prov src r
-  | RedistTree.When _ -> assert false
-  | RedistTree.Branch { evt; before; after } ->
+  | Nothing -> assert false
+  | Redist r -> redist_prov src r
+  | When _ -> assert false
+  | Branch { evt; before; after } ->
     let befores = tree_prov src before in
     let afters = tree_prov src after in
     Variable.Map.merge (fun _dest before after ->
@@ -231,11 +231,20 @@ let rec tree_prov (src : Variable.t) (tree : RedistTree.tree) : prov_exprs =
         })
       befores afters
 
-let trees_prov (src : Variable.t) (ts : RedistTree.t) : prov_exprs =
-  List.fold_left (fun acc tree ->
-      let provs = tree_prov src tree in
-      prov_exprs_union acc provs)
-    Variable.Map.empty ts
+let trees_prov (src : Variable.t) (t : RedistTree.t) : prov_exprs =
+  match t with
+  | Flat fs ->
+    List.fold_left (fun acc tree ->
+        let provs = tree_prov src tree in
+        prov_exprs_union acc provs)
+      Variable.Map.empty fs
+  | Fractions { base_shares; default; branches } ->
+    if default <> None then
+      Errors.raise_error "(internal) Default attribution should have been computed away";
+    List.fold_left (fun acc tree ->
+        let provs = tree_prov src tree in
+        prov_exprs_union acc provs)
+      (redist_prov src base_shares) branches
 
 let provenance_expressions (program : program) : prov_exprs =
   Variable.Map.fold (fun source ts provs ->

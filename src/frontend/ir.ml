@@ -49,53 +49,97 @@ type event =
 
 module RedistTree = struct
 
-  type redist =
+  type flat = private FLAT
+  type frac = private FRAC
+
+  type 'a redist =
     | NoInfo
-    | Shares of {
-        expressed : float Variable.Map.t;
-        remainder : Variable.t option
+    | Shares : float Variable.Map.t -> frac redist
+    | Flats : formula Variable.Map.t -> flat redist
+
+  type 'a tree =
+    | Nothing
+    | Redist of 'a redist
+    | When : (Variable.t * flat tree) list -> flat tree
+    | Branch of { evt : Variable.t; before : 'a tree; after : 'a tree }
+
+  type t =
+    | Flat of flat tree list
+    | Fractions of {
+        base_shares : frac redist;
+        default : Variable.t option;
+        branches : frac tree list;
       }
-    | Flats of formula Variable.Map.t
 
-  type tree =
-    | Redist of redist
-    | When of (Variable.t * tree) list
-    | Branch of { evt : Variable.t; before : tree; after : tree }
+  type kind_tree =
+    | NothingTree
+    | FlatTree of flat tree
+    | FracTree of frac tree
 
-  type t = tree list
+  type kind_redist =
+    | FlatRedist of flat redist
+    | FracRedist of frac redist
 
   let share (dest : Variable.t) (formula, _ft : formula * ValueType.t) =
     match formula with
     | Literal (LRational f) ->
-      Shares { expressed = Variable.Map.singleton dest f; remainder = None }
+      FracRedist (Shares (Variable.Map.singleton dest f))
     | _ -> Errors.raise_error "Expected formula to be a rational literal"
 
   let flat (dest : Variable.t) (formula, ftype : formula * ValueType.t) =
     if ftype <> TMoney then
       Errors.raise_error "Expected formula of type money";
-    Flats (Variable.Map.singleton dest formula)
+    FlatRedist (Flats (Variable.Map.singleton dest formula))
 
-  let remainder (dest : Variable.t) =
-    Shares { expressed = Variable.Map.empty; remainder = Some dest }
+  let tredist (r : kind_redist) =
+    match r with
+    | FlatRedist r -> FlatTree (Redist r)
+    | FracRedist r -> FracTree (Redist r)
 
-  let merge_redist (r1 : redist) (r2 : redist) =
+  let twhen (ts : (Variable.t * kind_tree) list) =
+    FlatTree (When
+      (List.map (fun (dest, tree) ->
+           match tree with
+           | NothingTree -> dest, Nothing
+           | FlatTree t -> dest, t
+           | FracTree _ -> Errors.raise_error "Quotepart should not be when-guarded")
+          ts))
+
+  let tbranch (evt : Variable.t) (before : kind_tree) (after : kind_tree) =
+    let mixing_error () =
+      Errors.raise_error "Mixing quotepart and bonuses between branches"
+    in
+    match before with
+    | NothingTree -> begin
+        match after with
+        | FlatTree after -> FlatTree (Branch { evt; before = Nothing; after })
+        | FracTree after -> FracTree (Branch { evt; before = Nothing; after })
+        | NothingTree -> NothingTree
+      end
+    | FlatTree before -> begin
+        match after with
+        | FlatTree after -> FlatTree (Branch { evt; before; after })
+        | NothingTree -> FlatTree (Branch { evt; before; after = Nothing })
+        | FracTree _ -> mixing_error ()
+      end
+    | FracTree before ->
+      match after with
+      | FracTree after -> FracTree (Branch { evt; before; after })
+      | NothingTree -> FracTree (Branch { evt; before; after = Nothing })
+      | FlatTree _ -> mixing_error ()
+
+  let merge_redist0 (type a) (r1 : a redist) (r2 : a redist) : a redist =
     match r1, r2 with
     | NoInfo, NoInfo -> NoInfo
     | NoInfo, r | r, NoInfo -> r
     | Shares s1, Shares s2 ->
-      let expressed =
+      let s =
         Variable.Map.union (fun _dest s1 s2 ->
             (* TODO warning *)
             Some (s1 +. s2))
-          s1.expressed s2.expressed
+          s1 s2
       in
-      let remainder =
-        match s1.remainder, s2.remainder with
-        | Some _, Some _ -> Errors.raise_error "default expressed several times"
-        | Some r, None | None, Some r -> Some r
-        | None, None -> None
-      in
-      Shares { expressed; remainder }
+      Shares s
     | Flats f1, Flats f2 ->
       let new_f =
         Variable.Map.union (fun _dest f1 f2 ->
@@ -103,8 +147,74 @@ module RedistTree = struct
           f1 f2
       in
       Flats new_f
-    | Flats _, Shares _ | Shares _, Flats _ ->
-      Errors.raise_error "Mixing quoteparts and bonuses"
+
+  let merge_redist (r1 : kind_redist) (r2 : kind_redist) =
+    match r1, r2 with
+    | FlatRedist _, FracRedist _ | FracRedist _, FlatRedist _ ->
+      Errors.raise_error "Mixing quotepart and bonuses in operation"
+    | FlatRedist f1, FlatRedist f2 -> FlatRedist (merge_redist0 f1 f2)
+    | FracRedist f1, FracRedist f2 -> FracRedist (merge_redist0 f1 f2)
+
+
+  let add_remainder (d : Variable.t) (t : t) =
+    match t with
+    | Flat _ -> Errors.raise_error "Cannot add default to source of bonuses"
+    | Fractions f ->
+      Fractions
+        { f with
+          default = match f.default with
+            | None -> Some d
+            | Some _ -> Errors.raise_error "Multiple default definition"
+        }
+
+  let add_tree (tree : kind_tree) (t : t) =
+    let mixing_error () =
+      Errors.raise_error "Mixing quotepart and bonuses between operations"
+    in
+    match tree with
+    | NothingTree -> t
+    | FlatTree tree -> begin
+        if tree = Nothing then t else
+          match t with
+          | Fractions _ -> mixing_error ()
+          | Flat fs -> Flat (tree::fs)
+    end
+    | FracTree tree ->
+      match t with
+      | Flat _ -> mixing_error ()
+      | Fractions f ->
+        match tree with
+        | Nothing -> assert false
+        | Redist r -> Fractions { f with base_shares = merge_redist0 r f.base_shares }
+        | _ -> Fractions { f with branches = tree::f.branches }
+
+  let of_tree (tree : kind_tree) =
+    match tree with
+    | NothingTree | FracTree Nothing | FlatTree Nothing -> assert false
+    | FlatTree tree -> Flat [tree]
+    | FracTree (Redist r) -> Fractions { base_shares = r; default = None; branches = [] }
+    | FracTree (Branch _ as tree) ->
+      Fractions { base_shares = NoInfo; default = None; branches = [tree] }
+
+  let of_remainder (d : Variable.t) =
+    Fractions { base_shares = NoInfo; default = Some d; branches = [] }
+
+  let merge (t1 : t) (t2 : t) =
+    match t1, t2 with
+    | Flat _, Fractions _ | Fractions _, Flat _ ->
+      Errors.raise_error "Mixing quotepart and bonuses between operations"
+    | Flat fs, Flat fs' -> Flat (fs@fs')
+    | Fractions f1, Fractions f2 ->
+      Fractions {
+        base_shares = merge_redist0 f1.base_shares f2.base_shares;
+        default = begin match f1.default, f2.default with
+          | None, None -> None
+          | Some d, None | None, Some d -> Some d
+          | Some _, Some _ ->
+            Errors.raise_error "Multiple default definition"
+        end;
+        branches = f1.branches @ f2.branches;
+      }
 
 end
 

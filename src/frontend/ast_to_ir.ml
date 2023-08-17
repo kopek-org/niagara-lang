@@ -115,12 +115,22 @@ module Acc = struct
     let t = register_event t v event in
     t, v
 
-  let add_redist t ~(source : Variable.t) (tree : RedistTree.tree) =
+  let add_tree t ~(source : Variable.t) (tree : RedistTree.kind_tree) =
     let trees =
       Variable.Map.update source (function
-          | None -> Some [tree]
-          | Some existing_tree ->
-            Some (tree::existing_tree))
+          | None -> Some (RedistTree.of_tree tree)
+          | Some existing ->
+            Some (RedistTree.add_tree tree existing))
+        t.trees
+    in
+    { t with trees }
+
+  let add_default t ~(source : Variable.t) (d : Variable.t) =
+    let trees =
+      Variable.Map.update source (function
+          | None -> Some (RedistTree.of_remainder d)
+          | Some existing ->
+            Some (RedistTree.add_remainder d existing))
         t.trees
     in
     { t with trees }
@@ -462,24 +472,22 @@ let rec translate_guarded_redist ~(ctx : Context.Group.t) acc
     in
     begin match redists with
       | [] -> assert false
-      | r::rs -> acc, RedistTree.Redist (List.fold_left RedistTree.merge_redist r rs)
+      | r::rs -> acc, RedistTree.tredist (List.fold_left RedistTree.merge_redist r rs)
     end
   | Whens gs ->
     let acc, gs = translate_condition_group ~ctx acc ~default_dest gs in
-    acc, RedistTree.When gs
+    acc, RedistTree.twhen gs
   | Branches { befores; afters } ->
     let acc, befores = translate_condition_group ~ctx acc ~default_dest befores in
     let acc, afters = translate_condition_group ~ctx acc ~default_dest afters in
     let btree =
       List.fold_right (fun (evt, before) after ->
-          RedistTree.Branch { evt; before; after }
-        )
-        befores RedistTree.(Redist NoInfo)
+          RedistTree.tbranch evt before after)
+        befores RedistTree.NothingTree
     in
     let tree =
       List.fold_left (fun before (evt, after) ->
-          RedistTree.Branch { evt; before; after }
-        )
+          RedistTree.tbranch evt before after)
         btree afters
     in
     acc, tree
@@ -503,7 +511,7 @@ let translate_operation acc (o : Ast.ctx_operation_decl) =
         translate_guarded_redist ~ctx acc ~default_dest:o.ctx_op_default_dest
           o.ctx_op_guarded_redistrib
       in
-      Acc.add_redist acc ~source tree)
+      Acc.add_tree acc ~source tree)
     acc source_local_shape
 
 let translate_default acc (d : Ast.ctx_default_decl) =
@@ -513,14 +521,10 @@ let translate_default acc (d : Ast.ctx_default_decl) =
       let acc, dest =
         Acc.derive_ctx_variables ~mode:Inclusive acc (fst d.ctx_default_dest) ctx
       in
-      let tree =
-        match dest with
-        | [dest] -> RedistTree.(Redist (remainder dest))
-        | _ -> Errors.raise_error "destination derivation should have been unique"
-      in
-      Acc.add_redist acc ~source tree)
+      match dest with
+      | [dest] -> Acc.add_default acc ~source dest
+      | _ -> Errors.raise_error "destination derivation should have been unique")
     acc source_local_shape
-
 
 let translate_declaration acc (decl : Ast.contextualized Ast.declaration) =
   match decl with
