@@ -63,11 +63,16 @@ module RedistTree = struct
     | When : (Variable.t * flat tree) list -> flat tree
     | Branch of { evt : Variable.t; before : 'a tree; after : 'a tree }
 
+  type frac_default =
+    | NoDefault
+    | DefaultVariable of Variable.t
+    | DefaultTree of frac tree
+
   type t =
     | Flat of flat tree list
     | Fractions of {
         base_shares : frac redist;
-        default : Variable.t option;
+        default : frac_default;
         branches : frac tree list;
       }
 
@@ -163,8 +168,10 @@ module RedistTree = struct
       Fractions
         { f with
           default = match f.default with
-            | None -> Some d
-            | Some _ -> Errors.raise_error "Multiple default definition"
+            | NoDefault -> DefaultVariable d
+            | DefaultVariable _ -> Errors.raise_error "Multiple default definition"
+            | DefaultTree _ ->
+              Errors.raise_error "(internal) Default variable assigned on computed tree"
         }
 
   let add_tree (tree : kind_tree) (t : t) =
@@ -192,12 +199,21 @@ module RedistTree = struct
     match tree with
     | NothingTree | FracTree Nothing | FlatTree Nothing -> assert false
     | FlatTree tree -> Flat [tree]
-    | FracTree (Redist r) -> Fractions { base_shares = r; default = None; branches = [] }
+    | FracTree (Redist r) ->
+      Fractions { base_shares = r; default = NoDefault; branches = [] }
     | FracTree (Branch _ as tree) ->
-      Fractions { base_shares = NoInfo; default = None; branches = [tree] }
+      Fractions { base_shares = NoInfo; default = NoDefault; branches = [tree] }
 
   let of_remainder (d : Variable.t) =
-    Fractions { base_shares = NoInfo; default = Some d; branches = [] }
+    Fractions { base_shares = NoInfo; default = DefaultVariable d; branches = [] }
+
+  let merge_default (d1 : frac_default) (d2 : frac_default) =
+    match d1, d2 with
+    | NoDefault, NoDefault -> NoDefault
+    | DefaultVariable d, NoDefault
+    | NoDefault, DefaultVariable d -> DefaultVariable d
+    | _, _ ->
+      Errors.raise_error "Multiple default definition"
 
   let merge (t1 : t) (t2 : t) =
     match t1, t2 with
@@ -207,12 +223,7 @@ module RedistTree = struct
     | Fractions f1, Fractions f2 ->
       Fractions {
         base_shares = merge_redist0 f1.base_shares f2.base_shares;
-        default = begin match f1.default, f2.default with
-          | None, None -> None
-          | Some d, None | None, Some d -> Some d
-          | Some _, Some _ ->
-            Errors.raise_error "Multiple default definition"
-        end;
+        default = merge_default f1.default f2.default;
         branches = f1.branches @ f2.branches;
       }
 

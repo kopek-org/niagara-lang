@@ -123,6 +123,12 @@ let rec print_tree : type a. Ast.program_infos -> Format.formatter -> a RedistTr
 let print_trees (type a) (infos : Ast.program_infos) fmt (ts : a RedistTree.tree list) =
   Format.fprintf fmt "@[<v>%a@]" (Format.pp_print_list (print_tree infos)) ts
 
+let print_default (infos : Ast.program_infos) fmt (d : RedistTree.frac_default) =
+  match d with
+  | NoDefault -> ()
+  | DefaultVariable v -> Format.fprintf fmt "default -> %a" (print_variable infos) v
+  | DefaultTree t -> print_tree infos fmt t
+
 let print_t (infos : Ast.program_infos) fmt (t : RedistTree.t) =
   match t with
   | Flat fs -> print_trees infos fmt fs
@@ -130,8 +136,7 @@ let print_t (infos : Ast.program_infos) fmt (t : RedistTree.t) =
     Format.fprintf fmt "@[<v>%a@;%a@;%a@]"
       (print_redist infos) f.base_shares
       (print_trees infos) f.branches
-      (Format.pp_print_option (fun fmt d -> Format.fprintf fmt "default -> %a" (print_variable infos) d))
-      f.default
+      (print_default infos) f.default
 
 let print_program fmt (p : program) =
   Format.fprintf fmt "@[<v 2>Events:@,";

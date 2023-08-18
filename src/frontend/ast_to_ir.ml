@@ -536,6 +536,161 @@ let translate_declaration acc (decl : Ast.contextualized Ast.declaration) =
   | DVarAdvance _
   | DVarDeficit _ -> assert false
 
+(* type attribution_ratio = *)
+(*   | NoAttribution *)
+(*   | Ratio of { *)
+(*       min : float; *)
+(*       max : float; *)
+(*       rebuild : float -> RedistTree.frac RedistTree.tree *)
+(*     } *)
+
+(* let level_fractional_attribution (t : RedistTree.t) = *)
+(*   match t with *)
+(*   | Flat _ -> t *)
+(*   | Fractions { base_shares; default; branches } -> *)
+(*     let add_default_to_redist (r : RedistTree.frac RedistTree.redist) part = *)
+(*       if part <= 0. then r else *)
+(*         match default with *)
+(*         | None -> *)
+(*           (\* TODO default needed warning *\) *)
+(*           r *)
+(*         | Some d -> *)
+(*           match r with *)
+(*           | NoInfo -> RedistTree.Shares (Variable.Map.singleton d part) *)
+(*           | Shares shares -> *)
+(*             Shares (Variable.Map.update d (function *)
+(*                 | None -> Some part *)
+(*                 | Some p -> Some (p+.part)) *)
+(*               shares) *)
+(*     in *)
+(*     let redist_part (r : RedistTree.frac RedistTree.redist) = *)
+(*       match r with *)
+(*       | NoInfo -> 0., (fun part -> add_default_to_redist r part) *)
+(*       | Shares sh -> *)
+(*         let alloc_part = Variable.Map.fold (fun _v -> (+.)) sh 0. in *)
+(*         alloc_part, *)
+(*         (fun part -> add_default_to_redist r (part -. alloc_part)) *)
+(*     in *)
+(*     let rec tree_part (tree : RedistTree.frac RedistTree.tree) = *)
+(*       match tree with *)
+(*       | Nothing -> *)
+(*         Ratio { min = 0.; max = 0.; *)
+(*                  rebuild = fun part -> *)
+(*                    if part > 0. then *)
+(*                      RedistTree.Redist (add_default_to_redist NoInfo part) *)
+(*                    else Nothing *)
+(*                } *)
+(*       | Redist r -> *)
+(*         let part, rebuild = redist_part r in *)
+(*         Ratio { min = part; max = part; *)
+(*                 rebuild = fun part -> *)
+(*                   RedistTree.Redist (rebuild part) *)
+(*               } *)
+(*       | Branch { evt; before; after } -> *)
+(*         let before = tree_part before in *)
+(*         let after = tree_part after in *)
+(*         match before, after with *)
+(*         | NoAttribution, NoAttribution -> NoAttribution *)
+(*         | Ratio { min=_; max; rebuild = rebuild_before }, NoAttribution -> *)
+(*           Ratio { min = 0.; max; *)
+(*                   rebuild = fun part -> *)
+(*                     Branch { evt; *)
+(*                              before = rebuild_before part; *)
+(*                              after = *)
+(*                                if part <= 0. then Nothing else *)
+(*                                  RedistTree.Redist (add_default_to_redist NoInfo part); *)
+(*                            }} *)
+(*         | NoAttribution, Ratio { min=_; max; rebuild = rebuild_after } -> *)
+(*           Ratio { min = 0.; max; *)
+(*                   rebuild = fun part -> *)
+(*                     Branch { evt; *)
+(*                              before = *)
+(*                                if part <= 0. then Nothing else *)
+(*                                  RedistTree.Redist (add_default_to_redist NoInfo part); *)
+(*                              after = rebuild_after part; *)
+(*                            }} *)
+(*         | Ratio rb, Ratio ra -> *)
+(*           Ratio { min = min rb.min ra.min; *)
+(*                   max = max rb.max ra.max; *)
+(*                   rebuild = fun part -> *)
+(*                     Branch { evt; *)
+(*                              before = rb.rebuild part; *)
+(*                              after = ra.rebuild part; *)
+(*                            }} *)
+(*     in *)
+(*     let base_part, rebuild_base = redist_part base_shares in *)
+(*     let branches_parts = List.map tree_part branches in *)
+(*     (\* TODO detect need for deficit *\) *)
+(*     let base_part_with_default, branches_part_with_default = *)
+(*       if branches_parts = [] *)
+(*       then 1., 0. *)
+(*       else base_part, 1. -. base_part *)
+(*     in *)
+(*     let base_shares_with_default = rebuild_base base_part_with_default in *)
+(*     let branches_with_default = *)
+(*       List.map (function *)
+(*           | NoAttribution -> assert false *)
+(*           | Ratio r -> r.rebuild branches_part_with_default) *)
+(*         branches_parts *)
+(*     in *)
+(*     Fractions { *)
+(*       base_shares = base_shares_with_default; *)
+(*       default = None; *)
+(*       branches = branches_with_default; *)
+(*     } *)
+
+let level_fractional_attribution (t : RedistTree.t) =
+  match t with
+  | Flat _ -> t
+  | Fractions { base_shares; default; branches } ->
+    let redist_part (r : RedistTree.frac RedistTree.redist) =
+      match r with
+      | NoInfo -> 0.
+      | Shares sh -> Variable.Map.fold (fun _v -> (+.)) sh 0.
+    in
+    let rec branch_part known default (tree : RedistTree.frac RedistTree.tree) =
+      match tree with
+      | Nothing -> default
+      | Redist r ->
+        Variable.BDT.map_action known (fun _k -> function
+            | None -> assert false
+            | Some part -> Action (part -. redist_part r))
+          default
+      | Branch { evt; before; after } ->
+        let default = Variable.BDT.add_decision evt default in
+        let default = branch_part (Variable.Map.add evt true known) default before in
+        branch_part (Variable.Map.add evt false known) default after
+    in
+    let base_part = redist_part base_shares in
+    let default_redist = Variable.BDT.Action (1. -. base_part) in
+    let branches_parts =
+      List.fold_left (branch_part Variable.Map.empty) default_redist branches
+    in
+    let make_default_redist =
+      match default with
+      | NoDefault -> fun _path _ -> RedistTree.Nothing (* TODO warning default needed *)
+      | DefaultTree _ -> Errors.raise_error "(internal) Default tree already computed"
+      | DefaultVariable d -> fun _ part ->
+        RedistTree.(Redist (Shares (Variable.Map.singleton d part)))
+    in
+    let default_tree =
+      Variable.BDT.fold branches_parts
+        ~noaction:(fun _k -> RedistTree.Nothing)
+        ~action:(fun k part ->
+            if part > 0.
+            then make_default_redist k part
+            else RedistTree.Nothing)
+        ~decision:(fun _k evt before after ->
+            match before, after with
+            | Nothing, Nothing -> RedistTree.Nothing
+            | _, _ -> Branch { evt; before; after })
+    in
+    Fractions { base_shares; branches; default = DefaultTree default_tree }
+
+let level_attributions acc =
+  let trees = Variable.Map.map level_fractional_attribution acc.trees in
+  { acc with trees }
+
 let translate_program (Contextualized (infos, prog) : Ast.contextualized Ast.program) =
   let acc = Acc.make infos in
   let acc =
@@ -544,4 +699,4 @@ let translate_program (Contextualized (infos, prog) : Ast.contextualized Ast.pro
          translate_declaration acc decl)
       acc prog
   in
-  acc
+  level_attributions acc

@@ -13,7 +13,6 @@ type expr =
   | Add of expr * expr
   | Pre of Variable.t
 
-
 type 'a bdd =
   | Decide of Variable.t * 'a bdd * 'a bdd
   | Do of 'a
@@ -239,8 +238,13 @@ let trees_prov (src : Variable.t) (t : RedistTree.t) : prov_exprs =
         prov_exprs_union acc provs)
       Variable.Map.empty fs
   | Fractions { base_shares; default; branches } ->
-    if default <> None then
-      Errors.raise_error "(internal) Default attribution should have been computed away";
+    let branches =
+      match default with
+      | NoDefault -> branches
+      | DefaultTree dt -> dt::branches
+      | DefaultVariable _ ->
+        Errors.raise_error "(internal) Default attribution should have been computed away"
+    in
     List.fold_left (fun acc tree ->
         let provs = tree_prov src tree in
         prov_exprs_union acc provs)
