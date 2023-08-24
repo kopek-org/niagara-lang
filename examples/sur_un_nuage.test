@@ -7,7 +7,7 @@
 5: entree_salle_France += 150000
 6: ventes_tvsvod(TV, SVOD, France, Commercial) += 10000$
 7: frais_edition_vendeur_scorpion += 12000$
-8: recette_brute_vendeur(tout Support, Etranger, Commercial) += 44916.67$
+8: recette_brute_vendeur(tout Support, Etranger, Commercial) += 57838.24$
 9: frais_edition_distibuteur_du_desert += 10000$
 10: recette_brute_distibuteur(Salle, France, Commercial) += 10000$
 
@@ -63,9 +63,9 @@
      55500$ -> recette_nette_part_producteur(Salle, Video, France, Commercial)
    - recette_nette_part_producteur(Salle, Video, France, Commercial) : { 55500$, 62500$ }
      44400$ -> distributeur_du_desert$minimum_garanti
-     11100$ -> les_production_du_chameau$rnpp_france_residuelle
-   - les_production_du_chameau : { 11100$, 11100$ }
-     $ rnpp_france_residuelle : { 11100$, 11100$ }
+     11100$ -> barbie$interessement
+   - barbie : { 11100$, 12500$ }
+     $ interessement : { 11100$, 12500$ }
    - distributeur_du_desert : { 62900$, 87500$ }
      $ minimum_garanti : { 44400$, 50000$ }
      $ commission_video : { 18500$, 18500$ }
@@ -83,12 +83,12 @@
      3150$ -> les_production_du_chameau$rnpp_france_residuelle
    - distributeur_du_desert : { 1500$, 89000$ }
      $ commission_video : { 1500$, 2000$ }
-   - les_production_du_chameau : { 3150$, 14250$ }
-     $ rnpp_france_residuelle : { 3150$, 14250$ }
+   - les_production_du_chameau : { 3150$, 3150$ }
+     $ rnpp_france_residuelle : { 3150$, 3150$ }
    - dromadaire_film : { 450$, 450$ }
      $ france : { 450$, 450$ }
-   - barbie : { 900$, 2300$ }
-     $ interessement : { 900$, 2300$ }
+   - barbie : { 900$, 13400$ }
+     $ interessement : { 900$, 13400$ }
 
 5: - entree_salle_France : { 100000, 100000 }
 
@@ -96,7 +96,7 @@
    - entree_salles_France : { 50000, 150000 }
    - les_productions_du_chameau : as provider
      10000$ -> barbie$bonus_nombre_entrees
-   - barbie : { 10000$, 12300$ }
+   - barbie : { 10000$, 23400$ }
      $ bonus_nombre_entrees : { 10000$, 10000$ }
 
 6: - ventes_tvsvod(TV, SVOD, France, Commercial) : { 10000$, 10000$ }
@@ -106,14 +106,13 @@
      3200$ -> dromadaire_film$tv_svod
      1600$ -> barbie$interessement
      3200$ -> les_productions_du_chameau$rnpp_france_residuelle
-   - les_productions_du_chameau : { 3200$, 17450$ }
-     $ rnpp_france_residuelle : { 3200$, 17450$ }
-   - barbie : { 1600$, 13900$ }
-     $ interessement : { 1600$, 3900$ }
+   - les_productions_du_chameau : { 5200$, 8350$ }
+     $ rnpp_france_residuelle : { 3200$, 6350$ }
+     $ commission : { 2000$, 2000$ }
+   - barbie : { 1600$, 25000$ }
+     $ interessement : { 1600$, 15000$ }
    - dromadaire_film : { 3200$, 3650$ }
      $ tv_svod : { 3200$, 3200$ }
-   - les_productions_du_chameau : { 2000$, 16250$ }
-     $ commission : { 2000$, 2000$ }
 
 7: - frais_edition_vendeur_scorpion : { 12000$, 12000$ }
 
@@ -131,43 +130,43 @@
      $ frais_edition_vendeur_scorpion : { 12000$; 12000$ }
 
    ++ switch after recuperation_frais_edition_scorpion
-   - recette_brute_vendeur(tout Support, Etranger, Commercial) : { 22916.67$, 38916.67$ }
-     5729.17$ -> vendeur_scorpion$commission_vendeur
-     17187.50$ -> recette_nette_commission_vendeur(tout Support, Etranger, Commercial)
+   - recette_brute_vendeur(tout Support, Etranger, Commercial) : { 31838.24$, 47838.24$ }
+     4775.74$ -> vendeur_scorpion$commission_vendeur
+     27062.50$ -> recette_nette_commission_vendeur(tout Support, Etranger, Commercial)
    - recette_nette_commission_vendeur(tout Support, Etranger, Commercial)
-       : { 17187.50$, 29187.50$ }
-     17187.50$ -> recette_nette_part_producteur(tout Support, Etranger, Commercial)
+       : { 27062.50$, 39062.50$ }
+     27062.50$ -> recette_nette_part_producteur(tout Support, Etranger, Commercial)
    - recette_nette_part_producteur(tout Support, Etranger, Commercial)
-       : { 17187.50$, 17187.50$ }
-     13750$ -> les_productions_du_chameau$rnpp_residuelle_etranger
-     3437.50$ -> barbie$interessement
-   - vendeur_scorpion : { 5729.17$, 21729.17$ }
-     $ commission_vendeur : { 5729.17$, 9729.17$ }
-   - les_productions_du_chameau : { 13750$, 30000$ }
-     $ rnpp_residuelle_etranger : { 13750$, 13750$ }
-   - barbie : { 3437.50$, 17337.50$ }
-     $ interessement : { 3437.50$, 7337.50$ }
+       : { 27062.50$, 27062.50$ }
+     21650$ -> les_productions_du_chameau$rnpp_residuelle_etranger
+     5412.50$ -> barbie$interessement
+   - vendeur_scorpion : { 4775.74$, 20775.74$ }
+     $ commission_vendeur : { 4775.74$, 8775.74$ }
+   - les_productions_du_chameau : { 21650$, 30000$ }
+     $ rnpp_residuelle_etranger : { 21650$, 21650$ }
+   - barbie : { 5412.50$, 30412.50$ }
+     $ interessement : { 5412.50$, 20412.50$ }
 
    ++ switch after recup_risque_prod :
-   - recette_brute_vendeur(tout Support, Etranger, Commercial) : { 10000$, 48916.67$ }
+   - recette_brute_vendeur(tout Support, Etranger, Commercial) : { 10000$, 57838.24$ }
      1500$ -> vendeur_scorpion$commission_vendeur
      8500$ -> recette_nette_commission_vendeur(tout Support, Etranger, Commercial)
    - recette_nette_commission_vendeur(tout Support, Etranger, Commercial)
-       : { 8500$, 37687.50$ }
+       : { 8500$, 48562.50$ }
      8500$ -> recette_nette_part_producteur(tout Support, Etranger, Commercial)
    - recette_nette_part_producteur(tout Support, Etranger, Commercial)
-       : { 8500$, 25687.50$ }
+       : { 8500$, 35562.50$ }
      5100$ -> les_productions_du_chameau$rnpp_residuelle_etranger
      1700$ -> dromadaire_film$etranger
      1700$ -> barbie$interessement
-   - vendeur_scorpion : { 1500$, 23229.17$ }
-     $ commission_vendeur : { 1500$, 11229.17$ }
+   - vendeur_scorpion : { 1500$, 22275.74$ }
+     $ commission_vendeur : { 1500$, 10275.74$ }
    - les_productions_du_chameau : { 5100$, 35100$ }
-     $ rnpp_residuelle_etranger : { 5100$, 18850$ }
+     $ rnpp_residuelle_etranger : { 5100$, 16750$ }
    - dromadaire_film : { 1700$, 5350$ }
      $ etranger : { 1700$, 1700$ }
-   - barbie : { 1700$, 19037.50$ }
-     $ interessement : { 1700$, 9037.50$ }
+   - barbie : { 1700$, 32112.50$ }
+     $ interessement : { 1700$, 22112.50$ }
 
 9: - frais_edition_distributeur_du_desert : { 10000$, 20000$ }
 
