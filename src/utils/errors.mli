@@ -1,4 +1,4 @@
-include module type of Logs
+include module type of Logs with type 'a Tag.def = 'a Logs.Tag.def
 
 val loc_tag : Pos.t Tag.def
 
