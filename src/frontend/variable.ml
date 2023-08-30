@@ -3,6 +3,10 @@ type t = int
 module Map = Map.Make(Int)
 module Set = Set.Make(Int)
 module BDT = BinaryDecisionTree.Make(Int)(Map)
+module Graph = Graph.Persistent.Digraph.ConcreteBidirectional(struct
+    include Int
+    let hash v = v
+  end)
 
 (* type var_layout = *)
 (*   | SimpleVar *)

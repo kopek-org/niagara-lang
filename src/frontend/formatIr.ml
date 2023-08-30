@@ -68,6 +68,7 @@ let rec print_formula (infos : Ast.program_infos) fmt (f : formula) =
 let rec print_event (infos : Ast.program_infos) fmt (ev : event) =
   match ev with
   | EvtVar v -> Format.fprintf fmt "Evt %a" (print_variable infos) v
+  | EvtOnRaise v -> Format.fprintf fmt "OnRaise %a" (print_variable infos) v
   | EvtAnd (ev1, ev2) ->
     Format.fprintf fmt "@[<hv 2>(%a@ && %a)@]"
       (print_event infos) ev1

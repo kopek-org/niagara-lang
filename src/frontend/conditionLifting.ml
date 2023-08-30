@@ -13,22 +13,22 @@ type expr =
   | Add of expr * expr
   | Pre of Variable.t
 
-type 'a bdd =
-  | Decide of Variable.t * 'a bdd * 'a bdd
-  | Do of 'a
-  | Nothing
+module BDT = Variable.BDT
 
 type eqex =
+  | EZero
   | ESrc
   | EConst of literal
   | EMult of float * eqex
   | EAdd of eqex * eqex
-  | ESub of eqex * eqex
+  | EMinus of eqex
   | EVar of Variable.t
 
 type cond =
   | Ref of Variable.t
+  | Raising of Variable.t
   | Eq of eqex * eqex
+  | Norm of float * eqex
 
 type 'a sourced = {
   pinned_src : 'a Variable.Map.t;
@@ -37,7 +37,95 @@ type 'a sourced = {
 
 type prov_exprs = expr sourced Variable.Map.t
 
-type event_eqs = cond bdd sourced Variable.Map.t
+type event_eqs = cond BDT.t sourced Variable.Map.t
+
+type program_with_threshold =
+  { infos : Ast.program_infos;
+    trees : RedistTree.t Variable.Map.t;
+    equations : event_eqs;
+    dep_graph : Variable.Graph.t;
+  }
+
+let rec print_expr fmt (expr : expr) =
+  match expr with
+  | Src -> Format.fprintf fmt "[src]"
+  | Zero -> Format.fprintf fmt "0"
+  | Const l -> FormatIr.print_literal fmt l
+  | Factor (f, e) -> Format.fprintf fmt "%g*%a" f print_expr e
+  | Switch { evt; before; after } ->
+    Format.fprintf fmt "@[<hv 2>(v%d ?@ %a@ : %a)@]"
+      evt
+      print_expr before
+      print_expr after
+  | Add (expr1, expr2) ->
+    Format.fprintf fmt "@[<hv>(%a@ + %a)@]"
+      print_expr expr1
+      print_expr expr2
+  | Pre v -> Format.fprintf fmt "v%d" v
+
+let print_provenances fmt (provs : prov_exprs) =
+  Format.pp_open_vbox fmt 0;
+  Variable.Map.iter (fun dest prov ->
+      Format.fprintf fmt "@[<hv 2>provs %d:@ " dest;
+      Variable.Map.iter (fun src expr ->
+          Format.fprintf fmt "@[<hv 2>from %d:@ %a@],@ "
+            src
+            print_expr expr)
+        prov.pinned_src;
+      Format.fprintf fmt "from another:@ %a" print_expr prov.other_src;
+      Format.fprintf fmt "@]@,")
+    provs;
+  Format.fprintf fmt "@]@."
+
+let rec print_eqex fmt (e : eqex) =
+  match e with
+  | EZero -> Format.fprintf fmt "0"
+  | ESrc -> Format.fprintf fmt "[src]"
+  | EConst l -> FormatIr.print_literal fmt l
+  | EMult (f, e) -> Format.fprintf fmt "%g*%a" f print_eqex e
+  | EAdd (e1, EMinus e2) ->
+    Format.fprintf fmt "@[<hv>(%a@ - %a)@]"
+      print_eqex e1 print_eqex e2
+  | EAdd (e1, e2) ->
+    Format.fprintf fmt "@[<hv>(%a@ + %a)@]"
+      print_eqex e1 print_eqex e2
+  | EMinus e ->
+    Format.fprintf fmt "@[<hv>-%a@]" print_eqex e
+  | EVar v -> Format.fprintf fmt "v%d" v
+
+let print_cond fmt (cond : cond) =
+  match cond with
+  | Ref evt -> Format.fprintf fmt "event %d" evt
+  | Raising evt -> Format.fprintf fmt "when %d" evt
+  | Norm (f, e) ->
+    Format.fprintf fmt "@[<hv 1> %g*[src]@ = %a@]"
+      f print_eqex e
+  | Eq (e1, e2) ->
+    Format.fprintf fmt "@[<hv 1>(%a@ = %a)@]"
+      print_eqex e1
+      print_eqex e2
+
+let rec print_bdd (pp : Format.formatter -> 'a -> unit) fmt (bdd : 'a BDT.t) =
+  match bdd with
+  | NoAction -> Format.fprintf fmt "nothing"
+  | Action e -> pp fmt e
+  | Decision (c, d1, d2) ->
+    Format.fprintf fmt "@[<hv>if %d@ then %a@ else %a@]"
+      c (print_bdd pp) d1 (print_bdd pp) d2
+
+let print_conditions fmt (eqs : event_eqs) =
+  Format.pp_open_vbox fmt 0;
+  Variable.Map.iter (fun dest eqs ->
+      Format.fprintf fmt "@[<hv 2>eqs %d:@ " dest;
+      Variable.Map.iter (fun src bdd ->
+          Format.fprintf fmt "@[<hv 2>from %d:@ %a@],@ "
+            src
+            (print_bdd print_cond) bdd)
+        eqs.pinned_src;
+      Format.fprintf fmt "from another:@ %a" (print_bdd print_cond) eqs.other_src;
+      Format.fprintf fmt "@]@,")
+    eqs;
+  Format.fprintf fmt "@]@."
 
 let merge_expr (expr1 : expr) (expr2 : expr) =
   match expr1, expr2 with
@@ -65,63 +153,23 @@ let rec apply_expr (lexpr : expr) (xexpr : expr) =
   | Switch { evt; before; after } ->
     Switch { evt; before = apply_expr before xexpr; after = apply_expr after xexpr }
 
-let rec bdd_map (f : 'a -> 'b) (bdd : 'b bdd) =
-  match bdd with
-  | Decide (c, d1, d2) -> Decide (c, bdd_map f d1, bdd_map f d2)
-  | Do e -> Do (f e)
-  | Nothing -> Nothing
-
-let merge_bdd (f : 'a option -> 'a option -> 'b option) (d1 : 'a bdd) (d2 : 'a bdd) =
-  let rec run_down (f : 'a option -> 'b option) decided d =
-    match d with
-    | Nothing -> begin match f None with
-        | None -> Nothing
-        | Some e -> Do e
-      end
-    | Do e -> begin
-        match f (Some e) with
-        | None -> Nothing
-        | Some e -> Do e
-      end
-    | Decide (c, d1, d2) ->
-      match Variable.Map.find_opt c decided with
-      | None -> Decide (c, run_down f decided d1, run_down f decided d2)
-      | Some decision ->
-        let d = if decision then d1 else d2 in
-        run_down f decided d
-  in
-  let rec aux decided d1 d2 =
-    match d1 with
-    | Decide (c, d11, d12) -> begin
-      match Variable.Map.find_opt c decided with
-        | None ->
-          Decide (c,
-            aux (Variable.Map.add c true decided) d11 d2,
-            aux (Variable.Map.add c false decided) d12 d2)
-        | Some decision ->
-          let d = if decision then d11 else d12 in
-          aux decided d d2
-    end
-    | Do e -> run_down (f (Some e)) decided d2
-    | Nothing -> run_down (f None) decided d2
-  in
-  aux Variable.Map.empty d1 d2
-
-let lift_expr (expr : expr) : eqex bdd =
+let lift_expr (expr : expr) : eqex BDT.t =
   let rec aux decided expr =
     match expr with
-    | Zero -> Nothing
-    | Src -> Do ESrc
-    | Const l -> Do (EConst l)
+    | Zero -> BDT.NoAction
+    | Src -> BDT.Action ESrc
+    | Const l -> BDT.Action (EConst l)
     | Factor (f, e) ->
       let d = aux decided e in
-      bdd_map (fun e -> EMult (f, e)) d
-    | Pre v -> Do (EVar v)
+      Variable.BDT.map_action decided (fun _k ->
+          Option.fold ~some:(fun e -> BDT.Action (EMult (f, e))) ~none:BDT.NoAction)
+        d
+    | Pre v -> Action (EVar v)
     | Add (e1, e2) ->
       let d1 = aux decided e1 in
       let d2 = aux decided e2 in
-      merge_bdd
-        (fun e1 e2 ->
+      Variable.BDT.merge
+        (fun _k e1 e2 ->
            match e1, e2 with
            | None, None -> None
            | Some e, None
@@ -134,7 +182,7 @@ let lift_expr (expr : expr) : eqex bdd =
       | None ->
         let b = aux (Variable.Map.add evt true decided) before in
         let a = aux (Variable.Map.add evt false decided) after in
-        Decide (evt, b, a)
+        Decision (evt, b, a)
       | Some decision ->
         let e = if decision then before else after in
         aux decided e
@@ -148,10 +196,34 @@ let merge_sourced_expr (se1 : expr sourced) (se2 : expr sourced) =
     other_src = merge_expr se1.other_src se2.other_src;
   }
 
+let merge_prov_exprs (f : expr option -> expr option -> expr option)
+    (p1 : prov_exprs) (p2 : prov_exprs) =
+  let opt_pinned = function
+    | None -> Variable.Map.empty
+    | Some s -> s.pinned_src
+  in
+  let opt_other = Option.map (fun s -> s.other_src) in
+  Variable.Map.merge (fun _dest expr1 expr2 ->
+      Some {
+        pinned_src = Variable.Map.merge (fun _src -> f)
+            (opt_pinned expr1) (opt_pinned expr2);
+        other_src =
+            match f (opt_other expr1) (opt_other expr2) with
+            | None -> Zero
+            | Some e -> e;
+      }
+    )
+    p1 p2
+
 let prov_exprs_union (p1 : prov_exprs) (p2 : prov_exprs) =
   Variable.Map.union (fun _dest expr1 expr2 ->
       Some (merge_sourced_expr expr1 expr2))
     p1 p2
+
+let get_source (src : Variable.t) (sourced : 'a sourced) =
+  match Variable.Map.find_opt src sourced.pinned_src with
+  | None -> sourced.other_src
+  | Some e -> e
 
 let formula_prov (provs : prov_exprs) (cf : formula) : expr sourced =
   match cf with
@@ -163,7 +235,7 @@ let formula_prov (provs : prov_exprs) (cf : formula) : expr sourced =
       | AtInstant -> Fun.id
       | Cumulated -> function
         | Zero -> Pre v
-        | e -> Add (Pre v, e)
+        | e -> Add (e, Pre v)
     in
     begin match Variable.Map.find_opt v provs with
       | None ->
@@ -197,37 +269,29 @@ let redist_prov (type a) (src : Variable.t) (r : a RedistTree.redist) : prov_exp
 let rec tree_prov : type a. Variable.t -> a RedistTree.tree -> prov_exprs =
   fun src tree ->
   match tree with
-  | Nothing -> assert false
+  | Nothing -> Variable.Map.empty
   | Redist r -> redist_prov src r
-  | When _ -> assert false
+  | When wr ->
+    List.fold_left (fun provs (evt, r) ->
+        let prov = tree_prov src r in
+        merge_prov_exprs (fun p w ->
+            match p, w with
+            | None, None -> assert false
+            | Some e, None -> Some e
+            | None, Some on_when ->
+              Some (Switch { evt; before = Zero; after = on_when })
+            | Some e, Some on_when ->
+              Some (Switch { evt; before = e; after = merge_expr e on_when}))
+          provs prov)
+      Variable.Map.empty wr
   | Branch { evt; before; after } ->
     let befores = tree_prov src before in
     let afters = tree_prov src after in
-    Variable.Map.merge (fun _dest before after ->
-        let bfs, bfo, afs, afo =
-          match before, after with
-          | None, None -> assert false
-          | Some b, None -> b.pinned_src, b.other_src, Variable.Map.empty, Zero
-          | None, Some a -> Variable.Map.empty, Zero, a.pinned_src, a.other_src
-          | Some b, Some a -> b.pinned_src, b.other_src, a.pinned_src, a.other_src
-        in
-        Some {
-          pinned_src =
-            Variable.Map.merge (fun _src before after ->
-                match before, after with
-                | None, None -> assert false
-                | Some before, None ->
-                  Some (Switch { evt; before; after = Zero })
-                | None, Some after ->
-                  Some (Switch { evt; before = Zero; after })
-                | Some before, Some after ->
-                  Some (Switch { evt; before; after })
-              )
-              bfs afs;
-          other_src =
-            if bfo = afo then bfo
-            else Switch { evt; before = bfo; after = afo }
-        })
+    merge_prov_exprs (fun e1 e2 ->
+        let before = Option.value ~default:Zero e1 in
+        let after = Option.value ~default:Zero e2 in
+        if before = after then Some before else
+          Some (Switch { evt; before; after }))
       befores afters
 
 let trees_prov (src : Variable.t) (t : RedistTree.t) : prov_exprs =
@@ -286,9 +350,9 @@ let prov_transitivity (provs : prov_exprs) : prov_exprs =
   Variable.Map.fold (fun dest _se tprovs -> fst @@ memoize tprovs dest)
     provs Variable.Map.empty
 
-let event_condition (provs : prov_exprs) (event : event) : cond bdd sourced =
+let event_condition (provs : prov_exprs) (event : event) : cond BDT.t sourced =
   let merge_eq d1 d2 =
-    merge_bdd (fun e1 e2 ->
+    Variable.BDT.merge (fun _k e1 e2 ->
         match e1, e2 with
         | None, None
         | Some _ , None
@@ -299,7 +363,9 @@ let event_condition (provs : prov_exprs) (event : event) : cond bdd sourced =
   in
   match event with
   | EvtVar evt ->
-    { pinned_src = Variable.Map.empty; other_src = Do (Ref evt) }
+    { pinned_src = Variable.Map.empty; other_src = Action (Ref evt) }
+  | EvtOnRaise evt ->
+    { pinned_src = Variable.Map.empty; other_src = Action (Raising evt)}
   | EvtComp (Eq, f1, f2) ->
     let se1 = formula_prov provs f1 in
     let se2 = formula_prov provs f2 in
@@ -307,10 +373,12 @@ let event_condition (provs : prov_exprs) (event : event) : cond bdd sourced =
       Variable.Map.merge (fun _src e1 e2 ->
           let e1, e2 =
             match e1 with
-            | Some e1 ->
-              if e2 <> None then
-                Errors.raise_error "source term present in both side of equation";
-              e1, se2.other_src
+            | Some e1 -> begin
+                match e2 with
+                | Some e2 -> e1, e2
+                (* Errors.raise_error "source term present in both side of equation"; *)
+                | None -> e1, se2.other_src
+              end
             | None ->
               match e2 with
               | None -> se1.other_src, se2.other_src
@@ -331,77 +399,138 @@ let event_condition (provs : prov_exprs) (event : event) : cond bdd sourced =
 let condition_equations (program : program) (provs : prov_exprs) : event_eqs =
   Variable.Map.map (event_condition provs) program.events
 
-let rec print_expr fmt (expr : expr) =
-  match expr with
-  | Src -> Format.fprintf fmt "[src]"
-  | Zero -> Format.fprintf fmt "0"
-  | Const l -> FormatIr.print_literal fmt l
-  | Factor (f, e) -> Format.fprintf fmt "%g*%a" f print_expr e
-  | Switch { evt; before; after } ->
-    Format.fprintf fmt "@[<hv 2>(v%d ?@ %a@ : %a)@]"
-      evt
-      print_expr before
-      print_expr after
-  | Add (expr1, expr2) ->
-    Format.fprintf fmt "@[<hv>(%a@ + %a)@]"
-      print_expr expr1
-      print_expr expr2
-  | Pre v -> Format.fprintf fmt "v%d" v
+let transform_raising_cond (eqs : event_eqs) =
+  let reduce_decide_on evt bdd =
+    if bdd = BDT.NoAction then bdd else
+      let bdd = BDT.add_decision evt bdd in
+      BDT.map_action (Variable.Map.singleton evt true)
+        (fun _k _c -> NoAction)
+        bdd
+  in
+  let trans_raising cond =
+    match cond with
+    | Eq _ | Norm _ ->
+      { pinned_src = Variable.Map.empty;
+        other_src = BDT.Action cond;
+      }
+    | Ref evt -> Variable.Map.find evt eqs
+    | Raising evt ->
+      let srcd = Variable.Map.find evt eqs in
+      { pinned_src =
+          Variable.Map.map (reduce_decide_on evt) srcd.pinned_src;
+        other_src = reduce_decide_on evt srcd.other_src;
+      }
+  in
+  Variable.Map.map (fun sourced ->
+      let pinned_src =
+        Variable.Map.mapi (fun src bdd ->
+            BDT.map_action Variable.Map.empty (fun k act ->
+                match act with
+                | None -> NoAction
+                | Some cond ->
+                  BDT.cut k (get_source src (trans_raising cond)))
+              bdd)
+          sourced.pinned_src
+      in
+      let any_source a = { pinned_src = Variable.Map.empty; other_src = a } in
+      let merge_bdd d1 d2 =
+        BDT.merge (fun _k c1 c2 ->
+            match c1, c2 with
+            | None, None -> None
+            | None, c | c, None -> c
+            | Some _, Some _ -> assert false)
+          d1 d2
+      in
+      let default_src =
+        BDT.fold ~noaction:(fun _k -> any_source BDT.NoAction)
+          ~action:(fun k cond ->
+              let srcd = trans_raising cond in
+              { pinned_src = Variable.Map.map (BDT.cut k) srcd.pinned_src;
+                other_src = BDT.cut k srcd.other_src;
+              })
+          ~decision:(fun _k _evt s1 s2 ->
+              { pinned_src =
+                  Variable.Map.union (fun _src c1 c2 ->
+                      Some (merge_bdd c1 c2))
+                    s1.pinned_src s2.pinned_src;
+                other_src =
+                  merge_bdd s1.other_src s2.other_src
+              }
+            )
+          sourced.other_src
+      in
+      { pinned_src =
+          Variable.Map.union (fun _src bdd _ -> Some bdd)
+            pinned_src default_src.pinned_src;
+        other_src = default_src.other_src;
+      })
+    eqs
 
-let print_provenances fmt (provs : prov_exprs) =
-  Format.pp_open_vbox fmt 0;
-  Variable.Map.iter (fun dest prov ->
-      Format.fprintf fmt "@[<hv 2>provs %d:@ " dest;
-      Variable.Map.iter (fun src expr ->
-          Format.fprintf fmt "@[<hv 2>from %d:@ %a@],@ "
-            src
-            print_expr expr)
-        prov.pinned_src;
-      Format.fprintf fmt "from another:@ %a" print_expr prov.other_src;
-      Format.fprintf fmt "@]@,")
-    provs;
-  Format.fprintf fmt "@]@."
-
-let rec print_eqex fmt (e : eqex) =
+let rec extract_src_factor (e : eqex) =
   match e with
-  | ESrc -> Format.fprintf fmt "[src]"
-  | EConst l -> FormatIr.print_literal fmt l
-  | EMult (f, e) -> Format.fprintf fmt "%g*%a" f print_eqex e
+  | ESrc -> 1., EZero
+  | EZero | EConst _ | EVar _ -> 0., e
+  | EMult (f, e) ->
+    let srcf, e = extract_src_factor e in
+    srcf *. f, if e = EZero then e else EMult (f, e)
   | EAdd (e1, e2) ->
-    Format.fprintf fmt "@[<hv>(%a@ + %a)@]"
-      print_eqex e1 print_eqex e2
-  | ESub (e1, e2) ->
-    Format.fprintf fmt "@[<hv>(%a@ - %a)@]"
-      print_eqex e1 print_eqex e2
-  | EVar v -> Format.fprintf fmt "v%d" v
+    let srcf1, e1 = extract_src_factor e1 in
+    let srcf2, e2 = extract_src_factor e2 in
+    srcf1 +. srcf2,
+    if e1 = EZero then e2
+    else if e2 = EZero then e1
+    else EAdd (e1, e2)
+  | EMinus e ->
+    let srcf, e = extract_src_factor e in
+    -1. *. srcf,
+    if e = EZero then e else EMinus e
 
-let print_cond fmt (cond : cond) =
-  match cond with
-  | Ref evt -> Format.fprintf fmt "event %d" evt
+let normalize_condition (e : cond) =
+  match e with
+  | Ref _ | Raising _ | Norm _ -> e
   | Eq (e1, e2) ->
-    Format.fprintf fmt "@[<hv 1>(%a@ = %a)@]"
-      print_eqex e1
-      print_eqex e2
+    let src_factor1, const_part1 = extract_src_factor e1 in
+    let src_factor2, const_part2 = extract_src_factor e2 in
+    let factor = src_factor1 -. src_factor2 in
+    let const_part =
+      match const_part1, const_part2 with
+      | EZero, EZero -> EZero
+      | EZero, e -> e
+      | e, EZero -> EMinus e
+      | e1, e2 ->
+        EAdd (e2, EMinus e1)
+    in
+    Norm (factor, const_part)
 
-let rec print_bdd (pp : Format.formatter -> 'a -> unit) fmt (bdd : 'a bdd) =
-  match bdd with
-  | Nothing -> Format.fprintf fmt "nothing"
-  | Do e -> pp fmt e
-  | Decide (c, d1, d2) ->
-    Format.fprintf fmt "@[<hv>if %d@ then %a@ else %a@]"
-      c (print_bdd pp) d1 (print_bdd pp) d2
+let normalize_equations (eqs : event_eqs) : event_eqs =
+  let eqs = transform_raising_cond eqs in
+  let norm_bdd =
+    Variable.BDT.map_action Variable.Map.empty (fun _k -> function
+        | None -> NoAction
+        | Some c -> Action (normalize_condition c))
+  in
+  Variable.Map.map (fun sourced ->
+      { pinned_src =
+          Variable.Map.map norm_bdd sourced.pinned_src;
+        other_src = norm_bdd sourced.other_src;
+      })
+    eqs
 
-let print_conditions fmt (eqs : event_eqs) =
-  Format.pp_open_vbox fmt 0;
-  Variable.Map.iter (fun dest eqs ->
-      Format.fprintf fmt "@[<hv 2>eqs %d:@ " dest;
-      Variable.Map.iter (fun src bdd ->
-          Format.fprintf fmt "@[<hv 2>from %d:@ %a@],@ "
-            src
-            (print_bdd print_cond) bdd)
-        eqs.pinned_src;
-      Format.fprintf fmt "from another:@ %a" (print_bdd print_cond) eqs.other_src;
-      Format.fprintf fmt "@]@,")
-    eqs;
-  Format.fprintf fmt "@]@."
-
+let compute_threshold_equations (prog : program) =
+  let outfmt = Format.formatter_of_out_channel stdout in
+  let provs = provenance_expressions prog in
+  let tprovs = prov_transitivity provs in
+  Format.fprintf outfmt "@[<hv 2>Transitive provenances:@ %a@]@,"
+    print_provenances tprovs;
+  let eqs = condition_equations prog tprovs in
+  Format.fprintf outfmt "@[<hv 2>Equations:@ %a@]@,"
+    print_conditions eqs;
+  let eqs = normalize_equations eqs in
+  Format.fprintf outfmt "@[<hv 2>Normalized equations:@ %a@]@,"
+    print_conditions eqs;
+  {
+    infos = prog.infos;
+    trees = prog.trees;
+    equations = eqs;
+    dep_graph = prog.dep_graph;
+  }

@@ -42,6 +42,7 @@ type comp = Eq
 
 type event =
   | EvtVar of Variable.t
+  | EvtOnRaise of Variable.t
   | EvtAnd of event * event
   | EvtOr of event * event
   | EvtComp of comp * formula * formula
@@ -234,4 +235,5 @@ type program = {
   ctx_derivations : Variable.t Context.Group.Map.t Variable.Map.t;
   trees : RedistTree.t Variable.Map.t;
   events : event Variable.Map.t;
+  dep_graph : Variable.Graph.t;
 }

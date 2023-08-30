@@ -8,6 +8,7 @@
   (public_name niagara-lang-lib)
   (libraries
   utils
+  ocamlgraph
   sedlex
   menhirLib
   calendar)

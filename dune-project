@@ -11,6 +11,7 @@
     (ocaml (>= 4.13))
     (sedlex (>= 3.0))
     menhir
+    ocamlgraph
     (calendar (>= 3.0)))
 )
 
