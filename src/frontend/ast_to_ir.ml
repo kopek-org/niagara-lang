@@ -18,7 +18,9 @@ module Acc = struct
     { infos;
       ctx_derivations = Variable.Map.empty;
       trees = Variable.Map.empty;
-      events = Variable.Map.empty; }
+      events = Variable.Map.empty;
+      dep_graph = Variable.Graph.empty;
+    }
 
   let var_shape t (v : Variable.t) =
     match Variable.Map.find_opt v t.infos.var_shapes with
@@ -101,59 +103,50 @@ module Acc = struct
     }
 
   let lift_event t (event : event) =
-    let var_name = anon_var_name "event" in
-    let v = Variable.new_var () in
-    let t =
-      { t with
-        infos =
-          { t.infos with
-            var_info = Variable.Map.add v { Variable.var_name } t.infos.var_info;
-            types = Variable.Map.add v ValueType.TEvent t.infos.types;
-          };
-      }
+    let has_equal =
+      Variable.Map.fold (fun v evt -> function
+          | Some v -> Some v
+          | None -> if event = evt then Some v else None)
+        t.events None
     in
-    let t = register_event t v event in
-    t, v
+    match has_equal with
+    | Some evt -> t, evt
+    | None ->
+      let var_name = anon_var_name "event" in
+      let v = Variable.new_var () in
+      let t =
+        { t with
+          infos =
+            { t.infos with
+              var_info = Variable.Map.add v { Variable.var_name } t.infos.var_info;
+              types = Variable.Map.add v ValueType.TEvent t.infos.types;
+            };
+        }
+      in
+      let t = register_event t v event in
+      t, v
 
-  let add_redist t ~(source : Variable.t) (tree : RedistTree.tree) =
+  let add_tree t ~(source : Variable.t) (tree : RedistTree.kind_tree) =
     let trees =
       Variable.Map.update source (function
-          | None -> Some [tree]
-          | Some existing_tree ->
-            Some (tree::existing_tree))
+          | None -> Some (RedistTree.of_tree tree)
+          | Some existing ->
+            Some (RedistTree.add_tree tree existing))
+        t.trees
+    in
+    { t with trees }
+
+  let add_default t ~(source : Variable.t) (d : Variable.t) =
+    let trees =
+      Variable.Map.update source (function
+          | None -> Some (RedistTree.of_remainder d)
+          | Some existing ->
+            Some (RedistTree.add_remainder d existing))
         t.trees
     in
     { t with trees }
 
 end
-
-(* module Env = struct *)
-
-(*   type t = { *)
-(*     view : flow_view; *)
-(*     context : Context.t; *)
-(*     source_layout : var_layout; *)
-(*   } *)
-
-(*   let empty = { *)
-(*     view = AtInstant; *)
-(*     context = Context.everything; *)
-(*     source_layout = SimpleVar; *)
-(*   } *)
-
-(*   let with_view view t = { t with view } *)
-
-(*   let with_context context t = { t with context } *)
-
-(*   let with_source_layout source_layout t = { t with source_layout } *)
-
-(*   let view t = t.view *)
-
-(*   let context t = t.context *)
-
-(*   let source_layout t = t.source_layout *)
-
-(* end *)
 
 let shape_of_ctx_var acc (v : Ast.contextualized_variable) =
   let v, proj = v in
@@ -429,13 +422,16 @@ let rec translate_event acc (event : Ast.contextualized Ast.event_expr) =
       Errors.raise_error "Mismatched type for comparison";
     acc, EvtComp (c, f1, f2)
 
-let lift_event acc (event : Ast.contextualized Ast.event_expr) =
+let lift_event ~(on_raise : bool) acc (event : Ast.contextualized Ast.event_expr) =
   let acc, evt = translate_event acc event in
-  match evt with
-  | EvtVar v -> acc, v
-  | _ ->
-    let acc, v = Acc.lift_event acc evt in
-    acc, v
+  let acc, evt =
+    match evt with
+    | EvtVar v -> acc, v
+    | _ -> Acc.lift_event acc evt
+  in
+  if on_raise
+  then Acc.lift_event acc (EvtOnRaise evt)
+  else acc, evt
 
 let translate_redist_with_dest ~(ctx : Context.Group.t) acc
     ~(default_dest : Ast.contextualized_variable option)
@@ -462,33 +458,35 @@ let rec translate_guarded_redist ~(ctx : Context.Group.t) acc
     in
     begin match redists with
       | [] -> assert false
-      | r::rs -> acc, RedistTree.Redist (List.fold_left RedistTree.merge_redist r rs)
+      | r::rs -> acc, RedistTree.tredist (List.fold_left RedistTree.merge_redist r rs)
     end
   | Whens gs ->
-    let acc, gs = translate_condition_group ~ctx acc ~default_dest gs in
-    acc, RedistTree.When gs
+    let acc, gs = translate_condition_group ~on_raise:true ~ctx acc ~default_dest gs in
+    acc, RedistTree.twhen gs
   | Branches { befores; afters } ->
-    let acc, befores = translate_condition_group ~ctx acc ~default_dest befores in
-    let acc, afters = translate_condition_group ~ctx acc ~default_dest afters in
+    let acc, befores =
+      translate_condition_group ~on_raise:false ~ctx acc ~default_dest befores
+    in
+    let acc, afters =
+      translate_condition_group ~on_raise:false ~ctx acc ~default_dest afters
+    in
     let btree =
       List.fold_right (fun (evt, before) after ->
-          RedistTree.Branch { evt; before; after }
-        )
-        befores RedistTree.(Redist NoInfo)
+          RedistTree.tbranch evt before after)
+        befores RedistTree.NothingTree
     in
     let tree =
       List.fold_left (fun before (evt, after) ->
-          RedistTree.Branch { evt; before; after }
-        )
+          RedistTree.tbranch evt before after)
         btree afters
     in
     acc, tree
 
-and translate_condition_group ~ctx acc ~default_dest
+and translate_condition_group ~on_raise ~ctx acc ~default_dest
     (group : Ast.contextualized Ast.conditional_redistrib list)
   =
   List.fold_left_map (fun acc (cond, g_redist) ->
-      let acc, evt = lift_event acc cond in
+      let acc, evt = lift_event ~on_raise acc cond in
       let acc, tree = translate_guarded_redist ~ctx acc ~default_dest g_redist in
       acc, (evt, tree)
     )
@@ -503,7 +501,7 @@ let translate_operation acc (o : Ast.ctx_operation_decl) =
         translate_guarded_redist ~ctx acc ~default_dest:o.ctx_op_default_dest
           o.ctx_op_guarded_redistrib
       in
-      Acc.add_redist acc ~source tree)
+      Acc.add_tree acc ~source tree)
     acc source_local_shape
 
 let translate_default acc (d : Ast.ctx_default_decl) =
@@ -513,14 +511,10 @@ let translate_default acc (d : Ast.ctx_default_decl) =
       let acc, dest =
         Acc.derive_ctx_variables ~mode:Inclusive acc (fst d.ctx_default_dest) ctx
       in
-      let tree =
-        match dest with
-        | [dest] -> RedistTree.(Redist (remainder dest))
-        | _ -> Errors.raise_error "destination derivation should have been unique"
-      in
-      Acc.add_redist acc ~source tree)
+      match dest with
+      | [dest] -> Acc.add_default acc ~source dest
+      | _ -> Errors.raise_error "destination derivation should have been unique")
     acc source_local_shape
-
 
 let translate_declaration acc (decl : Ast.contextualized Ast.declaration) =
   match decl with
@@ -532,6 +526,111 @@ let translate_declaration acc (decl : Ast.contextualized Ast.declaration) =
   | DVarAdvance _
   | DVarDeficit _ -> assert false
 
+let level_fractional_attribution (t : RedistTree.t) =
+  match t with
+  | Flat _ -> t
+  | Fractions { base_shares; default; branches } ->
+    let redist_part (r : RedistTree.frac RedistTree.redist) =
+      match r with
+      | NoInfo -> 0.
+      | Shares sh -> Variable.Map.fold (fun _v -> (+.)) sh 0.
+    in
+    let rec branch_part known default (tree : RedistTree.frac RedistTree.tree) =
+      match tree with
+      | Nothing -> default
+      | Redist r ->
+        Variable.BDT.map_action known (fun _k -> function
+            | None -> assert false
+            | Some part -> Action (part -. redist_part r))
+          default
+      | Branch { evt; before; after } ->
+        let default = Variable.BDT.add_decision evt default in
+        let default = branch_part (Variable.Map.add evt true known) default before in
+        branch_part (Variable.Map.add evt false known) default after
+    in
+    let base_part = redist_part base_shares in
+    let default_redist = Variable.BDT.Action (1. -. base_part) in
+    let branches_parts =
+      List.fold_left (branch_part Variable.Map.empty) default_redist branches
+    in
+    let make_default_redist =
+      match default with
+      | NoDefault -> fun _path _ -> RedistTree.Nothing (* TODO warning default needed *)
+      | DefaultTree _ -> Errors.raise_error "(internal) Default tree already computed"
+      | DefaultVariable d -> fun _ part ->
+        RedistTree.(Redist (Shares (Variable.Map.singleton d part)))
+    in
+    let default_tree =
+      Variable.BDT.fold branches_parts
+        ~noaction:(fun _k -> RedistTree.Nothing)
+        ~action:(fun k part ->
+            if part > 0.
+            then make_default_redist k part
+            else RedistTree.Nothing)
+        ~decision:(fun _k evt before after ->
+            match before, after with
+            | Nothing, Nothing -> RedistTree.Nothing
+            | _, _ -> Branch { evt; before; after })
+    in
+    Fractions { base_shares; branches; default = DefaultTree default_tree }
+
+let level_attributions acc =
+  let trees = Variable.Map.map level_fractional_attribution acc.trees in
+  { acc with trees }
+
+let dependancy_graph acc =
+  let rec dep_formula graph src (f : formula) =
+    match f with
+    | Literal _ -> graph
+    | Variable (v, _) -> Variable.Graph.add_edge graph v src
+    | Binop (_, f1, f2) ->
+      let graph = dep_formula graph src f1 in
+      dep_formula graph src f2
+    | RCast f -> dep_formula graph src f
+  in
+  let dep_redist (type a) graph src (r : a RedistTree.redist) =
+    match r with
+    | RedistTree.NoInfo -> graph
+    | RedistTree.Shares sh ->
+      Variable.Map.fold (fun dest _ graph -> Variable.Graph.add_edge graph src dest)
+        sh graph
+    | RedistTree.Flats fs ->
+      Variable.Map.fold (fun dest formula graph ->
+          let graph = Variable.Graph.add_edge graph src dest in
+          dep_formula graph src formula)
+        fs graph
+  in
+  let rec dep_tree :
+    type a. Variable.Graph.t -> Variable.t -> a RedistTree.tree -> Variable.Graph.t =
+    fun graph src tree ->
+    match tree with
+    | RedistTree.Nothing -> graph
+    | RedistTree.Redist r -> dep_redist graph src r
+    | RedistTree.When ws ->
+      List.fold_left (fun graph (_,tree) -> dep_tree graph src tree) graph ws
+    | RedistTree.Branch { before; after; _ } ->
+      let graph = dep_tree graph src before in
+      dep_tree graph src after
+  in
+  let dep_graph =
+    Variable.Map.fold (fun src trees graph ->
+        match trees with
+        | RedistTree.Fractions { base_shares; default; branches } ->
+          let graph = dep_redist graph src base_shares in
+          let graph =
+            match default with
+            | NoDefault -> graph
+            | DefaultVariable d -> Variable.Graph.add_edge graph src d
+            | DefaultTree tree -> dep_tree graph src tree
+          in
+          List.fold_left (fun graph tree -> dep_tree graph src tree)
+            graph branches
+        | RedistTree.Flat fs ->
+          List.fold_left (fun graph tree -> dep_tree graph src tree) graph fs)
+      acc.trees Variable.Graph.empty
+  in
+  { acc with dep_graph }
+
 let translate_program (Contextualized (infos, prog) : Ast.contextualized Ast.program) =
   let acc = Acc.make infos in
   let acc =
@@ -540,4 +639,5 @@ let translate_program (Contextualized (infos, prog) : Ast.contextualized Ast.pro
          translate_declaration acc decl)
       acc prog
   in
-  acc
+  let acc = dependancy_graph acc in
+  level_attributions acc

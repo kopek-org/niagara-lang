@@ -1,8 +1,0 @@
-(menhir (modules parser)
-        (flags --explain))
-
-(ocamllex lexer)
-
-(executable
-  (name main)
-)
