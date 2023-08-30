@@ -17,11 +17,24 @@ let source_term =
   let docv = "FILE" in
   Arg.(required & pos 0 (some file) None & info ~doc ~docv [])
 
+(** Set GNU style flag. *)
+let gnu_style_term =
+  let open Cmdliner in
+  let doc = "Use GNU style when applicable" in
+  Arg.(value & flag & info ~doc ["gnu"])
+
 (** The main compilation function. It simply calls the main compilation
     pipepine with a parsing on file. *)
 let compile : string -> unit = fun path ->
   let src_program = Frontend.ParserMain.parse_program path in
   Frontend.Compile.compile src_program
+
+(** [a -+ b] composes the terms [a] and [b] but ignores the 
+    [a] result. *)
+let ( -+ ) : 'a Cmdliner.Term.t -> 'b Cmdliner.Term.t -> 'b Cmdliner.Term.t = 
+  fun l r ->
+    let open Cmdliner.Term in
+    const (fun _ r -> r) $ l $ r
 
 (** Main entrypoint. *)
 let main () =
@@ -30,10 +43,10 @@ let main () =
   let name = Filename.basename Sys.executable_name in 
   let info = Cmd.info ~doc name in
   let cmd = Cmd.v info (Term.(
-      (* wrapper to take log setup into account *)
-      const (fun _log source -> compile source) $
-      setup_log_term $
-      source_term)
+      setup_log_term -+ 
+      gnu_style_term -+
+      ((const compile) $ source_term)
+      )
   ) in
   let code = Cmd.eval cmd in
   exit code
