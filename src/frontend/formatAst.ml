@@ -259,6 +259,7 @@ let print_program (type a) fmt (p : a program) =
         contexts = Context.empty_world;
         inputs = Variable.Map.empty;
         actors = Variable.Map.empty;
+        compounds = Variable.Map.empty;
         types = Variable.Map.empty;
         constants = Variable.Map.empty;
       }

@@ -239,6 +239,7 @@ type program_infos = {
   contexts : Context.world;
   inputs : input_kind Variable.Map.t;
   actors : stream_way Variable.Map.t;
+  compounds : Variable.Set.t Variable.Map.t;
   types : ValueType.t Variable.Map.t;
   constants : literal Variable.Map.t;
 }

@@ -235,5 +235,5 @@ type program = {
   ctx_derivations : Variable.t Context.Group.Map.t Variable.Map.t;
   trees : RedistTree.t Variable.Map.t;
   events : event Variable.Map.t;
-  dep_graph : Variable.Graph.t;
+  eval_order : Variable.t list;
 }

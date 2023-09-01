@@ -12,6 +12,7 @@ type expr =
     }
   | Add of expr * expr
   | Pre of Variable.t
+  | Current of Variable.t
 
 module BDT = Variable.BDT
 
@@ -23,6 +24,7 @@ type eqex =
   | EAdd of eqex * eqex
   | EMinus of eqex
   | EVar of Variable.t
+  | ECurrVar of Variable.t
 
 type cond =
   | Ref of Variable.t
@@ -43,7 +45,7 @@ type program_with_threshold =
   { infos : Ast.program_infos;
     trees : RedistTree.t Variable.Map.t;
     equations : event_eqs;
-    dep_graph : Variable.Graph.t;
+    eval_order : Variable.t list;
   }
 
 let rec print_expr fmt (expr : expr) =
@@ -62,6 +64,7 @@ let rec print_expr fmt (expr : expr) =
       print_expr expr1
       print_expr expr2
   | Pre v -> Format.fprintf fmt "v%d" v
+  | Current v -> Format.fprintf fmt "v%d'" v
 
 let print_provenances fmt (provs : prov_exprs) =
   Format.pp_open_vbox fmt 0;
@@ -92,6 +95,7 @@ let rec print_eqex fmt (e : eqex) =
   | EMinus e ->
     Format.fprintf fmt "@[<hv>-%a@]" print_eqex e
   | EVar v -> Format.fprintf fmt "v%d" v
+  | ECurrVar v -> Format.fprintf fmt "v%d'" v
 
 let print_cond fmt (cond : cond) =
   match cond with
@@ -138,7 +142,7 @@ let merge_expr (expr1 : expr) (expr2 : expr) =
 let rec factor_expr (e : expr) (f : float) =
   match e with
   | Zero -> Zero
-  | Src | Const _ | Pre _ -> Factor (f, e)
+  | Src | Const _ | Pre _ | Current _ -> Factor (f, e)
   | Factor (f', e) -> Factor (f*.f',e)
   | Add (e1, e2) -> Add (factor_expr e1 f, factor_expr e2 f)
   | Switch { evt; before; after } ->
@@ -146,7 +150,7 @@ let rec factor_expr (e : expr) (f : float) =
 
 let rec apply_expr (lexpr : expr) (xexpr : expr) =
   match lexpr with
-  | Zero | Const _ | Pre _ -> lexpr
+  | Zero | Const _ | Pre _ | Current _ -> lexpr
   | Src -> xexpr
   | Factor (f, le) -> factor_expr (apply_expr le xexpr) f
   | Add (le1, le2) -> Add (apply_expr le1 xexpr, apply_expr le2 xexpr)
@@ -165,6 +169,7 @@ let lift_expr (expr : expr) : eqex BDT.t =
           Option.fold ~some:(fun e -> BDT.Action (EMult (f, e))) ~none:BDT.NoAction)
         d
     | Pre v -> Action (EVar v)
+    | Current v -> Action (ECurrVar v)
     | Add (e1, e2) ->
       let d1 = aux decided e1 in
       let d2 = aux decided e2 in
@@ -182,19 +187,12 @@ let lift_expr (expr : expr) : eqex BDT.t =
       | None ->
         let b = aux (Variable.Map.add evt true decided) before in
         let a = aux (Variable.Map.add evt false decided) after in
-        Decision (evt, b, a)
+        Decision (evt, a, b)
       | Some decision ->
         let e = if decision then before else after in
         aux decided e
   in
   aux Variable.Map.empty expr
-
-let merge_sourced_expr (se1 : expr sourced) (se2 : expr sourced) =
-  { pinned_src =
-      Variable.Map.union (fun _dest e1 e2 -> Some (merge_expr e1 e2))
-        se1.pinned_src se2.pinned_src;
-    other_src = merge_expr se1.other_src se2.other_src;
-  }
 
 let merge_prov_exprs (f : expr option -> expr option -> expr option)
     (p1 : prov_exprs) (p2 : prov_exprs) =
@@ -216,8 +214,15 @@ let merge_prov_exprs (f : expr option -> expr option -> expr option)
     p1 p2
 
 let prov_exprs_union (p1 : prov_exprs) (p2 : prov_exprs) =
+  let merge_sexpr se1 se2 =
+    { pinned_src =
+        Variable.Map.union (fun _dest e1 e2 -> Some (merge_expr e1 e2))
+          se1.pinned_src se2.pinned_src;
+      other_src = merge_expr se1.other_src se2.other_src;
+    }
+  in
   Variable.Map.union (fun _dest expr1 expr2 ->
-      Some (merge_sourced_expr expr1 expr2))
+      Some (merge_sexpr expr1 expr2))
     p1 p2
 
 let get_source (src : Variable.t) (sourced : 'a sourced) =
@@ -225,7 +230,7 @@ let get_source (src : Variable.t) (sourced : 'a sourced) =
   | None -> sourced.other_src
   | Some e -> e
 
-let formula_prov (provs : prov_exprs) (cf : formula) : expr sourced =
+let rec formula_prov (provs : prov_exprs) (cf : formula) : expr sourced =
   match cf with
   | Literal l ->
     { pinned_src = Variable.Map.empty; other_src = Const l }
@@ -242,15 +247,34 @@ let formula_prov (provs : prov_exprs) (cf : formula) : expr sourced =
         {
           pinned_src =
             Variable.Map.singleton v (wrap_view Src);
-          other_src = wrap_view Zero;
+          other_src = wrap_view (Current v);
         }
       | Some srcmap ->
         {
-          pinned_src = Variable.Map.map (fun expr -> wrap_view expr) srcmap.pinned_src;
-          other_src = wrap_view srcmap.other_src;
+          pinned_src = Variable.Map.map wrap_view srcmap.pinned_src;
+          other_src = wrap_view (Add (Current v, srcmap.other_src));
         }
     end
-  | Binop (_, _, _) -> assert false
+  | Binop (op, f1, f2) ->
+    let se1 = formula_prov provs f1 in
+    let se2 = formula_prov provs f2 in
+    let op e1 e2 =
+      match op with
+      | IAdd
+      | MAdd -> Add (e1, e2)
+      | _ -> assert false
+    in
+    { pinned_src =
+        Variable.Map.merge (fun _src e1 e2 ->
+            match e1, e2 with
+            | None, None -> None
+            | Some e1, None -> Some (op e1 se2.other_src)
+            | None, Some e2 -> Some (op se1.other_src e2)
+            | Some e1, Some e2 -> Some (op e1 e2)
+          )
+          se1.pinned_src se2.pinned_src;
+      other_src = op se1.other_src se2.other_src;
+    }
   | RCast _ -> assert false
 
 let redist_prov (type a) (src : Variable.t) (r : a RedistTree.redist) : prov_exprs =
@@ -469,7 +493,7 @@ let transform_raising_cond (eqs : event_eqs) =
 let rec extract_src_factor (e : eqex) =
   match e with
   | ESrc -> 1., EZero
-  | EZero | EConst _ | EVar _ -> 0., e
+  | EZero | EConst _ | EVar _ | ECurrVar _ -> 0., e
   | EMult (f, e) ->
     let srcf, e = extract_src_factor e in
     srcf *. f, if e = EZero then e else EMult (f, e)
@@ -532,5 +556,5 @@ let compute_threshold_equations (prog : program) =
     infos = prog.infos;
     trees = prog.trees;
     equations = eqs;
-    dep_graph = prog.dep_graph;
+    eval_order = prog.eval_order;
   }

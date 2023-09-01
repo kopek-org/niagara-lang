@@ -19,7 +19,7 @@ module Acc = struct
       ctx_derivations = Variable.Map.empty;
       trees = Variable.Map.empty;
       events = Variable.Map.empty;
-      dep_graph = Variable.Graph.empty;
+      eval_order = [];
     }
 
   let var_shape t (v : Variable.t) =
@@ -32,6 +32,9 @@ module Acc = struct
     | Some typ -> typ
     | None -> Errors.raise_error "(internal) Cannot find type of variable"
 
+  let is_actor t (v : Variable.t) =
+    Variable.Map.mem v t.infos.actors
+
   let anon_var_name =
     let c = ref 0 in
     fun name ->
@@ -40,6 +43,11 @@ module Acc = struct
 
   let find_const_opt t (v : Variable.t) =
     Variable.Map.find_opt v t.infos.Ast.constants
+
+  let find_compound_vars t (v : Variable.t) =
+    match Variable.Map.find_opt v t.infos.compounds with
+    | None -> [v]
+    | Some vs -> Variable.Set.elements vs
 
   let find_derivation_opt t (v : Variable.t) (ctx : Context.Group.t) =
     match Variable.Map.find_opt v t.ctx_derivations with
@@ -85,17 +93,27 @@ module Acc = struct
       in
       t, dv
 
+  type compound_derivation =
+    | ActorComp of { base : Variable.t; compound : Variable.t list }
+    | ContextVar of Variable.t list
+
   let derive_ctx_variables ~mode t (v : Variable.t) (ctx : Context.Group.t) =
-    let shape = var_shape t v in
-    let subshape =
-      match mode with
-      | Strict -> Context.shape_project shape ctx
-      | Inclusive -> Context.shape_overlap_subshape shape ctx
-    in
-    Context.shape_fold (fun (t, vars) group ->
-        let t, v = get_derivative_var t v group in
-        t, v::vars)
-      (t, []) subshape
+    if is_actor t v then
+      t, ActorComp { base = v; compound = find_compound_vars t v }
+    else
+      let shape = var_shape t v in
+      let subshape =
+        match mode with
+        | Strict -> Context.shape_project shape ctx
+        | Inclusive -> Context.shape_overlap_subshape shape ctx
+      in
+      let t, vars =
+        Context.shape_fold (fun (t, vars) group ->
+            let t, v = get_derivative_var t v group in
+            t, v::vars)
+          (t, []) subshape
+      in
+      t, ContextVar vars
 
   let register_event t (v : Variable.t) (event : event) =
     { t with
@@ -371,8 +389,12 @@ let rec translate_formula ~(ctx : Context.Group.t) acc ~(view : flow_view)
     | None ->
       let t = Acc.type_of acc v in
       let proj = resolve_projection_context acc ~context:ctx ~refinement:proj in
-      let acc, v = Acc.derive_ctx_variables ~mode:Strict acc v proj in
-      let f = aggregate_vars ~view t v in
+      let acc, vs = Acc.derive_ctx_variables ~mode:Strict acc v proj in
+      let vs = match vs with
+        | ActorComp c -> c.compound
+        | ContextVar vs -> vs
+      in
+      let f = aggregate_vars ~view t vs in
       acc, (f, t)
     end
   | Binop (op, f1, f2) ->
@@ -388,7 +410,8 @@ let translate_redist ~(ctx : Context.Group.t) acc ~(dest : Ast.contextualized_va
   let acc, dest = Acc.derive_ctx_variables ~mode:Inclusive acc (fst dest) proj in
   let dest =
     match dest with
-    | [dest] -> dest
+    | ActorComp c -> c.base
+    | ContextVar [v] -> v
     | _ -> Errors.raise_error "(internal) Destination context inapplicable"
   in
   match redist.redistribution_desc with
@@ -512,7 +535,8 @@ let translate_default acc (d : Ast.ctx_default_decl) =
         Acc.derive_ctx_variables ~mode:Inclusive acc (fst d.ctx_default_dest) ctx
       in
       match dest with
-      | [dest] -> Acc.add_default acc ~source dest
+      | ActorComp c -> Acc.add_default acc ~source c.base
+      | ContextVar [dest] -> Acc.add_default acc ~source dest
       | _ -> Errors.raise_error "destination derivation should have been unique")
     acc source_local_shape
 
@@ -612,24 +636,32 @@ let dependancy_graph acc =
       let graph = dep_tree graph src before in
       dep_tree graph src after
   in
-  let dep_graph =
-    Variable.Map.fold (fun src trees graph ->
-        match trees with
-        | RedistTree.Fractions { base_shares; default; branches } ->
-          let graph = dep_redist graph src base_shares in
-          let graph =
-            match default with
-            | NoDefault -> graph
-            | DefaultVariable d -> Variable.Graph.add_edge graph src d
-            | DefaultTree tree -> dep_tree graph src tree
-          in
-          List.fold_left (fun graph tree -> dep_tree graph src tree)
-            graph branches
-        | RedistTree.Flat fs ->
-          List.fold_left (fun graph tree -> dep_tree graph src tree) graph fs)
-      acc.trees Variable.Graph.empty
-  in
-  { acc with dep_graph }
+  Variable.Map.fold (fun src trees graph ->
+      match trees with
+      | RedistTree.Fractions { base_shares; default; branches } ->
+        let graph = dep_redist graph src base_shares in
+        let graph =
+          match default with
+          | NoDefault -> graph
+          | DefaultVariable d -> Variable.Graph.add_edge graph src d
+          | DefaultTree tree -> dep_tree graph src tree
+        in
+        List.fold_left (fun graph tree -> dep_tree graph src tree)
+          graph branches
+      | RedistTree.Flat fs ->
+        List.fold_left (fun graph tree -> dep_tree graph src tree) graph fs)
+    acc.trees Variable.Graph.empty
+
+let evaluation_order acc =
+  let graph = dependancy_graph acc in
+  let module SCC = Graph.Components.Make(Variable.Graph) in
+  let scc = SCC.scc_list graph in
+  List.fold_left (fun order comp ->
+      match comp with
+      | [] -> assert false
+      | [v] -> if Variable.Map.mem v acc.trees then v::order else order
+      | _ -> Errors.raise_error "Cyclic dependancy")
+    [] scc
 
 let translate_program (Contextualized (infos, prog) : Ast.contextualized Ast.program) =
   let acc = Acc.make infos in
@@ -639,5 +671,5 @@ let translate_program (Contextualized (infos, prog) : Ast.contextualized Ast.pro
          translate_declaration acc decl)
       acc prog
   in
-  let acc = dependancy_graph acc in
+  let acc = { acc with eval_order = evaluation_order acc } in
   level_attributions acc
