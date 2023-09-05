@@ -6,8 +6,8 @@ type literal =
   | LitInt of int
   | LitRational of float
   | LitMoney of int
-  | LitDuration of CalendarLib.Date.Period.t
-  | LitDate of CalendarLib.Date.t
+  | LitDate of Date.Date.t
+  | LitDuration of Date.Duration.t
 
 type binop =
   | Add

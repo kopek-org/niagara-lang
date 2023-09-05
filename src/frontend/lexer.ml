@@ -1,6 +1,5 @@
 open Parser
 open Sedlexing
-open CalendarLib
 
 let unknown_token_error lexbuf =
   Errors.raise_error "Parsing error"
@@ -77,7 +76,7 @@ let parse_percent s =
 let parse_date s =
   match String.split_on_char '/' s with
   | [y; m; d] ->
-    Date.make (int_of_string y) (int_of_string m) (int_of_string d)
+    Date.Date.make (int_of_string y) (int_of_string m) (int_of_string d)
   | _ -> raise (Invalid_argument "Lexer.parse_date")
 
 let strip_enclosing_chars s =

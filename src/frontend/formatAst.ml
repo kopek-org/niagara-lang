@@ -84,9 +84,9 @@ let print_literal fmt (lit : literal) =
   | LitRational f -> Format.fprintf fmt "%f" f
   | LitMoney m -> Format.fprintf fmt "%d.%d$" (m/100) (m mod 100)
   | LitDuration d ->
-    let y,m,d = CalendarLib.Date.Period.ymd d in
+    let y,m,d = Date.Duration.ymd d in
     Format.fprintf fmt "%d year, %d month, %d day" y m d
-  | LitDate d -> CalendarLib__Printer.Date.fprint "%Y/%m/%d" fmt d
+  | LitDate d -> CalendarLib.Printer.Date.fprint "%Y/%m/%d" fmt d
 
 let print_named fmt (named : named) =
   match named.named_desc with

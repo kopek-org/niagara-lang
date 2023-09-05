@@ -5,8 +5,8 @@ type literal =
   | LInteger of int
   | LRational of float
   | LMoney of money
-  | LDate of CalendarLib.Date.t
-  | LDuration of CalendarLib.Date.Period.t
+  | LDate of Date.Date.t
+  | LDuration of Date.Duration.t
 
 type binop =
   | IAdd

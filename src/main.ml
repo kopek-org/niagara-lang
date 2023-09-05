@@ -15,5 +15,6 @@ let () =
   let prog = Frontend.Ast_to_ir.translate_program ctx_program in
   Frontend.FormatIr.print_program outfmt prog;
   Printf.printf "First pass OK\n%!";
-  let _prog = Frontend.ConditionLifting.compute_threshold_equations prog in
+  let prog = Frontend.ConditionLifting.compute_threshold_equations prog in
   Printf.printf "Events threshold OK\n%!";
+  Frontend.Test_interp.test prog

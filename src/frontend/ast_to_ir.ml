@@ -237,14 +237,14 @@ let rec reduce_formula (f : formula) =
   | Binop (DAdd, f1, f2) ->
     begin match reduce_formula f1, reduce_formula f2 with
       | Literal (LDate d), Literal (LDuration dr) ->
-        Literal (LDate (CalendarLib.Date.add d dr))
+        Literal (LDate (Date.Date.add d dr))
       | Literal _, Literal _ -> assert false
       | _ -> f
     end
   | Binop (DrAdd, f1, f2) ->
     begin match reduce_formula f1, reduce_formula f2 with
       | Literal (LDuration dr1), Literal (LDuration dr2) ->
-        Literal (LDuration (CalendarLib.Date.Period.add dr1 dr2))
+        Literal (LDuration (Date.Duration.add dr1 dr2))
       | Literal _, Literal _ -> assert false
       | _ -> f
     end
@@ -269,14 +269,14 @@ let rec reduce_formula (f : formula) =
   | Binop (DSub, f1, f2) ->
     begin match reduce_formula f1, reduce_formula f2 with
       | Literal (LDate d), Literal (LDuration dr) ->
-        Literal (LDate (CalendarLib.Date.rem d dr))
+        Literal (LDate (Date.Date.rem d dr))
       | Literal _, Literal _ -> assert false
       | _ -> f
     end
   | Binop (DrSub, f1, f2) ->
     begin match reduce_formula f1, reduce_formula f2 with
       | Literal (LDuration dr1), Literal (LDuration dr2) ->
-        Literal (LDuration (CalendarLib.Date.Period.sub dr1 dr2))
+        Literal (LDuration (Date.Duration.sub dr1 dr2))
       | Literal _, Literal _ -> assert false
       | _ -> f
     end
@@ -302,9 +302,8 @@ let rec reduce_formula (f : formula) =
   | Binop (DrMult, f1, f2) ->
     begin match reduce_formula f1, reduce_formula f2 with
       | Literal (LDuration dr), Literal (LRational f) ->
-        let open CalendarLib in
-        let ddr = Date.Period.nb_days dr in
-        Literal (LDuration (Date.Period.day (int_of_float (float_of_int ddr *. f +. 0.5))))
+        let ddr = Date.Duration.nb_days dr in
+        Literal (LDuration (Date.Duration.day (int_of_float (float_of_int ddr *. f +. 0.5))))
       | Literal _, Literal _ -> assert false
       | _ -> f
     end
@@ -330,9 +329,8 @@ let rec reduce_formula (f : formula) =
   | Binop (DrDiv, f1, f2) ->
     begin match reduce_formula f1, reduce_formula f2 with
       | Literal (LDuration dr), Literal (LRational f) ->
-        let open CalendarLib in
-        let ddr = Date.Period.nb_days dr in
-        Literal (LDuration (Date.Period.day (int_of_float (float_of_int ddr /. f +. 0.5))))
+        let ddr = Date.Duration.nb_days dr in
+        Literal (LDuration (Date.Duration.day (int_of_float (float_of_int ddr /. f +. 0.5))))
       | Literal _, Literal _ -> assert false
       | _ -> f
     end

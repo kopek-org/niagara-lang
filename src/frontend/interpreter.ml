@@ -35,15 +35,31 @@ type count = {
   repartition : value Variable.Map.t;
 }
 
-type event_switch = (Variable.t * bool) option
+type event_switch =
+  | NoEvent
+  | SwitchTo of { event : Variable.t; value : bool }
 
-type trace = (event_switch * count Variable.Map.t) list
+type count_changes = count Variable.Map.t
+
+type output_line = (event_switch * count_changes) list
+
+type input_line = {
+  input_variable : Variable.t;
+  input_value : Ir.literal;
+  input_date : Date.Date.t;
+}
+
+module InputLineMap = IntMap
+
+type computation_inputs = input_line InputLineMap.t
+
+type computation_outputs = output_line InputLineMap.t
 
 type state = {
   event_state : event var_value Variable.Map.t;
   values : value var_value Variable.Map.t;
   queue : action list;
-  stage_trace : trace;
+  stage_trace : output_line;
 }
 
 let empty_tally = { at_instant = 0; total = 0 }
@@ -106,8 +122,8 @@ let add_next_to_trace (s : state) =
 
 let add_events_to_trace (s : state) (events : event Variable.Map.t) =
   let stage_trace =
-    Variable.Map.fold (fun evt v trace ->
-        (Some (evt,v), Variable.Map.empty)::trace)
+    Variable.Map.fold (fun event value trace ->
+        (SwitchTo { event; value }, Variable.Map.empty)::trace)
       events s.stage_trace
   in
   { s with stage_trace }
@@ -203,7 +219,6 @@ let compute_equation_diff (s : state) (value : value) (eq : ConditionLifting.con
 let find_event_threshold (p : program) (s : state) (src : Variable.t) (value : value) =
     let event_state = get_event_state p s in
     Variable.Map.fold (fun evt sourced min_val ->
-        Format.eprintf "check %d threshold@." evt;
         let deq = ConditionLifting.get_source src sourced in
         match Variable.BDT.find event_state deq with
         | None -> min_val
@@ -215,7 +230,6 @@ let find_event_threshold (p : program) (s : state) (src : Variable.t) (value : v
             else LimLt
           in
           let lim_app, diff = compute_equation_diff s value eq sem in
-          Format.eprintf "diff %d, %s@." diff (match lim_app with | NoLim -> "nolim" | Reach -> "reach" | Diverge -> "diverge" | MustCross -> "mustcross");
           match lim_app with
           | Reach -> min diff min_val
           | MustCross -> min min_val (diff+1)
@@ -248,7 +262,7 @@ let flush_stage (s : state) =
             stage = e.stage;
             past_total = e.stage })
         s.event_state;
-    stage_trace = [None, Variable.Map.empty];
+    stage_trace = [NoEvent, Variable.Map.empty];
   }
 
 let flush_next (s : state) =
@@ -314,7 +328,6 @@ let compute_trees (s : state) (trees : Ir.RedistTree.t) (value : value) =
       (res_union base default) branches
 
 let update_state_values (p : program) (s : state) =
-  Format.eprintf "up values@.";
   let s =
     List.fold_left (fun s var ->
         let value = get_state_next_value s var in
@@ -340,15 +353,15 @@ let update_state_events (p : program) (s : state) =
         match Variable.BDT.find event_state sourced.ConditionLifting.other_src with
         | None ->
           if evt_state
-          then (Format.eprintf "flipped %d false@." evt; Variable.Map.add evt false flipped)
+          then Variable.Map.add evt false flipped
           else flipped
         | Some eq ->
           let sem = if evt_state then LimGe else LimLt in
           let _, diff = compute_equation_diff s 0 eq sem in
           if evt_state && diff < 0
-          then (Format.eprintf "flipped %d false@." evt; Variable.Map.add evt false flipped)
+          then Variable.Map.add evt false flipped
           else if not evt_state && diff >= 0
-          then (Format.eprintf "flipped %d true@." evt;  Variable.Map.add evt true flipped)
+          then Variable.Map.add evt true flipped
           else flipped)
       p.equations Variable.Map.empty
   in
@@ -360,9 +373,7 @@ let compute_action (p : program) (s : state) (action : action) =
     match action with
     | FlatCheck -> update_state_values p s
     | PoolRep (var, value) ->
-      Format.eprintf "action rep var %d  = %d@." var value;
       let value_at_threshold = find_event_threshold p s var value in
-      Format.eprintf "threshold: %d@." value_at_threshold;
       let s =
         if value > 0 then
           push_rep_action p s var (value - value_at_threshold)
@@ -381,7 +392,15 @@ let rec compute_queue (p : program) (s : state) =
     let s = compute_action p { s with queue } action in
     compute_queue p s
 
-let compute_input_value (p : program) (s : state) (i : Variable.t) (value : value) =
+let compute_input_value (p : program) (s : state) (i : Variable.t) (value : Ir.literal) =
+  let value =
+    match value with
+    | Ir.LInteger i -> i
+    | Ir.LMoney m -> m
+    | Ir.LRational _ -> assert false
+    | Ir.LDate _ -> assert false
+    | Ir.LDuration _ -> assert false
+  in
   let s = flush_stage s in
   let s = push_rep_action p s i value in
   compute_queue p s
@@ -391,8 +410,18 @@ let init_state (p : program) =
     event_state = Variable.Map.empty;
     values = Variable.Map.empty;
     queue = [];
-    stage_trace = [];
-  }
+    stage_trace = []; }
   in
   let s = update_state_events p s in
   flush_stage s
+
+let compute_input_lines (p : program) (lines : computation_inputs) =
+  let s = init_state p in
+  let _s, output_lines =
+    IntMap.fold (fun i input (s, out_ls) ->
+        let s = compute_input_value p s input.input_variable input.input_value in
+        s, IntMap.add i s.stage_trace out_ls
+      )
+      lines (s, IntMap.empty)
+  in
+  output_lines

@@ -1,5 +1,4 @@
 %{
-open CalendarLib
 open Ast
 
 let pos (start, stop) = Pos.make ~start ~stop
@@ -13,7 +12,7 @@ let pos (start, stop) = Pos.make ~start ~stop
 %token<float> FLOAT
 %token<int> INT MONEY
 %token<string> LIDENT UIDENT LABEL
-%token<CalendarLib.Date.t> DATE
+%token<Date.Date.t> DATE
 
 %nonassoc LIDENT
 %nonassoc LPAR
@@ -184,14 +183,14 @@ duration:
 
 duration_year:
 | i = INT ANS m = duration_month?
- { let y = Date.Period.year i in
+ { let y = Date.Duration.year i in
    match m with
    | None -> y
-   | Some m -> Date.Period.add y m
+   | Some m -> Date.Duration.add y m
  }
 
 duration_month:
-| i = INT MOIS { Date.Period.month i }
+| i = INT MOIS { Date.Duration.month i }
 
 // Flow and IO
 

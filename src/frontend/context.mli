@@ -126,9 +126,15 @@ val is_any_projection : world -> Group.t -> bool
 
 val group_desc : world -> Group.t -> desc
 
+val print_group_id : Format.formatter -> Group.t -> unit
+
+val print_group_desc : world -> Format.formatter -> desc -> unit
+
 val print_projection : world -> Format.formatter -> Group.t -> unit
 
 val print_shape : world -> Format.formatter -> shape -> unit
+
+val print_world_desc : Format.formatter -> world -> unit
 
 (* val domains_of_strings : world -> string list -> CaseSet.t DomainMap.t *)
 
