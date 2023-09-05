@@ -232,7 +232,6 @@ end
 
 type program = {
   infos : Ast.program_infos;
-  ctx_derivations : Variable.t Context.Group.Map.t Variable.Map.t;
   trees : RedistTree.t Variable.Map.t;
   events : event Variable.Map.t;
   eval_order : Variable.t list;

@@ -37,6 +37,8 @@ type shape
 
 (* type case_info = { case_name : string; case_domain : domain; } *)
 
+type desc = CaseSet.t DomainMap.t list
+
 type world(*  = { *)
 (*   domains : domain_info DomainMap.t; *)
 (*   cases : case_info CaseMap.t; *)
@@ -121,6 +123,8 @@ val is_any_projection : world -> Group.t -> bool
 (* val shape_filter_strict_precise : world -> shape -> shape -> shape *)
 
 (* val shape_filter_strict_loose : world -> shape -> shape -> shape *)
+
+val group_desc : world -> Group.t -> desc
 
 val print_projection : world -> Format.formatter -> Group.t -> unit
 

@@ -1,9 +1,4 @@
 
-module IntSet = Set.Make(Int)
-module IntMap = Map.Make(Int)
-
-(***********)
-
 type domain = int
 type case = int
 
@@ -24,6 +19,8 @@ type case_info = {
   case_name : string;
   case_domain : domain;
 }
+
+type desc = CaseSet.t DomainMap.t list
 
 type world = {
   domains : domain_info DomainMap.t;
@@ -244,7 +241,7 @@ let add_domain =
     in
     { domains; domain_table; case_table; cases; size }
 
-let dommaps_of_group world (g : Group.t) =
+let group_desc world (g : Group.t) =
   let select_case_in_group dinfos d c g =
     let off = dinfos.domain_case_offset in
     let period = dinfos.domain_period in
@@ -301,7 +298,7 @@ let print_dommap world fmt (dm : CaseSet.t DomainMap.t) =
   Format.fprintf fmt "@])"
 
 let print_group world fmt (g : Group.t) =
-  let dommaps = dommaps_of_group world g in
+  let dommaps = group_desc world g in
   Format.fprintf fmt "@[<hv>%X@," g;
     Format.pp_print_list
       (fun fmt map ->

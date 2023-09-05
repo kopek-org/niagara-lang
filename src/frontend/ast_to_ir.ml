@@ -1,26 +1,36 @@
 
-module IntSet = Set.Make(Int)
-module IntMap = Map.Make(Int)
-
-(*************)
-
 open Ir
 
 module Acc = struct
 
-  (* type t = program *)
+  type t = {
+    infos : Ast.program_infos;
+    used_variables : Variable.Set.t;
+    ctx_derivations : Variable.t Context.Group.Map.t Variable.Map.t;
+    trees : RedistTree.t Variable.Map.t;
+    events : event Variable.Map.t;
+  }
 
   type derivation_mode = Strict | Inclusive
 
   let contexts t = t.infos.contexts
 
+  let infos t = t.infos
+
+  let trees t = t.trees
+
+  let events t = t.events
+
   let make (infos : Ast.program_infos) =
     { infos;
+      used_variables = Variable.Set.empty;
       ctx_derivations = Variable.Map.empty;
       trees = Variable.Map.empty;
       events = Variable.Map.empty;
-      eval_order = [];
     }
+
+  let flag_variable_usage t (v : Variable.t) =
+    { t with used_variables = Variable.Set.add v t.used_variables }
 
   let var_shape t (v : Variable.t) =
     match Variable.Map.find_opt v t.infos.var_shapes with
@@ -62,6 +72,7 @@ module Acc = struct
       let dv = Variable.new_var () in
       let { Variable.var_name } = Variable.Map.find v t.infos.var_info in
       let typ = type_of t v in
+      let t = flag_variable_usage t dv in
       let t = {
         t with
         infos = {
@@ -99,7 +110,9 @@ module Acc = struct
 
   let derive_ctx_variables ~mode t (v : Variable.t) (ctx : Context.Group.t) =
     if is_actor t v then
-      t, ActorComp { base = v; compound = find_compound_vars t v }
+      let compound = find_compound_vars t v in
+      let t = List.fold_left flag_variable_usage t compound in
+      t, ActorComp { base = v; compound; }
     else
       let shape = var_shape t v in
       let subshape =
@@ -116,6 +129,7 @@ module Acc = struct
       t, ContextVar vars
 
   let register_event t (v : Variable.t) (event : event) =
+    let t = flag_variable_usage t v in
     { t with
       events = Variable.Map.add v event t.events
     }
@@ -132,6 +146,7 @@ module Acc = struct
     | None ->
       let var_name = anon_var_name "event" in
       let v = Variable.new_var () in
+      let t = flag_variable_usage t v in
       let t =
         { t with
           infos =
@@ -163,6 +178,23 @@ module Acc = struct
         t.trees
     in
     { t with trees }
+
+  let filter_usage t =
+    let filter map =
+      Variable.Map.filter (fun v _ -> Variable.Set.mem v t.used_variables) map
+    in
+    { t with
+      infos = {
+        t.infos with
+        var_info = filter t.infos.var_info;
+        var_shapes = filter t.infos.var_shapes;
+        inputs = filter t.infos.inputs;
+        actors = filter t.infos.actors;
+        compounds = filter t.infos.compounds;
+        types = filter t.infos.types;
+        constants = filter t.infos.constants;
+      }
+    }
 
 end
 
@@ -598,11 +630,11 @@ let level_fractional_attribution (t : RedistTree.t) =
     in
     Fractions { base_shares; branches; default = DefaultTree default_tree }
 
-let level_attributions acc =
+let level_attributions (acc : Acc.t) =
   let trees = Variable.Map.map level_fractional_attribution acc.trees in
   { acc with trees }
 
-let dependancy_graph acc =
+let dependancy_graph (acc : Acc.t) =
   let rec dep_formula graph src (f : formula) =
     match f with
     | Literal _ -> graph
@@ -652,7 +684,7 @@ let dependancy_graph acc =
         List.fold_left (fun graph tree -> dep_tree graph src tree) graph fs)
     acc.trees Variable.Graph.empty
 
-let evaluation_order acc =
+let evaluation_order (acc : Acc.t) =
   let graph = dependancy_graph acc in
   let module SCC = Graph.Components.Make(Variable.Graph) in
   let scc = SCC.scc_list graph in
@@ -671,5 +703,12 @@ let translate_program (Contextualized (infos, prog) : Ast.contextualized Ast.pro
          translate_declaration acc decl)
       acc prog
   in
-  let acc = { acc with eval_order = evaluation_order acc } in
-  level_attributions acc
+  let acc = Acc.filter_usage acc in
+  let acc = level_attributions acc in
+  let eval_order = evaluation_order acc in
+  {
+    infos = Acc.infos acc;
+    trees = Acc.trees acc;
+    events = Acc.events acc;
+    eval_order;
+  }
