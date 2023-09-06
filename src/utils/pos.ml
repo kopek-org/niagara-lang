@@ -1,4 +1,13 @@
-
+(*****************************************************************************)
+(*                                                                           *)
+(*  Copyright (c) 2023 OCamlPro SAS                                          *)
+(*                                                                           *)
+(* All rights reserved.                                                      *)
+(* This source code is licensed under the GNU Affero General Public License  *)
+(* version 3 found in the LICENSE.md file in the root directory of this      *)
+(* source tree.                                                              *)
+(*                                                                           *)
+(*****************************************************************************)
 
 (* This is a simple implementation that will do the job for the time being. *)
 type t =

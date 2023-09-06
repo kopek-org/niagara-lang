@@ -1,4 +1,15 @@
 %{
+(*****************************************************************************)
+(*                                                                           *)
+(*  Copyright (c) 2023 OCamlPro SAS                                          *)
+(*                                                                           *)
+(* All rights reserved.                                                      *)
+(* This source code is licensed under the GNU Affero General Public License  *)
+(* version 3 found in the LICENSE.md file in the root directory of this      *)
+(* source tree.                                                              *)
+(*                                                                           *)
+(*****************************************************************************)
+
 open Ast
 
 let pos (start, stop) = Pos.make ~start ~stop
@@ -33,8 +44,8 @@ operation:
 | OPERATION op_label = LABEL op_default_dest = destinataire?
     op_context = op_context* op_source = source
     exprs = expression
-{ 
-  operation_decl 
+{
+  operation_decl
     ~loc:(pos $sloc)
     op_label
     ?default_dest:op_default_dest
@@ -54,10 +65,10 @@ advance:
   }}
 
 simple_expr:
-| QUOTEPART f = formula d = destinataire? { 
-  redistribution ~loc:f.formula_loc (Part f), d 
+| QUOTEPART f = formula d = destinataire? {
+  redistribution ~loc:f.formula_loc (Part f), d
 }
-| BONUS f = formula d = destinataire? { 
+| BONUS f = formula d = destinataire? {
   redistribution ~loc:f.formula_loc (Flat f), d
 }
 | RETROCESSION f = formula SUR h = holder d = destinataire?
@@ -124,8 +135,8 @@ named:
       named ~loc:(pos $sloc) (Name (n, ctx))
     }
 | a = labeled_actor {
-  let loc = pos $sloc in 
-  named ~loc (Holder (holder ~loc (Actor a))) 
+  let loc = pos $sloc in
+  named ~loc (Holder (holder ~loc (Actor a)))
 }
 | p = pool { named ~loc:(pos $sloc) (Holder p) }
 
@@ -160,7 +171,7 @@ context_refinement:
 | LPAR c = separated_nonempty_list(COMMA,context_refine_item) RPAR { c }
 
 context_refine_item:
-| crid = context_refinement_item_desc { 
+| crid = context_refinement_item_desc {
   context_refinement_item ~loc:(pos $sloc) crid
 }
 ;
@@ -197,7 +208,7 @@ duration_month:
 input_decl:
 | ENTREE input_name = LIDENT input_type = input_type input_context = loption(input_context_decl)
 {
-  input_decl 
+  input_decl
     ~loc:(pos $sloc)
     ~context:input_context
     ~typ:input_type
@@ -205,8 +216,8 @@ input_decl:
     input_name
 }
 | ENTREE ASSIETTE input_name = LIDENT input_context = loption(input_context_decl)
-{ 
-  input_decl 
+{
+  input_decl
     ~loc:(pos $sloc)
     ~context:input_context
     ~typ:TMoney
