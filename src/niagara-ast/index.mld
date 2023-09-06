@@ -1,0 +1,9 @@
+{1 Library niagara-ast}
+
+This is the description
+of the niagara-lang OCaml project
+
+
+
+The entry point of this library is the module: {!Niagara_ast}.
+

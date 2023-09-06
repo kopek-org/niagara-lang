@@ -1,3 +1,6 @@
+Copyright and License
+=====================
+
 Copyright (c) 2023 OCamlPro SAS
 
 This software is distributed under the terms of the
