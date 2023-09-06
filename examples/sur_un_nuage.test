@@ -46,7 +46,7 @@
    - recette_nette_commission_distributeur(Salle, Video, France, Commercial)
        : { 7000$, 14000$ }
      7000$ -> recette_nette_part_producteur(salle, Video, France, Commercial)
-   - recette_nette_part_producteur(salle, Video, France, Commercial) : { 7000$, 7000$ }
+   - recette_nette_part_producteur(Salle, Video, France, Commercial) : { 7000$, 7000$ }
      5600$ -> distributeur_du_desert$minimum_garanti
      1400$ -> barbie$interessement
    - distributeur_du_desert : { 8600$, 24600$ }
@@ -82,7 +82,7 @@
      900$ -> barbie$interessement
      3150$ -> les_production_du_chameau$rnpp_france_residuelle
    - distributeur_du_desert : { 1500$, 89000$ }
-     $ commission_video : { 1500$, 2000$ }
+     $ commission_video : { 1500$, 20000$ }
    - les_production_du_chameau : { 3150$, 3150$ }
      $ rnpp_france_residuelle : { 3150$, 3150$ }
    - dromadaire_film : { 450$, 450$ }
@@ -162,7 +162,7 @@
    - vendeur_scorpion : { 1500$, 22275.74$ }
      $ commission_vendeur : { 1500$, 10275.74$ }
    - les_productions_du_chameau : { 5100$, 35100$ }
-     $ rnpp_residuelle_etranger : { 5100$, 16750$ }
+     $ rnpp_residuelle_etranger : { 5100$, 26750$ }
    - dromadaire_film : { 1700$, 5350$ }
      $ etranger : { 1700$, 1700$ }
    - barbie : { 1700$, 32112.50$ }

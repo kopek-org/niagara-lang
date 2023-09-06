@@ -1,9 +1,4 @@
 
-module IntSet = Set.Make(Int)
-module IntMap = Map.Make(Int)
-
-(***********)
-
 type domain = int
 type case = int
 
@@ -24,6 +19,8 @@ type case_info = {
   case_name : string;
   case_domain : domain;
 }
+
+type desc = CaseSet.t DomainMap.t list
 
 type world = {
   domains : domain_info DomainMap.t;
@@ -244,7 +241,7 @@ let add_domain =
     in
     { domains; domain_table; case_table; cases; size }
 
-let dommaps_of_group world (g : Group.t) =
+let group_desc world (g : Group.t) =
   let select_case_in_group dinfos d c g =
     let off = dinfos.domain_case_offset in
     let period = dinfos.domain_period in
@@ -287,9 +284,9 @@ let print_case world fmt (c : case) =
   Format.fprintf fmt "%s" case
 
 let print_cases world fmt (cs : CaseSet.t) =
-  CaseSet.iter (fun c ->
-      Format.fprintf fmt "%a," (print_case world) c)
-    cs
+  Format.pp_print_list ~pp_sep:(fun fmt () -> Format.fprintf fmt ",@ ")
+      (print_case world) fmt
+      (CaseSet.elements cs)
 
 let print_dommap world fmt (dm : CaseSet.t DomainMap.t) =
   Format.fprintf fmt "@[<hv 1>(";
@@ -301,7 +298,7 @@ let print_dommap world fmt (dm : CaseSet.t DomainMap.t) =
   Format.fprintf fmt "@])"
 
 let print_group world fmt (g : Group.t) =
-  let dommaps = dommaps_of_group world g in
+  let dommaps = group_desc world g in
   Format.fprintf fmt "@[<hv>%X@," g;
     Format.pp_print_list
       (fun fmt map ->
@@ -329,3 +326,27 @@ let print_shape world fmt (s : shape) =
     Format.fprintf fmt "@]}"
   end
 
+let print_group_id fmt (g : Group.t) =
+  Format.fprintf fmt "%X" g
+
+let print_group_desc world fmt (desc : desc) =
+  let print_one fmt d =
+    let cs = DomainMap.fold (fun _d -> CaseSet.union) d CaseSet.empty in
+    if List.length desc > 1
+    then Format.fprintf fmt "@[<hov>- %a@]" (print_cases world) cs
+    else Format.fprintf fmt "@[<hov>%a@]" (print_cases world) cs
+  in
+  Format.fprintf fmt "@[<v>%a@]"
+    (Format.pp_print_list print_one) desc
+
+let print_domain_desc world fmt (dom, dom_info) =
+  Format.fprintf fmt "@[<v 2>Domain %a:@,%a@]"
+    (print_domain world) dom
+    (Format.pp_print_list
+       (fun fmt -> Format.fprintf fmt "Case %a" (print_case world)))
+    (CaseSet.elements dom_info.domain_cases)
+
+let print_world_desc fmt world =
+  Format.fprintf fmt "@[<v>%a@]"
+    (Format.pp_print_list (print_domain_desc world))
+    (DomainMap.bindings world.domains)

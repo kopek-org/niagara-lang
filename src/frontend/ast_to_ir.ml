@@ -1,26 +1,36 @@
 
-module IntSet = Set.Make(Int)
-module IntMap = Map.Make(Int)
-
-(*************)
-
 open Ir
 
 module Acc = struct
 
-  (* type t = program *)
+  type t = {
+    infos : Ast.program_infos;
+    used_variables : Variable.Set.t;
+    ctx_derivations : Variable.t Context.Group.Map.t Variable.Map.t;
+    trees : RedistTree.t Variable.Map.t;
+    events : event Variable.Map.t;
+  }
 
   type derivation_mode = Strict | Inclusive
 
   let contexts t = t.infos.contexts
 
+  let infos t = t.infos
+
+  let trees t = t.trees
+
+  let events t = t.events
+
   let make (infos : Ast.program_infos) =
     { infos;
+      used_variables = Variable.Set.empty;
       ctx_derivations = Variable.Map.empty;
       trees = Variable.Map.empty;
       events = Variable.Map.empty;
-      dep_graph = Variable.Graph.empty;
     }
+
+  let flag_variable_usage t (v : Variable.t) =
+    { t with used_variables = Variable.Set.add v t.used_variables }
 
   let var_shape t (v : Variable.t) =
     match Variable.Map.find_opt v t.infos.var_shapes with
@@ -32,6 +42,9 @@ module Acc = struct
     | Some typ -> typ
     | None -> Errors.raise_error "(internal) Cannot find type of variable"
 
+  let is_actor t (v : Variable.t) =
+    Variable.Map.mem v t.infos.actors
+
   let anon_var_name =
     let c = ref 0 in
     fun name ->
@@ -40,6 +53,11 @@ module Acc = struct
 
   let find_const_opt t (v : Variable.t) =
     Variable.Map.find_opt v t.infos.Ast.constants
+
+  let find_compound_vars t (v : Variable.t) =
+    match Variable.Map.find_opt v t.infos.compounds with
+    | None -> [v]
+    | Some vs -> Variable.Set.elements vs
 
   let find_derivation_opt t (v : Variable.t) (ctx : Context.Group.t) =
     match Variable.Map.find_opt v t.ctx_derivations with
@@ -54,6 +72,7 @@ module Acc = struct
       let dv = Variable.new_var () in
       let { Variable.var_name } = Variable.Map.find v t.infos.var_info in
       let typ = type_of t v in
+      let t = flag_variable_usage t dv in
       let t = {
         t with
         infos = {
@@ -85,19 +104,32 @@ module Acc = struct
       in
       t, dv
 
+  type compound_derivation =
+    | ActorComp of { base : Variable.t; compound : Variable.t list }
+    | ContextVar of Variable.t list
+
   let derive_ctx_variables ~mode t (v : Variable.t) (ctx : Context.Group.t) =
-    let shape = var_shape t v in
-    let subshape =
-      match mode with
-      | Strict -> Context.shape_project shape ctx
-      | Inclusive -> Context.shape_overlap_subshape shape ctx
-    in
-    Context.shape_fold (fun (t, vars) group ->
-        let t, v = get_derivative_var t v group in
-        t, v::vars)
-      (t, []) subshape
+    if is_actor t v then
+      let compound = find_compound_vars t v in
+      let t = List.fold_left flag_variable_usage t compound in
+      t, ActorComp { base = v; compound; }
+    else
+      let shape = var_shape t v in
+      let subshape =
+        match mode with
+        | Strict -> Context.shape_project shape ctx
+        | Inclusive -> Context.shape_overlap_subshape shape ctx
+      in
+      let t, vars =
+        Context.shape_fold (fun (t, vars) group ->
+            let t, v = get_derivative_var t v group in
+            t, v::vars)
+          (t, []) subshape
+      in
+      t, ContextVar vars
 
   let register_event t (v : Variable.t) (event : event) =
+    let t = flag_variable_usage t v in
     { t with
       events = Variable.Map.add v event t.events
     }
@@ -114,6 +146,7 @@ module Acc = struct
     | None ->
       let var_name = anon_var_name "event" in
       let v = Variable.new_var () in
+      let t = flag_variable_usage t v in
       let t =
         { t with
           infos =
@@ -145,6 +178,23 @@ module Acc = struct
         t.trees
     in
     { t with trees }
+
+  let filter_usage t =
+    let filter map =
+      Variable.Map.filter (fun v _ -> Variable.Set.mem v t.used_variables) map
+    in
+    { t with
+      infos = {
+        t.infos with
+        var_info = filter t.infos.var_info;
+        var_shapes = filter t.infos.var_shapes;
+        inputs = filter t.infos.inputs;
+        actors = filter t.infos.actors;
+        compounds = filter t.infos.compounds;
+        types = filter t.infos.types;
+        constants = filter t.infos.constants;
+      }
+    }
 
 end
 
@@ -187,14 +237,14 @@ let rec reduce_formula (f : formula) =
   | Binop (DAdd, f1, f2) ->
     begin match reduce_formula f1, reduce_formula f2 with
       | Literal (LDate d), Literal (LDuration dr) ->
-        Literal (LDate (CalendarLib.Date.add d dr))
+        Literal (LDate (Date.Date.add d dr))
       | Literal _, Literal _ -> assert false
       | _ -> f
     end
   | Binop (DrAdd, f1, f2) ->
     begin match reduce_formula f1, reduce_formula f2 with
       | Literal (LDuration dr1), Literal (LDuration dr2) ->
-        Literal (LDuration (CalendarLib.Date.Period.add dr1 dr2))
+        Literal (LDuration (Date.Duration.add dr1 dr2))
       | Literal _, Literal _ -> assert false
       | _ -> f
     end
@@ -219,14 +269,14 @@ let rec reduce_formula (f : formula) =
   | Binop (DSub, f1, f2) ->
     begin match reduce_formula f1, reduce_formula f2 with
       | Literal (LDate d), Literal (LDuration dr) ->
-        Literal (LDate (CalendarLib.Date.rem d dr))
+        Literal (LDate (Date.Date.rem d dr))
       | Literal _, Literal _ -> assert false
       | _ -> f
     end
   | Binop (DrSub, f1, f2) ->
     begin match reduce_formula f1, reduce_formula f2 with
       | Literal (LDuration dr1), Literal (LDuration dr2) ->
-        Literal (LDuration (CalendarLib.Date.Period.sub dr1 dr2))
+        Literal (LDuration (Date.Duration.sub dr1 dr2))
       | Literal _, Literal _ -> assert false
       | _ -> f
     end
@@ -252,9 +302,8 @@ let rec reduce_formula (f : formula) =
   | Binop (DrMult, f1, f2) ->
     begin match reduce_formula f1, reduce_formula f2 with
       | Literal (LDuration dr), Literal (LRational f) ->
-        let open CalendarLib in
-        let ddr = Date.Period.nb_days dr in
-        Literal (LDuration (Date.Period.day (int_of_float (float_of_int ddr *. f +. 0.5))))
+        let ddr = Date.Duration.nb_days dr in
+        Literal (LDuration (Date.Duration.day (int_of_float (float_of_int ddr *. f +. 0.5))))
       | Literal _, Literal _ -> assert false
       | _ -> f
     end
@@ -280,9 +329,8 @@ let rec reduce_formula (f : formula) =
   | Binop (DrDiv, f1, f2) ->
     begin match reduce_formula f1, reduce_formula f2 with
       | Literal (LDuration dr), Literal (LRational f) ->
-        let open CalendarLib in
-        let ddr = Date.Period.nb_days dr in
-        Literal (LDuration (Date.Period.day (int_of_float (float_of_int ddr /. f +. 0.5))))
+        let ddr = Date.Duration.nb_days dr in
+        Literal (LDuration (Date.Duration.day (int_of_float (float_of_int ddr /. f +. 0.5))))
       | Literal _, Literal _ -> assert false
       | _ -> f
     end
@@ -371,8 +419,12 @@ let rec translate_formula ~(ctx : Context.Group.t) acc ~(view : flow_view)
     | None ->
       let t = Acc.type_of acc v in
       let proj = resolve_projection_context acc ~context:ctx ~refinement:proj in
-      let acc, v = Acc.derive_ctx_variables ~mode:Strict acc v proj in
-      let f = aggregate_vars ~view t v in
+      let acc, vs = Acc.derive_ctx_variables ~mode:Strict acc v proj in
+      let vs = match vs with
+        | ActorComp c -> c.compound
+        | ContextVar vs -> vs
+      in
+      let f = aggregate_vars ~view t vs in
       acc, (f, t)
     end
   | Binop (op, f1, f2) ->
@@ -388,7 +440,8 @@ let translate_redist ~(ctx : Context.Group.t) acc ~(dest : Ast.contextualized_va
   let acc, dest = Acc.derive_ctx_variables ~mode:Inclusive acc (fst dest) proj in
   let dest =
     match dest with
-    | [dest] -> dest
+    | ActorComp c -> c.base
+    | ContextVar [v] -> v
     | _ -> Errors.raise_error "(internal) Destination context inapplicable"
   in
   match redist.redistribution_desc with
@@ -512,7 +565,8 @@ let translate_default acc (d : Ast.ctx_default_decl) =
         Acc.derive_ctx_variables ~mode:Inclusive acc (fst d.ctx_default_dest) ctx
       in
       match dest with
-      | [dest] -> Acc.add_default acc ~source dest
+      | ActorComp c -> Acc.add_default acc ~source c.base
+      | ContextVar [dest] -> Acc.add_default acc ~source dest
       | _ -> Errors.raise_error "destination derivation should have been unique")
     acc source_local_shape
 
@@ -574,11 +628,11 @@ let level_fractional_attribution (t : RedistTree.t) =
     in
     Fractions { base_shares; branches; default = DefaultTree default_tree }
 
-let level_attributions acc =
+let level_attributions (acc : Acc.t) =
   let trees = Variable.Map.map level_fractional_attribution acc.trees in
   { acc with trees }
 
-let dependancy_graph acc =
+let dependancy_graph (acc : Acc.t) =
   let rec dep_formula graph src (f : formula) =
     match f with
     | Literal _ -> graph
@@ -612,24 +666,32 @@ let dependancy_graph acc =
       let graph = dep_tree graph src before in
       dep_tree graph src after
   in
-  let dep_graph =
-    Variable.Map.fold (fun src trees graph ->
-        match trees with
-        | RedistTree.Fractions { base_shares; default; branches } ->
-          let graph = dep_redist graph src base_shares in
-          let graph =
-            match default with
-            | NoDefault -> graph
-            | DefaultVariable d -> Variable.Graph.add_edge graph src d
-            | DefaultTree tree -> dep_tree graph src tree
-          in
-          List.fold_left (fun graph tree -> dep_tree graph src tree)
-            graph branches
-        | RedistTree.Flat fs ->
-          List.fold_left (fun graph tree -> dep_tree graph src tree) graph fs)
-      acc.trees Variable.Graph.empty
-  in
-  { acc with dep_graph }
+  Variable.Map.fold (fun src trees graph ->
+      match trees with
+      | RedistTree.Fractions { base_shares; default; branches } ->
+        let graph = dep_redist graph src base_shares in
+        let graph =
+          match default with
+          | NoDefault -> graph
+          | DefaultVariable d -> Variable.Graph.add_edge graph src d
+          | DefaultTree tree -> dep_tree graph src tree
+        in
+        List.fold_left (fun graph tree -> dep_tree graph src tree)
+          graph branches
+      | RedistTree.Flat fs ->
+        List.fold_left (fun graph tree -> dep_tree graph src tree) graph fs)
+    acc.trees Variable.Graph.empty
+
+let evaluation_order (acc : Acc.t) =
+  let graph = dependancy_graph acc in
+  let module SCC = Graph.Components.Make(Variable.Graph) in
+  let scc = SCC.scc_list graph in
+  List.fold_left (fun order comp ->
+      match comp with
+      | [] -> assert false
+      | [v] -> if Variable.Map.mem v acc.trees then v::order else order
+      | _ -> Errors.raise_error "Cyclic dependancy")
+    [] scc
 
 let translate_program (Contextualized (infos, prog) : Ast.contextualized Ast.program) =
   let acc = Acc.make infos in
@@ -639,5 +701,12 @@ let translate_program (Contextualized (infos, prog) : Ast.contextualized Ast.pro
          translate_declaration acc decl)
       acc prog
   in
-  let acc = dependancy_graph acc in
-  level_attributions acc
+  let acc = Acc.filter_usage acc in
+  let acc = level_attributions acc in
+  let eval_order = evaluation_order acc in
+  {
+    infos = Acc.infos acc;
+    trees = Acc.trees acc;
+    events = Acc.events acc;
+    eval_order;
+  }

@@ -25,6 +25,7 @@ module Acc = struct
     contexts : Context.world;
     inputs : input_kind Variable.Map.t;
     actors : stream_way Variable.Map.t;
+    compounds : Variable.Set.t Variable.Map.t;
     types : ValueType.t Variable.Map.t;
     constants : literal Variable.Map.t;
     constraints : context_constraint Variable.Map.t;
@@ -37,6 +38,7 @@ module Acc = struct
     contexts = Context.empty_world;
     inputs = Variable.Map.empty;
     actors = Variable.Map.empty;
+    compounds = Variable.Map.empty;
     types = Variable.Map.empty;
     constants = Variable.Map.empty;
     constraints = Variable.Map.empty;
@@ -67,6 +69,15 @@ module Acc = struct
 
   let bind_actor (v : Variable.t) (way : stream_way) t =
     { t with actors = Variable.Map.add v way t.actors }
+
+  let bind_compound (v : Variable.t) (c : Variable.t) t =
+    { t with
+      compounds =
+        Variable.Map.update c (function
+            | None -> Some (Variable.Set.singleton v)
+            | Some vs -> Some (Variable.Set.add v vs))
+          t.compounds
+    }
 
   let bind_const (v : Variable.t) (value : literal) t =
     { t with constants = Variable.Map.add v value t.constants }
@@ -106,6 +117,8 @@ module Acc = struct
     |> bind_type dv ValueType.TMoney
     |> bind_actor dv Downstream
     |> bind_actor uv Upstream
+    |> bind_compound dv dv
+    |> bind_compound uv uv
 
   let register_event t (name : string) =
     let v = Variable.new_var () in
@@ -166,6 +179,14 @@ module Acc = struct
     }
 
   let register_actor_label ~(way:stream_way) t (name : string) (label : string) =
+    let base_actor =
+      match StrMap.find_opt name t.var_table with
+      | None -> Errors.raise_error "Unknown actor %s" name
+      | Some (RefActor (BaseActor a)) ->
+        (match way with Downstream -> a.downstream | Upstream -> a.upstream)
+      | Some _ ->
+        Errors.raise_error "(internal) %s should have been recognized as actor" name
+    in
     let lname = name^"$"^label in
     match StrMap.find_opt lname t.var_table with
     | None ->
@@ -175,6 +196,7 @@ module Acc = struct
         |> bind_name vl lname
         |> bind_type vl ValueType.TMoney
         |> bind_actor vl way
+        |> bind_compound vl base_actor
       in
       t, vl
     | Some (RefActor (Label (v, lway))) ->
@@ -598,6 +620,7 @@ let program (Source prog : source program) : contextualized program =
       contexts = acc.contexts;
       inputs = acc.inputs;
       actors = acc.actors;
+      compounds = acc.compounds;
       types = acc.types;
       constants = acc.constants;
     }

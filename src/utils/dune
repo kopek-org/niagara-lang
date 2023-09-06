@@ -2,5 +2,5 @@
   (name utils)
   (public_name niagara-lang-lib.utils)
   (wrapped false)
-  (libraries fmt sedlex logs logs.fmt)
+  (libraries fmt sedlex logs logs.fmt calendar)
 )

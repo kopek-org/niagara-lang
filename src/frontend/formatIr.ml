@@ -16,9 +16,9 @@ let print_literal fmt (l : literal) =
   | LInteger i -> Format.pp_print_int fmt i
   | LRational f ->  Format.pp_print_float fmt f
   | LMoney i -> Format.fprintf fmt "%d.%d$" (i/100) (i mod 100)
-  | LDate d -> CalendarLib__Printer.Date.fprint "%Y/%m/%d" fmt d
+  | LDate d -> CalendarLib.Printer.Date.fprint "%Y/%m/%d" fmt d
   | LDuration d ->
-    let y,m,d = CalendarLib.Date.Period.ymd d in
+    let y,m,d = Date.Duration.ymd d in
     Format.fprintf fmt "%d year, %d month, %d day" y m d
 
 let print_view fmt (v : flow_view) =

@@ -5,8 +5,8 @@ type literal =
   | LInteger of int
   | LRational of float
   | LMoney of money
-  | LDate of CalendarLib.Date.t
-  | LDuration of CalendarLib.Date.Period.t
+  | LDate of Date.Date.t
+  | LDuration of Date.Duration.t
 
 type binop =
   | IAdd
@@ -232,8 +232,7 @@ end
 
 type program = {
   infos : Ast.program_infos;
-  ctx_derivations : Variable.t Context.Group.Map.t Variable.Map.t;
   trees : RedistTree.t Variable.Map.t;
   events : event Variable.Map.t;
-  dep_graph : Variable.Graph.t;
+  eval_order : Variable.t list;
 }

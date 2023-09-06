@@ -6,8 +6,8 @@ type literal =
   | LitInt of int
   | LitRational of float
   | LitMoney of int
-  | LitDuration of CalendarLib.Date.Period.t
-  | LitDate of CalendarLib.Date.t
+  | LitDate of Date.Date.t
+  | LitDuration of Date.Duration.t
 
 type binop =
   | Add
@@ -239,6 +239,7 @@ type program_infos = {
   contexts : Context.world;
   inputs : input_kind Variable.Map.t;
   actors : stream_way Variable.Map.t;
+  compounds : Variable.Set.t Variable.Map.t;
   types : ValueType.t Variable.Map.t;
   constants : literal Variable.Map.t;
 }
