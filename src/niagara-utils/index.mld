@@ -1,0 +1,10 @@
+{1 Library niagara-utils}
+
+This is the description
+of the niagara-lang OCaml project
+
+
+
+This library exposes the following toplevel modules:
+{!modules:Date Errors Pos}
+

@@ -1,0 +1,249 @@
+# Keep this file in your GIT repo to help drom track generated files
+# begin version
+version:0.9.0
+# end version
+
+# hash of toml configuration files
+# used for generation of all files
+44cc1c61432a2071061d1f16fe29a50c:.
+# end context for .
+
+# begin context for .github/workflows/workflow.yml
+# file .github/workflows/workflow.yml
+16cf72f7f3b352ffdec335f0e3defddb:.github/workflows/workflow.yml
+# end context for .github/workflows/workflow.yml
+
+# begin context for .gitignore
+# file .gitignore
+486b520a8935d5fc3d614e61b0c8e689:.gitignore
+# end context for .gitignore
+
+# begin context for .ocamlformat
+# file .ocamlformat
+a021399591b7aeb6f2e2854b4b8395c9:.ocamlformat
+# end context for .ocamlformat
+
+# begin context for .ocamlformat-ignore
+# file .ocamlformat-ignore
+c8f70450e7d78c0387644864ffe8cbd5:.ocamlformat-ignore
+# end context for .ocamlformat-ignore
+
+# begin context for .ocp-indent
+# file .ocp-indent
+6048407431b8d9baf725ae5365d4c2f2:.ocp-indent
+# end context for .ocp-indent
+
+# begin context for CHANGES.md
+# file CHANGES.md
+d1b3098209fed45b59dbc51ab7f92c4c:CHANGES.md
+# end context for CHANGES.md
+
+# begin context for LICENSE.md
+# file LICENSE.md
+e31b19b601ab25353ef16d67127735f1:LICENSE.md
+# end context for LICENSE.md
+
+# begin context for Makefile
+# file Makefile
+d7fc59e53700099c6506b7cf01119657:Makefile
+# end context for Makefile
+
+# begin context for docs/README.txt
+# file docs/README.txt
+bfbacf00053bb9ab2a6e2ce94ed4a642:docs/README.txt
+# end context for docs/README.txt
+
+# begin context for docs/doc/index.html
+# file docs/doc/index.html
+f5d69576aa6cee816c2f416949387590:docs/doc/index.html
+# end context for docs/doc/index.html
+
+# begin context for docs/favicon.png
+# file docs/favicon.png
+e739f3026aa997af4026bc428f4c9ef6:docs/favicon.png
+# end context for docs/favicon.png
+
+# begin context for docs/index.html
+# file docs/index.html
+08be8d90be0734fc55908e0488cdc0c3:docs/index.html
+# end context for docs/index.html
+
+# begin context for docs/sphinx/index.html
+# file docs/sphinx/index.html
+f4a4ad055361229da1c29579af2ee21f:docs/sphinx/index.html
+# end context for docs/sphinx/index.html
+
+# begin context for docs/style.css
+# file docs/style.css
+c8281f46ba9a11d0b61bc8ef67eaa357:docs/style.css
+# end context for docs/style.css
+
+# begin context for drom.toml
+# file drom.toml
+0b9e013a7f89750bf38e5f6c588dd74d:drom.toml
+# end context for drom.toml
+
+# begin context for dune
+# file dune
+0d57afa9756f983af2551804954af609:dune
+# end context for dune
+
+# begin context for dune-project
+# file dune-project
+b165bdeecbed3889931924dbd88ea5cc:dune-project
+# end context for dune-project
+
+# begin context for opam/niagara-ast.opam
+# file opam/niagara-ast.opam
+67e83d5e6c66fb136c214729b960dcb7:opam/niagara-ast.opam
+# end context for opam/niagara-ast.opam
+
+# begin context for opam/niagara-exec.opam
+# file opam/niagara-exec.opam
+bb286e8c69d5a34bda22ab732ab5158d:opam/niagara-exec.opam
+# end context for opam/niagara-exec.opam
+
+# begin context for opam/niagara-interpreter.opam
+# file opam/niagara-interpreter.opam
+d006096aff47457fbe70389b8ccfa227:opam/niagara-interpreter.opam
+# end context for opam/niagara-interpreter.opam
+
+# begin context for opam/niagara-lang.opam
+# file opam/niagara-lang.opam
+83fcd5dfad8aaa8bd162ec211f628140:opam/niagara-lang.opam
+# end context for opam/niagara-lang.opam
+
+# begin context for opam/niagara-utils.opam
+# file opam/niagara-utils.opam
+bc66c0fa6392e3be18191009e7426542:opam/niagara-utils.opam
+# end context for opam/niagara-utils.opam
+
+# begin context for opam/niagara.opam
+# file opam/niagara.opam
+461252aaeefbc8937c36600fdfd986f7:opam/niagara.opam
+# end context for opam/niagara.opam
+
+# begin context for scripts/after.sh
+# file scripts/after.sh
+62c6489217feef26dac343e709b89c1a:scripts/after.sh
+# end context for scripts/after.sh
+
+# begin context for scripts/before.sh
+# file scripts/before.sh
+371e627833d9ac7ae2f906b5ec97aae2:scripts/before.sh
+# end context for scripts/before.sh
+
+# begin context for scripts/copy-bin.sh
+# file scripts/copy-bin.sh
+bb3a9d286f0dc64021db4194427263ee:scripts/copy-bin.sh
+# end context for scripts/copy-bin.sh
+
+# begin context for scripts/static-build.sh
+# file scripts/static-build.sh
+b243cb6f630e2b0483b76eef1572ff95:scripts/static-build.sh
+# end context for scripts/static-build.sh
+
+# begin context for sphinx/_static/css/fixes.css
+# file sphinx/_static/css/fixes.css
+20bbe7a5dbb3c3278a1511d960616fe5:sphinx/_static/css/fixes.css
+# end context for sphinx/_static/css/fixes.css
+
+# begin context for sphinx/about.rst
+# file sphinx/about.rst
+11522d28f74bf3f4ed859d86c960b71b:sphinx/about.rst
+# end context for sphinx/about.rst
+
+# begin context for sphinx/conf.py
+# file sphinx/conf.py
+a3e4a68f4a085804a82e8ad33cf2d1e4:sphinx/conf.py
+# end context for sphinx/conf.py
+
+# begin context for sphinx/index.rst
+# file sphinx/index.rst
+54bab669c70807ebe146cf5fb540321f:sphinx/index.rst
+# end context for sphinx/index.rst
+
+# begin context for sphinx/install.rst
+# file sphinx/install.rst
+cfb643bc5fc0af240a071d3f12827970:sphinx/install.rst
+# end context for sphinx/install.rst
+
+# begin context for sphinx/license.rst
+# file sphinx/license.rst
+7f09d28eb87ab9f2650899f85835e74a:sphinx/license.rst
+# end context for sphinx/license.rst
+
+# begin context for src/niagara-ast/dune
+# file src/niagara-ast/dune
+417627b91b60724ef4e5773ab2feb6ba:src/niagara-ast/dune
+# end context for src/niagara-ast/dune
+
+# begin context for src/niagara-ast/index.mld
+# file src/niagara-ast/index.mld
+f8540b84adc155de8f997ea88ddd213d:src/niagara-ast/index.mld
+# end context for src/niagara-ast/index.mld
+
+# begin context for src/niagara-ast/version.mlt
+# file src/niagara-ast/version.mlt
+940d29cde7f16cd0916ed1d5f9c41154:src/niagara-ast/version.mlt
+# end context for src/niagara-ast/version.mlt
+
+# begin context for src/niagara-exec/dune
+# file src/niagara-exec/dune
+8d5d06686dded8f7777c653eedaa4568:src/niagara-exec/dune
+# end context for src/niagara-exec/dune
+
+# begin context for src/niagara-exec/index.mld
+# file src/niagara-exec/index.mld
+285fd3b7b23496c4ad6a5ee07544b72a:src/niagara-exec/index.mld
+# end context for src/niagara-exec/index.mld
+
+# begin context for src/niagara-exec/version.mlt
+# file src/niagara-exec/version.mlt
+940d29cde7f16cd0916ed1d5f9c41154:src/niagara-exec/version.mlt
+# end context for src/niagara-exec/version.mlt
+
+# begin context for src/niagara-lang/dune
+# file src/niagara-lang/dune
+603f66147521c3bb6654bc1cc0ab0702:src/niagara-lang/dune
+# end context for src/niagara-lang/dune
+
+# begin context for src/niagara-lang/index.mld
+# file src/niagara-lang/index.mld
+e1e7513c75d848ad3597fbbbf27fee93:src/niagara-lang/index.mld
+# end context for src/niagara-lang/index.mld
+
+# begin context for src/niagara-utils/dune
+# file src/niagara-utils/dune
+e601f4e7867d6ab259bf26f88ccde56d:src/niagara-utils/dune
+# end context for src/niagara-utils/dune
+
+# begin context for src/niagara-utils/index.mld
+# file src/niagara-utils/index.mld
+f7560d2d87c7a4e7308395f25d8d726c:src/niagara-utils/index.mld
+# end context for src/niagara-utils/index.mld
+
+# begin context for src/niagara-utils/version.mlt
+# file src/niagara-utils/version.mlt
+940d29cde7f16cd0916ed1d5f9c41154:src/niagara-utils/version.mlt
+# end context for src/niagara-utils/version.mlt
+
+# begin context for src/niagara/dune
+# file src/niagara/dune
+c5543543bc903e5d3795c4d65eab59bc:src/niagara/dune
+# end context for src/niagara/dune
+
+# begin context for src/niagara/index.mld
+# file src/niagara/index.mld
+f8b25d132ab17ccefdfd3c312fbb2178:src/niagara/index.mld
+# end context for src/niagara/index.mld
+
+# begin context for src/niagara/linking_flags.sh
+# file src/niagara/linking_flags.sh
+9fdfca3cc53df639758ff04fe09d3243:src/niagara/linking_flags.sh
+# end context for src/niagara/linking_flags.sh
+
+# begin context for src/niagara/version.mlt
+# file src/niagara/version.mlt
+940d29cde7f16cd0916ed1d5f9c41154:src/niagara/version.mlt
+# end context for src/niagara/version.mlt

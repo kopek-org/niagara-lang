@@ -1,8 +1,0 @@
-
-(executable
-  (name main)
-  (package niagara-lang)
-  (public_name niagara)
-  (libraries
-  sedlex
-  frontend))
