@@ -1,5 +1,6 @@
 open Odot
-open Ir
+open ConditionLifting
+type program = program_with_threshold
 
 let label s =
   Simple_id "label", Some (Double_quoted_id s)
@@ -44,7 +45,7 @@ let add_edge g s e ls =
     Stmt_edge (Edge_node_id s, [Edge_node_id e],ls)
     ::g.stmt_list
 
-let dot_of_redist (type a) p g (r : a RedistTree.redist) =
+let dot_of_redist (type a) p g (r : a Ir.RedistTree.redist) =
   match r with
   | NoInfo -> []
   | Shares sh ->
@@ -60,7 +61,7 @@ let dot_of_redist (type a) p g (r : a RedistTree.redist) =
         (dest, attr)::es)
       fs []
 
-let rec dot_of_tree : type a. program -> graph -> a RedistTree.tree -> ((id * _ option) * attr list) list =
+let rec dot_of_tree : type a. program -> graph -> a Ir.RedistTree.tree -> ((id * _ option) * attr list) list =
   fun p g t ->
   match t with
   | Nothing -> []
@@ -88,11 +89,11 @@ let dot_of_trees p g ts =
   |> List.flatten
 
 let dot_of_t p g t =
-  match (t : RedistTree.t) with
+  match (t : Ir.RedistTree.t) with
   | Fractions { base_shares; default; branches } ->
     dot_of_redist p g base_shares
     @ dot_of_trees p g branches
-    @ (match (default : RedistTree.frac_default) with
+    @ (match (default : Ir.RedistTree.frac_default) with
     | NoDefault -> []
     | DefaultVariable v ->
       let v = add_var p g v in
