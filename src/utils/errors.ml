@@ -9,11 +9,11 @@ type kind =
   | Note
   | Hint
 
-let kind_to_string : kind -> string = function
+(* let kind_to_string : kind -> string = function
   | Primary -> "primary"
   | Secondary -> "secondary"
   | Note -> "note"
-  | Hint -> "hint"
+  | Hint -> "hint" *)
 
 type info = {
   kind : kind;
@@ -21,9 +21,10 @@ type info = {
   msg : string;
 }
 
-let info_tag : info Tag.def = 
+(* keeps info in reverse order *)
+let infos_tag : info list Tag.def = 
   Tag.def "packed" ~doc:"Packed log message" 
-    (fun ppf p -> Fmt.pf ppf "<%s>" (kind_to_string p.kind))
+    (fun ppf _ -> Fmt.pf ppf "<infos>")
 
 type detail = Tag.set -> Tag.set
 
@@ -37,7 +38,11 @@ let loc : Pos.t -> detail = Tag.add loc_tag
 let detail : 
   ?loc:Pos.t -> kind -> ('a, Format.formatter, unit, detail) format4 -> 'a =
   fun ?(loc = Pos.dummy) kind fmt ->
-    let k msg = Tag.add info_tag {kind; loc; msg} in
+    let k msg = fun tags ->
+      let infos = match Tag.find infos_tag tags with
+        | None -> []
+        | Some infos -> infos in 
+      Tag.add infos_tag ({kind; loc; msg} :: infos) tags in
     Fmt.kstr k fmt
 
 let primary : 
