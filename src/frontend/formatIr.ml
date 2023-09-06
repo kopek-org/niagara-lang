@@ -1,15 +1,18 @@
 open Ir
 
-let print_variable (infos : Ast.program_infos) fmt (v : Variable.t) =
+let print_variable ~(with_ctx : bool) (infos : Ast.program_infos) fmt (v : Variable.t) =
   let Variable.{ var_name } = Variable.Map.find v infos.var_info in
-  let shape =
-    match Variable.Map.find_opt v infos.var_shapes with
-    | Some s -> s
-    | None -> Context.empty_shape
-  in
-  Format.fprintf fmt "@[<hv 2>%s/%d@,%a@]"
-    var_name v
-    (Context.print_shape infos.contexts) shape
+  if with_ctx then
+    let shape =
+      match Variable.Map.find_opt v infos.var_shapes with
+      | Some s -> s
+      | None -> Context.empty_shape
+    in
+    Format.fprintf fmt "@[<hv 2>%s/%d@,%a@]"
+      var_name v
+      (Context.print_shape infos.contexts) shape
+  else
+    Format.fprintf fmt "@[<hv 2>%s/%d@]" var_name v
 
 let print_literal fmt (l : literal) =
   match l with
@@ -55,7 +58,7 @@ let rec print_formula (infos : Ast.program_infos) fmt (f : formula) =
   | Variable (v, view) ->
     Format.fprintf fmt "[%a]%a"
       print_view view
-      (print_variable infos) v
+      (print_variable ~with_ctx:true infos) v
   | Binop (op, f1, f2) ->
     Format.fprintf fmt "@[<hv 2>(%a@ %a %a)@]"
       (print_formula infos) f1
@@ -67,8 +70,8 @@ let rec print_formula (infos : Ast.program_infos) fmt (f : formula) =
 
 let rec print_event (infos : Ast.program_infos) fmt (ev : event) =
   match ev with
-  | EvtVar v -> Format.fprintf fmt "Evt %a" (print_variable infos) v
-  | EvtOnRaise v -> Format.fprintf fmt "OnRaise %a" (print_variable infos) v
+  | EvtVar v -> Format.fprintf fmt "Evt %a" (print_variable ~with_ctx:false infos) v
+  | EvtOnRaise v -> Format.fprintf fmt "when %a" (print_variable ~with_ctx:false infos) v
   | EvtAnd (ev1, ev2) ->
     Format.fprintf fmt "@[<hv 2>(%a@ && %a)@]"
       (print_event infos) ev1
@@ -89,7 +92,7 @@ let print_redist (type a) (infos : Ast.program_infos) fmt (r : a RedistTree.redi
   | Shares sh ->
     Format.fprintf fmt "@[<hv>";
     Variable.Map.iter (fun v s ->
-        Format.fprintf fmt "%.2f%% -> %a@ " (s*.100.) (print_variable infos) v)
+        Format.fprintf fmt "%.2f%% -> %a@ " (s*.100.) (print_variable ~with_ctx:true infos) v)
       sh;
     Format.fprintf fmt "@]"
   | Flats fs ->
@@ -97,7 +100,7 @@ let print_redist (type a) (infos : Ast.program_infos) fmt (r : a RedistTree.redi
     Variable.Map.iter (fun v f ->
         Format.fprintf fmt "%a -> %a@ "
           (print_formula infos) f
-          (print_variable infos) v)
+          (print_variable ~with_ctx:true infos) v)
       fs;
     Format.fprintf fmt "@]"
 
@@ -108,7 +111,7 @@ let rec print_tree : type a. Ast.program_infos -> Format.formatter -> a RedistTr
   | Redist r -> (print_redist infos) fmt r
   | Branch {evt; before; after} ->
     Format.fprintf fmt "@[<hv 2>branch on %a@ "
-      (print_variable infos) evt;
+      (print_variable ~with_ctx:true infos) evt;
     Format.fprintf fmt "@[<hv 2>before@ %a@]@ "
       (print_tree infos) before;
     Format.fprintf fmt "@[<hv 2>after@ %a@]@]@ done"
@@ -117,7 +120,7 @@ let rec print_tree : type a. Ast.program_infos -> Format.formatter -> a RedistTr
     Format.pp_print_list
       (fun fmt (evt, t) ->
          Format.fprintf fmt "@[<hv 2>when %a@ @[do@ %a@]@]@ done"
-           (print_variable infos) evt
+           (print_variable ~with_ctx:true infos) evt
            (print_tree infos) t)
       fmt cr
 
@@ -127,7 +130,7 @@ let print_trees (type a) (infos : Ast.program_infos) fmt (ts : a RedistTree.tree
 let print_default (infos : Ast.program_infos) fmt (d : RedistTree.frac_default) =
   match d with
   | NoDefault -> ()
-  | DefaultVariable v -> Format.fprintf fmt "default -> %a" (print_variable infos) v
+  | DefaultVariable v -> Format.fprintf fmt "default -> %a" (print_variable ~with_ctx:true infos) v
   | DefaultTree t -> print_tree infos fmt t
 
 let print_t (infos : Ast.program_infos) fmt (t : RedistTree.t) =
@@ -143,13 +146,13 @@ let print_program fmt (p : program) =
   Format.fprintf fmt "@[<v 2>Events:@,";
   Variable.Map.iter (fun v ev ->
       Format.fprintf fmt "@[<hv 2>%a:@ %a@]@,"
-        (print_variable p.infos) v
+        (print_variable ~with_ctx:false p.infos) v
         (print_event p.infos) ev)
     p.events;
   Format.fprintf fmt "@]@;@[<v 2>Trees:@,";
   Variable.Map.iter (fun v t ->
       Format.fprintf fmt "@[<hv 2>%a:@ %a@]@,"
-        (print_variable p.infos) v
+        (print_variable ~with_ctx:true p.infos) v
         (print_t p.infos) t)
     p.trees;
   Format.fprintf fmt "@."

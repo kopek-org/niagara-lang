@@ -14,22 +14,26 @@ let shape s =
   Simple_id "shape", Some (Double_quoted_id s)
 
 let add_var p g v =
+  let is_actor = Variable.Map.mem v p.infos.actors in
   let ncolor =
-    if Variable.Map.mem v p.infos.actors then color "red" else color "blue"
+    if is_actor then color "red" else color "blue"
   in
-  let n = Double_quoted_id(Format.asprintf "%a" (FormatIr.print_variable p.infos) v), None in
+  let n =
+    Double_quoted_id(Format.asprintf "%a"
+                       (FormatIr.print_variable ~with_ctx:(not is_actor) p.infos) v),
+    None
+  in
   g.stmt_list <- Stmt_node (n,[ncolor])::g.stmt_list;
   n
 
 let id = let c = ref 0 in fun () -> incr c; "anon"^(string_of_int !c)
 
 let add_event p g v =
-  let e = Variable.Map.find v p.events in
   let n = Double_quoted_id(id ()), None in
   g.stmt_list <-
     Stmt_node (n,
                [shape "box";
-                label (Format.asprintf "%a" (FormatIr.print_event p.infos) e)
+                label (Format.asprintf "%a" (FormatIr.print_variable ~with_ctx:false p.infos) v)
                ])
     ::g.stmt_list;
   n
