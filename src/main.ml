@@ -1,20 +1,55 @@
 
-let () =
-  if Array.length Sys.argv < 2 then begin
-    Printf.eprintf "Needs a file in argument\n";
-    exit 1
-  end;
-  let file = Sys.argv.(1) in
-  let outfmt = Format.formatter_of_out_channel stdout in
-  let src_program = Frontend.ParserMain.parse_program file in
-  Frontend.FormatAst.print_program outfmt src_program;
-  Printf.printf "Parsing OK\n%!";
-  let ctx_program = Frontend.Contextualize.program src_program in
-  Frontend.FormatAst.print_program outfmt ctx_program;
-  Printf.printf "Contextualization OK\n%!";
-  let prog = Frontend.Ast_to_ir.translate_program ctx_program in
-  Frontend.FormatIr.print_program outfmt prog;
-  Printf.printf "First pass OK\n%!";
-  let prog = Frontend.ConditionLifting.compute_threshold_equations prog in
-  Printf.printf "Events threshold OK\n%!";
-  Frontend.Test_interp.test prog
+(** Setup logging system *)
+let setup_log style_renderer level =
+  Fmt_tty.setup_std_outputs ?style_renderer ();
+  Logs.set_level level;
+  Errors.init ~reporter:(Logs_fmt.reporter ()) ()
+
+(** Setup logging {!Cmdliner} term. *)
+let setup_log_term =
+  let open Cmdliner in
+  Term.(const setup_log $ Fmt_cli.style_renderer () $ Logs_cli.level ())
+  
+(** {!Cmdliner} term for the source positional argument. *)
+let source_term = 
+  let open Cmdliner in
+  let doc = "The Niagara source file to compile" in
+  let docv = "FILE" in
+  Arg.(required & pos 0 (some file) None & info ~doc ~docv [])
+
+(** Set GNU style flag. *)
+let gnu_style_term =
+  let open Cmdliner in
+  let doc = "Use GNU style when applicable" in
+  Arg.(value & flag & info ~doc ["gnu"])
+
+(** The main compilation function. It simply calls the main compilation
+    pipepine with a parsing on file. *)
+let compile : string -> unit = fun path ->
+  let src_program = Frontend.ParserMain.parse_program path in
+  Frontend.Compile.compile src_program
+
+(** [a -+ b] composes the terms [a] and [b] but ignores the 
+    [a] result. *)
+let ( -+ ) : 'a Cmdliner.Term.t -> 'b Cmdliner.Term.t -> 'b Cmdliner.Term.t = 
+  fun l r ->
+    let open Cmdliner.Term in
+    const (fun _ r -> r) $ l $ r
+
+(** Main entrypoint. *)
+let main () =
+  let open Cmdliner in
+  let doc = "Niagara compiler" in
+  let name = Filename.basename Sys.executable_name in 
+  let info = Cmd.info ~doc name in
+  let cmd = Cmd.v info (Term.(
+      setup_log_term -+ 
+      gnu_style_term -+
+      ((const compile) $ source_term)
+      )
+  ) in
+  let code = Cmd.eval cmd in
+  exit code
+
+
+let () = main ()

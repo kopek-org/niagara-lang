@@ -11,8 +11,11 @@
     (ocaml (>= 4.13))
     (sedlex (>= 3.0))
     menhir
-    ocamlgraph
-    (calendar (>= 3.0)))
+    (calendar (>= 3.0))
+    (logs (>= 0.7.0))
+    (fmt (>= 0.8.9))
+    (cmdliner (>= 1.0.4))
+    ocamlgraph)
 )
 
 (package

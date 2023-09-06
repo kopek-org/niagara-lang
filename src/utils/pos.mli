@@ -17,5 +17,8 @@ val make : start:Lexing.position -> stop:Lexing.position -> t
     given {!Sedlexing.lexbuf}. *)
 val from_lexbuf : Sedlexing.lexbuf -> t
 
+(** Sets the GNU conventions for printing positions. *)
+val set_gnu_style : bool -> unit
+
 (** Position pretty-printer. *)
 val pp : t Fmt.t

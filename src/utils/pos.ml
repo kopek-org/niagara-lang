@@ -26,13 +26,26 @@ let from_lexbuf : Sedlexing.lexbuf -> t =
     let start, stop = Sedlexing.lexing_positions lexbuf in
     make ~start ~stop
 
+let gnu_style, set_gnu_style =
+  let flag = ref false in
+  let gnu_style () = !flag in
+  let set_gnu_style b = flag := b in
+  gnu_style, set_gnu_style
+
 let pp : t Fmt.t = fun ppf pos ->
   match pos with
-  | Dummy -> ()
+  | Dummy -> 
+    ()
   | Loc { start_line; start_column; stop_line; stop_column } ->
-    if start_line = stop_line then
-      Fmt.pf ppf "line@ %d,@ characters@ %d-%d" 
-        start_line start_column stop_column
-    else
-      Fmt.pf ppf "line@ %d,@ character@ %d@ to@ line@ %d,@ character %d" 
-        start_line start_column stop_line stop_column
+    begin match gnu_style () with
+    | true ->
+      Fmt.text_loc ppf ((start_line, start_column), (stop_line, stop_column))
+    | false ->
+      if start_line = stop_line then
+        Fmt.pf ppf "line@ %d,@ characters@ %d-%d" 
+          start_line start_column stop_column
+      else
+        Fmt.pf ppf "line@ %d,@ character@ %d@ to@ line@ %d,@ character %d" 
+          start_line start_column stop_line stop_column
+    end
+    

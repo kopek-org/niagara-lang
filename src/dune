@@ -5,4 +5,10 @@
   (public_name niagara)
   (libraries
   sedlex
-  frontend))
+  frontend
+  logs
+  logs.fmt
+  logs.cli
+  fmt.tty
+  fmt.cli
+  cmdliner))
