@@ -1,4 +1,5 @@
 open Ir
+open Surface
 
 let print_variable ~(with_ctx : bool) (infos : Ast.program_infos) fmt (v : Variable.t) =
   let Variable.{ var_name } = Variable.Map.find v infos.var_info in

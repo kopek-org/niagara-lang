@@ -1,3 +1,4 @@
+open Surface
 
 type money = int
 
@@ -230,9 +231,38 @@ module RedistTree = struct
 
 end
 
+type eqex =
+  | EZero
+  | ESrc
+  | EConst of literal
+  | EMult of float * eqex
+  | EAdd of eqex * eqex
+  | EMinus of eqex
+  | EVar of Variable.t
+  | ECurrVar of Variable.t
+
+type cond =
+  | CRef of Variable.t
+  | CRaising of Variable.t
+  | CEq of eqex * eqex
+  | CNorm of float * eqex
+
+type 'a sourced = {
+  pinned_src : 'a Variable.Map.t;
+  other_src : 'a;
+}
+
+type event_eqs = cond Variable.BDT.t sourced Variable.Map.t
+
 type program = {
   infos : Ast.program_infos;
   trees : RedistTree.t Variable.Map.t;
   events : event Variable.Map.t;
   eval_order : Variable.t list;
+  equations : event_eqs;
 }
+
+let get_source (src : Variable.t) (sourced : 'a sourced) =
+  match Variable.Map.find_opt src sourced.pinned_src with
+  | None -> sourced.other_src
+  | Some e -> e

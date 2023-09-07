@@ -1,5 +1,5 @@
-
-type program = ConditionLifting.program_with_threshold
+open Internal
+open Ir
 
 type var_kind =
   | Pool
@@ -167,27 +167,27 @@ let literal_value (l : Ir.literal) =
   | Ir.LDate _
   | Ir.LDuration _ -> assert false
 
-let rec evaluate_eqex (s : state) (src : value) (expr : ConditionLifting.eqex) =
+let rec evaluate_eqex (s : state) (src : value) (expr : eqex) =
   match expr with
-  | ConditionLifting.EZero -> 0
-  | ConditionLifting.ESrc -> src
-  | ConditionLifting.EConst l -> literal_value l
-  | ConditionLifting.EMult (f, e) ->
+  | EZero -> 0
+  | ESrc -> src
+  | EConst l -> literal_value l
+  | EMult (f, e) ->
     let e = evaluate_eqex s src e in
     mult_value e f
-  | ConditionLifting.EAdd (e1, e2) ->
+  | EAdd (e1, e2) ->
     let e1 = evaluate_eqex s src e1 in
     let e2 = evaluate_eqex s src e2 in
     e1 + e2
-  | ConditionLifting.EMinus e ->
+  | EMinus e ->
     let e = evaluate_eqex s src e in
     -e
-  | ConditionLifting.EVar v -> begin
+  | EVar v -> begin
     match Variable.Map.find_opt v s.values with
     | None -> 0
     | Some vv -> vv.past_total (* + vv.stage *)
   end
-  | ConditionLifting.ECurrVar v ->
+  | ECurrVar v ->
     match Variable.Map.find_opt v s.values with
     | None -> 0
     | Some vv -> vv.stage
@@ -202,10 +202,10 @@ type limit_approach =
   | Diverge
   | NoLim
 
-let compute_equation_diff (s : state) (value : value) (eq : ConditionLifting.cond)
+let compute_equation_diff (s : state) (value : value) (eq : cond)
     (sem : eq_sem) =
   match eq with
-  | Norm (f, expr) ->
+  | CNorm (f, expr) ->
     let expr_val = evaluate_eqex s value expr in
     let lim_app =
       if f = 0. then NoLim else
@@ -219,7 +219,7 @@ let compute_equation_diff (s : state) (value : value) (eq : ConditionLifting.con
 let find_event_threshold (p : program) (s : state) (src : Variable.t) (value : value) =
     let event_state = get_event_state p s in
     Variable.Map.fold (fun evt sourced min_val ->
-        let deq = ConditionLifting.get_source src sourced in
+        let deq = get_source src sourced in
         match Variable.BDT.find event_state deq with
         | None -> min_val
         | Some eq ->
@@ -350,7 +350,7 @@ let update_state_events (p : program) (s : state) =
   let flipping_events =
     Variable.Map.fold (fun evt sourced flipped ->
         let evt_state = get_event_value s evt in
-        match Variable.BDT.find event_state sourced.ConditionLifting.other_src with
+        match Variable.BDT.find event_state sourced.other_src with
         | None ->
           if evt_state
           then Variable.Map.add evt false flipped

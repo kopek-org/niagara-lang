@@ -1,0 +1,9 @@
+
+(library
+  (name internal)
+  (public_name niagara-lang-lib.internal)
+  (libraries
+    commons
+    surface
+  )
+)

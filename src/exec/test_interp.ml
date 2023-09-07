@@ -1,4 +1,7 @@
-let make_input v i = Interpreter.{
+open Internal
+open Interpreter
+
+let make_input v i = Execution.{
     input_variable = v;
     input_date = Date.Date.mardi_gras 2023; (* irrelevant *)
     input_value = i;
@@ -22,9 +25,9 @@ let test p =
   Interface.print_program_desc fmt desc;
   Format.fprintf fmt "@.";
   Format.fprintf fmt "@.";
-  Interface.print_intepreter_inputs desc fmt inputs;
+  Printer.print_intepreter_inputs desc fmt inputs;
   Format.fprintf fmt "@.";
   Format.fprintf fmt "@.";
-  let outputs = Interpreter.compute_input_lines p inputs in
-  Interface.print_intepreter_outputs desc fmt outputs;
+  let outputs = Execution.compute_input_lines p inputs in
+  Printer.print_intepreter_outputs desc fmt outputs;
   Format.fprintf fmt "@."

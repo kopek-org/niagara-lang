@@ -1,4 +1,5 @@
-
+open Surface
+open Internal
 open Ir
 
 module Acc = struct
@@ -709,4 +710,5 @@ let translate_program (Contextualized (infos, prog) : Ast.contextualized Ast.pro
     trees = Acc.trees acc;
     events = Acc.events acc;
     eval_order;
+    equations = Variable.Map.empty;
   }

@@ -4,15 +4,13 @@
 )
 
 (library
-  (name frontend)
-  (public_name niagara-lang-lib)
+  (name grammar)
+  (public_name niagara-lang-lib.grammar)
   (libraries
-  utils
-  ocamlgraph
+  commons
+  surface
   sedlex
-  menhirLib
-  dot
-  calendar)
+  menhirLib)
   (preprocess
    (pps sedlex.ppx))
 )

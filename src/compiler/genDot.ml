@@ -1,6 +1,7 @@
 open Odot
-open ConditionLifting
-type program = program_with_threshold
+open Surface
+open Internal
+open Ir
 
 let label s =
   Simple_id "label", Some (Double_quoted_id s)
@@ -15,7 +16,7 @@ let shape s =
   Simple_id "shape", Some (Double_quoted_id s)
 
 let add_var p g v =
-  let is_actor = Variable.Map.mem v p.infos.actors in
+  let is_actor = Variable.Map.mem v p.infos.Ast.actors in
   let ncolor =
     if is_actor then color "red" else color "blue"
   in

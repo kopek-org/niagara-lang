@@ -1,5 +1,5 @@
 %{
-open Ast
+open Surface.Ast
 
 let pos (start, stop) = Pos.make ~start ~stop
 %}
@@ -23,7 +23,7 @@ let pos (start, stop) = Pos.make ~start ~stop
 
 %on_error_reduce literal formula named actor
 
-%start<Ast.source Ast.program> program
+%start<source program> program
 
 %%
 

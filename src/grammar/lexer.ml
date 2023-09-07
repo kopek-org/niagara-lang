@@ -1,5 +1,5 @@
-open Parser
 open Sedlexing
+open Parser
 
 let unknown_token_error lexbuf =
   Errors.raise_error "Parsing error"

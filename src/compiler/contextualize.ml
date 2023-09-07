@@ -1,4 +1,4 @@
-open Ast
+open Surface.Ast
 
 module Acc = struct
 
@@ -465,8 +465,8 @@ let redistribution acc (redist : source redistribution) ~(on_proj : Context.Grou
   | Retrocession (f, p) ->
     (* syntactic sugar *)
     let left_operand = f in
-    let right_operand = Ast.formula (Named (Ast.named (Holder p))) in
-    let f = Ast.formula (Binop (Mult, left_operand, right_operand)) in
+    let right_operand = Surface.Ast.formula (Named (Surface.Ast.named (Holder p))) in
+    let f = Surface.Ast.formula (Binop (Mult, left_operand, right_operand)) in
     let acc, f = formula acc f ~on_proj in
     acc, {redist with redistribution_desc = Flat f}
 

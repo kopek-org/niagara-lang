@@ -1,0 +1,11 @@
+(library
+  (name compiler)
+  (public_name niagara-lang-lib.compiler)
+  (libraries
+    commons
+    surface
+    internal
+    ocamlgraph
+    dot
+  )
+)

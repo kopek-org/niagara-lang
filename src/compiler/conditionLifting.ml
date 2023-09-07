@@ -1,3 +1,4 @@
+open Internal
 open Ir
 
 type expr =
@@ -16,37 +17,7 @@ type expr =
 
 module BDT = Variable.BDT
 
-type eqex =
-  | EZero
-  | ESrc
-  | EConst of literal
-  | EMult of float * eqex
-  | EAdd of eqex * eqex
-  | EMinus of eqex
-  | EVar of Variable.t
-  | ECurrVar of Variable.t
-
-type cond =
-  | Ref of Variable.t
-  | Raising of Variable.t
-  | Eq of eqex * eqex
-  | Norm of float * eqex
-
-type 'a sourced = {
-  pinned_src : 'a Variable.Map.t;
-  other_src : 'a;
-}
-
 type prov_exprs = expr sourced Variable.Map.t
-
-type event_eqs = cond BDT.t sourced Variable.Map.t
-
-type program_with_threshold =
-  { infos : Ast.program_infos;
-    trees : RedistTree.t Variable.Map.t;
-    equations : event_eqs;
-    eval_order : Variable.t list;
-  }
 
 let rec print_expr fmt (expr : expr) =
   match expr with
@@ -99,12 +70,12 @@ let rec print_eqex fmt (e : eqex) =
 
 let print_cond fmt (cond : cond) =
   match cond with
-  | Ref evt -> Format.fprintf fmt "event %d" evt
-  | Raising evt -> Format.fprintf fmt "when %d" evt
-  | Norm (f, e) ->
+  | CRef evt -> Format.fprintf fmt "event %d" evt
+  | CRaising evt -> Format.fprintf fmt "when %d" evt
+  | CNorm (f, e) ->
     Format.fprintf fmt "@[<hv 1> %g*[src]@ = %a@]"
       f print_eqex e
-  | Eq (e1, e2) ->
+  | CEq (e1, e2) ->
     Format.fprintf fmt "@[<hv 1>(%a@ = %a)@]"
       print_eqex e1
       print_eqex e2
@@ -224,11 +195,6 @@ let prov_exprs_union (p1 : prov_exprs) (p2 : prov_exprs) =
   Variable.Map.union (fun _dest expr1 expr2 ->
       Some (merge_sexpr expr1 expr2))
     p1 p2
-
-let get_source (src : Variable.t) (sourced : 'a sourced) =
-  match Variable.Map.find_opt src sourced.pinned_src with
-  | None -> sourced.other_src
-  | Some e -> e
 
 let rec formula_prov (provs : prov_exprs) (cf : formula) : expr sourced =
   match cf with
@@ -382,14 +348,14 @@ let event_condition (provs : prov_exprs) (event : event) : cond BDT.t sourced =
         | Some _ , None
         | None, Some _ -> None
         | Some e1, Some e2 ->
-          Some (Eq (e1, e2)))
+          Some (CEq (e1, e2)))
       d1 d2
   in
   match event with
   | EvtVar evt ->
-    { pinned_src = Variable.Map.empty; other_src = Action (Ref evt) }
+    { pinned_src = Variable.Map.empty; other_src = Action (CRef evt) }
   | EvtOnRaise evt ->
-    { pinned_src = Variable.Map.empty; other_src = Action (Raising evt)}
+    { pinned_src = Variable.Map.empty; other_src = Action (CRaising evt)}
   | EvtComp (Eq, f1, f2) ->
     let se1 = formula_prov provs f1 in
     let se2 = formula_prov provs f2 in
@@ -433,12 +399,12 @@ let transform_raising_cond (eqs : event_eqs) =
   in
   let trans_raising cond =
     match cond with
-    | Eq _ | Norm _ ->
+    | CEq _ | CNorm _ ->
       { pinned_src = Variable.Map.empty;
         other_src = BDT.Action cond;
       }
-    | Ref evt -> Variable.Map.find evt eqs
-    | Raising evt ->
+    | CRef evt -> Variable.Map.find evt eqs
+    | CRaising evt ->
       let srcd = Variable.Map.find evt eqs in
       { pinned_src =
           Variable.Map.map (reduce_decide_on evt) srcd.pinned_src;
@@ -511,8 +477,8 @@ let rec extract_src_factor (e : eqex) =
 
 let normalize_condition (e : cond) =
   match e with
-  | Ref _ | Raising _ | Norm _ -> e
-  | Eq (e1, e2) ->
+  | CRef _ | CRaising _ | CNorm _ -> e
+  | CEq (e1, e2) ->
     let src_factor1, const_part1 = extract_src_factor e1 in
     let src_factor2, const_part2 = extract_src_factor e2 in
     let factor = src_factor1 -. src_factor2 in
@@ -524,7 +490,7 @@ let normalize_condition (e : cond) =
       | e1, e2 ->
         EAdd (e2, EMinus e1)
     in
-    Norm (factor, const_part)
+    CNorm (factor, const_part)
 
 let normalize_equations (eqs : event_eqs) : event_eqs =
   let eqs = transform_raising_cond eqs in
@@ -555,6 +521,7 @@ let compute_threshold_equations (prog : program) =
   {
     infos = prog.infos;
     trees = prog.trees;
+    events = prog.events;
     equations = eqs;
     eval_order = prog.eval_order;
   }
