@@ -28,7 +28,20 @@ type program_desc = {
   variables : var_infos Variable.Map.t;
   events : event_infos Variable.Map.t;
   contexts : Context.world;
+  dep_order : Variable.t list;
 }
+
+let compare_kind (k1 : variable_kind) (k2 : variable_kind) =
+  match k1, k2 with
+  | ParameterInput _, _ -> -1
+  | PoolInput _, ParameterInput _ -> 1
+  | PoolInput _, _ -> -1
+  | ProvidingActor _, (ParameterInput _ | PoolInput _) -> 1
+  | ProvidingActor _, _ -> -1
+  | Intermediary _, ReceivingActor _ -> -1
+  | Intermediary _, _ -> 1
+  | ReceivingActor _, _ -> 1
+
 
 let context_of_variable (p : Ir.program) (v : Variable.t) =
   match Variable.Map.find_opt v p.infos.var_shapes with
@@ -88,6 +101,7 @@ let description_from_program (p : Ir.program) =
     variables;
     events;
     contexts = p.infos.contexts;
+    dep_order = p.eval_order;
   }
 
 let print_event_desc fmt (evt, { event_name }) =

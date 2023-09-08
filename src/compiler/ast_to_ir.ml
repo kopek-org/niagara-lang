@@ -547,7 +547,6 @@ and translate_condition_group ~on_raise ~ctx acc ~default_dest
     acc group
 
 let translate_operation acc (o : Ast.ctx_operation_decl) =
-  Format.printf "translate op '%s'@." o.ctx_op_label;
   let source_local_shape = shape_of_ctx_var acc o.ctx_op_source in
   Context.shape_fold (fun acc ctx ->
       let acc, source = Acc.get_derivative_var acc (fst o.ctx_op_source) ctx in

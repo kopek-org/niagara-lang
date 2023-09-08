@@ -69,9 +69,19 @@ let print_count (desc : program_desc) fmt (var, count) =
     (print_repartition desc typ) count.repartition
 
 let print_event_line (desc : program_desc) fmt (evt_swt, count) =
+  let count =
+    Variable.Map.bindings count
+    |> List.sort (fun (v1, c1) (v2, c2) ->
+        if Variable.Map.mem v1 c2.repartition then 1
+        else if Variable.Map.mem v2 c1.repartition then -1
+        else
+          Interface.compare_kind
+            (Variable.Map.find v1 desc.variables).var_kind
+            (Variable.Map.find v2 desc.variables).var_kind)
+  in
   Format.fprintf fmt "@[<v 2>++ %a:@ %a@]"
     (print_event_switch desc) evt_swt
-    (Format.pp_print_list (print_count desc)) (Variable.Map.bindings count)
+    (Format.pp_print_list (print_count desc)) count
 
 let print_output_line (desc : program_desc) fmt (i, line : int * output_line) =
   Format.fprintf fmt "%d: @[<v>%a@]"

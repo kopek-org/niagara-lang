@@ -22,7 +22,7 @@ type info = private {
 }
 
 (** Meta data tag for additionnal messages.loc
-    
+
     @warning They are stored in reverse order. *)
 val infos_tag : info list Tag.def
 
@@ -63,10 +63,9 @@ val init : ?reporter:Logs.reporter -> unit -> unit
 (** {1. Legacy} *)
 
 (** Legacy function to report errors.
-    
-  @deprecated *)
-val raise_error : 
-  ?with_pos:Pos.t -> 
-  ?span:string -> 
-  ('a, Format.formatter, unit, unit, unit, 'b) format6 -> 'a
 
+  @deprecated *)
+val raise_error :
+  ?with_pos:Pos.t ->
+  ?span:string ->
+  ('a, Format.formatter, unit, unit, unit, 'b) format6 -> 'a

@@ -143,6 +143,57 @@ let print_t (infos : Ast.program_infos) fmt (t : RedistTree.t) =
       (print_trees infos) f.branches
       (print_default infos) f.default
 
+let rec print_eqex fmt (e : eqex) =
+  match e with
+  | EZero -> Format.fprintf fmt "0"
+  | ESrc -> Format.fprintf fmt "[src]"
+  | EConst l -> print_literal fmt l
+  | EMult (f, e) -> Format.fprintf fmt "%g*%a" f print_eqex e
+  | EAdd (e1, EMinus e2) ->
+    Format.fprintf fmt "@[<hv>(%a@ - %a)@]"
+      print_eqex e1 print_eqex e2
+  | EAdd (e1, e2) ->
+    Format.fprintf fmt "@[<hv>(%a@ + %a)@]"
+      print_eqex e1 print_eqex e2
+  | EMinus e ->
+    Format.fprintf fmt "@[<hv>-%a@]" print_eqex e
+  | EVar v -> Format.fprintf fmt "v%d" v
+  | ECurrVar v -> Format.fprintf fmt "v%d'" v
+
+let print_cond fmt (cond : cond) =
+  match cond with
+  | CRef evt -> Format.fprintf fmt "event %d" evt
+  | CRaising evt -> Format.fprintf fmt "when %d" evt
+  | CNorm (f, e) ->
+    Format.fprintf fmt "@[<hv 1> %g*[src]@ = %a@]"
+      f print_eqex e
+  | CEq (e1, e2) ->
+    Format.fprintf fmt "@[<hv 1>(%a@ = %a)@]"
+      print_eqex e1
+      print_eqex e2
+
+let rec print_bdd (pp : Format.formatter -> 'a -> unit) fmt (bdd : 'a Variable.BDT.t) =
+  match bdd with
+  | NoAction -> Format.fprintf fmt "nothing"
+  | Action e -> pp fmt e
+  | Decision (c, d1, d2) ->
+    Format.fprintf fmt "@[<hv>if %d@ then %a@ else %a@]"
+      c (print_bdd pp) d1 (print_bdd pp) d2
+
+let print_conditions fmt (eqs : event_eqs) =
+  Format.pp_open_vbox fmt 0;
+  Variable.Map.iter (fun dest eqs ->
+      Format.fprintf fmt "@[<hv 2>eqs %d:@ " dest;
+      Variable.Map.iter (fun src bdd ->
+          Format.fprintf fmt "@[<hv 2>from %d:@ %a@],@ "
+            src
+            (print_bdd print_cond) bdd)
+        eqs.pinned_src;
+      Format.fprintf fmt "from another:@ %a" (print_bdd print_cond) eqs.other_src;
+      Format.fprintf fmt "@]@,")
+    eqs;
+  Format.fprintf fmt "@]@."
+
 let print_program fmt (p : program) =
   Format.fprintf fmt "@[<v 2>Events:@,";
   Variable.Map.iter (fun v ev ->
@@ -156,4 +207,6 @@ let print_program fmt (p : program) =
         (print_variable ~with_ctx:true p.infos) v
         (print_t p.infos) t)
     p.trees;
+  Format.fprintf fmt "@]@;@[<v 2>Equations:@,%a" print_conditions p.equations;
   Format.fprintf fmt "@."
+

@@ -250,13 +250,11 @@ module Acc = struct
 
   let resolve_constraints t =
     let rec resolve_var v t =
-      Format.printf "@[<v 2>resolve for %d@;" v;
       match Variable.Map.find_opt v t.var_shapes with
-      | Some shape -> Format.printf "found !@]@;"; t, shape
+      | Some shape -> t, shape
       | None ->
         match Variable.Map.find_opt v t.constraints with
         | None ->
-          Format.printf "no constraints @]@;@?";
           let everything = Context.shape_of_everything t.contexts in
           { t with
             var_shapes = Variable.Map.add v everything t.var_shapes;
@@ -266,10 +264,6 @@ module Acc = struct
           let t, (pshapes, uclip) =
             Variable.Map.fold (fun v projs (t, (pshapes, uclip)) ->
                 let t, var_shape = resolve_var v t in
-                Format.printf "var_shape : %a@,(%a)@,%a@;"
-                  (Context.print_shape t.contexts) var_shape
-                  (Format.pp_print_list (Context.print_shape t.contexts)) pshapes
-                  (Context.print_projection t.contexts) uclip;
                 let vperi = Context.shape_perimeter var_shape in
                 t, Context.Group.Set.fold (fun proj (pshapes, uclip) ->
                     Context.shape_cut_out var_shape proj :: pshapes,
@@ -289,14 +283,12 @@ module Acc = struct
             Context.Group.Set.fold (fun p s -> Context.shape_imprint_projection s p)
             projections clipped_shape
           in
-          Format.printf "done!@]@;@?";
           { t with
             var_shapes = Variable.Map.add v shape_with_projs t.var_shapes;
           },
           shape_with_projs
     in
-    Variable.Map.fold (fun v i t ->
-        Format.printf "%s " i.Variable.var_name;
+    Variable.Map.fold (fun v _ t ->
         fst @@ resolve_var v t)
       t.var_info t
 
@@ -558,7 +550,7 @@ let constant acc (c : const_decl) =
 
 let advance acc (a : advance_decl) =
   let acc, output = find_holder acc a.adv_output in
-  let acc, provider = 
+  let acc, provider =
     let holder = holder ~loc:a.adv_provider.actor_loc (Actor a.adv_provider) in
     find_holder acc holder in
   let acc, amount =
