@@ -3,9 +3,12 @@
   (package niagara-lang)
   (public_name niagara)
   (libraries
+    calendar
     commons
+    cmdliner
     grammar
     compiler
+    internal
     interpreter
     logs
     fmt.tty
