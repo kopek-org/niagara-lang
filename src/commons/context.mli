@@ -134,6 +134,10 @@ val print_projection : world -> Format.formatter -> Group.t -> unit
 
 val print_shape : world -> Format.formatter -> shape -> unit
 
+val print_domain : world -> Format.formatter -> domain -> unit
+
+val print_case : world -> Format.formatter -> case -> unit
+
 val print_world_desc : Format.formatter -> world -> unit
 
 (* val domains_of_strings : world -> string list -> CaseSet.t DomainMap.t *)
