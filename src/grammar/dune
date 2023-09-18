@@ -7,7 +7,9 @@
   (name grammar)
   (public_name niagara-lang-lib.grammar)
   (libraries
+  calendar
   commons
+  gen
   surface
   sedlex
   menhirLib)
