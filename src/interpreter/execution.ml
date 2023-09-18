@@ -107,16 +107,22 @@ let add_repartition (s : state) (src : Variable.t) (values : value Variable.Map.
 let add_next_to_trace (s : state) =
   update_trace_top (fun count ->
       Variable.Map.fold (fun var vv count ->
-          if vv.next = 0 then count else
-            let tally = {
-              at_instant = vv.next;
-              total = vv.next + vv.stage + vv.past_total;
-            }
-            in
-            Variable.Map.update var (function
-                | None -> Some { tally; repartition = Variable.Map.empty }
-                | Some c -> Some { c with tally })
-              count)
+          Variable.Map.update var (function
+              | None -> Some {
+                  tally = {
+                    at_instant = vv.next;
+                    total = vv.next + vv.stage + vv.past_total;
+                  };
+                  repartition = Variable.Map.empty
+                }
+              | Some c -> Some {
+                  c with
+                  tally = {
+                    at_instant = vv.next + c.tally.at_instant;
+                    total = vv.next + c.tally.total;
+                  }
+                })
+            count)
         s.values count)
     s
 
@@ -266,6 +272,7 @@ let flush_stage (s : state) =
   }
 
 let flush_next (s : state) =
+  let s = add_next_to_trace s in
   { s with
     values =
       Variable.Map.map (fun v ->
@@ -328,22 +335,19 @@ let compute_trees (s : state) (trees : Ir.RedistTree.t) (value : value) =
       (res_union base default) branches
 
 let update_state_values (p : program) (s : state) =
-  let s =
-    List.fold_left (fun s var ->
-        let value = get_state_next_value s var in
-        let redist_res =
-          match Variable.Map.find_opt var p.trees with
-          | None ->
-            if Variable.Map.mem var p.infos.actors then Variable.Map.empty else
-              Errors.raise_error "(internal) No tree found for variable redist"
-          | Some trees ->
-            compute_trees s trees value
-        in
-        let s = add_repartition s var redist_res in
-        add_val_to_next s redist_res)
-      s p.eval_order
-  in
-  add_next_to_trace s
+  List.fold_left (fun s var ->
+      let value = get_state_next_value s var in
+      let redist_res =
+        match Variable.Map.find_opt var p.trees with
+        | None ->
+          if Variable.Map.mem var p.infos.actors then Variable.Map.empty else
+            Errors.raise_error "(internal) No tree found for variable redist"
+        | Some trees ->
+          compute_trees s trees value
+      in
+      let s = add_repartition s var redist_res in
+      add_val_to_next s redist_res)
+    s p.eval_order
 
 let update_state_events (p : program) (s : state) =
   let event_state = get_event_state p s in

@@ -71,6 +71,7 @@ let print_count (desc : program_desc) fmt (var, count) =
 let print_event_line (desc : program_desc) fmt (evt_swt, count) =
   let count =
     Variable.Map.bindings count
+    |> List.filter (fun (_, c) -> c.tally.at_instant <> 0)
     |> List.sort (fun (v1, c1) (v2, c2) ->
         if Variable.Map.mem v1 c2.repartition then 1
         else if Variable.Map.mem v2 c1.repartition then -1
