@@ -45,7 +45,9 @@ let compare_kind (k1 : variable_kind) (k2 : variable_kind) =
 
 let context_of_variable (p : Ir.program) (v : Variable.t) =
   match Variable.Map.find_opt v p.infos.var_shapes with
-  | None -> Errors.raise_error "(internal) Cannot find variable %d context group" v
+  | None ->
+    Errors.raise_error "(internal) Cannot find variable %d context group"
+      (Variable.uid v)
   | Some shape ->
     Context.shape_fold (fun res g ->
         match res with
@@ -105,7 +107,7 @@ let description_from_program (p : Ir.program) =
   }
 
 let print_event_desc fmt (evt, { event_name }) =
-  Format.fprintf fmt "e%d: name: '%s'" evt event_name
+  Format.fprintf fmt "e%d: name: '%s'" (Variable.uid evt) event_name
 
 let print_actor_label fmt (l : actor_label) =
   match l with
@@ -131,7 +133,7 @@ let print_var_kind contexts fmt (kind : variable_kind) =
     Format.fprintf fmt "Intermediate pool@ %a" (print_var_context contexts) ctx
 
 let print_variable_desc contexts fmt (var, desc) =
-  Format.fprintf fmt "@[<v 2>v%d:@," var;
+  Format.fprintf fmt "@[<v 2>v%d:@," (Variable.uid var);
   Format.fprintf fmt "name: '%s'@," desc.var_name;
   Format.fprintf fmt "kind: @[<v>%a@]@," (print_var_kind contexts) desc.var_kind;
   Format.fprintf fmt "type: %a@]" FormatAst.print_type desc.var_type

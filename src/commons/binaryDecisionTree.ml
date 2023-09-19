@@ -1,7 +1,32 @@
+module type S = sig
+  type condition
+  module KnowledgeMap : Map.S with type key = condition
+  type 'a t =
+    | Decision of condition * 'a t * 'a t
+    | Action of 'a
+    | NoAction
+  type knowledge = bool KnowledgeMap.t
+  val find : knowledge -> 'a t -> 'a option
+  val fold :
+    'a t ->
+    noaction:(knowledge -> 'b) ->
+    action:(knowledge -> 'a -> 'b) ->
+    decision:(knowledge -> condition -> 'b -> 'b -> 'b) -> 'b
+  val add_decision : condition -> 'a t -> 'a t
+  val map_action :
+    knowledge -> (knowledge -> 'a option -> 'a t) -> 'a t -> 'a t
+  val cut : knowledge -> 'a t -> 'a t
+  val merge :
+    (knowledge -> 'a option -> 'a option -> 'b option) ->
+    'a t -> 'a t -> 'b t
+end
+
 
 module Make(Cond : Map.OrderedType)(KnowledgeMap : Map.S with type key = Cond.t) = struct
 
   type condition = Cond.t
+
+  module KnowledgeMap = KnowledgeMap
 
   type 'a t =
     | Decision of Cond.t * 'a t * 'a t
@@ -106,6 +131,5 @@ module Make(Cond : Map.OrderedType)(KnowledgeMap : Map.S with type key = Cond.t)
       | NoAction -> run_down knowledge None d2
     in
     aux KnowledgeMap.empty d1 d2
-
 
 end

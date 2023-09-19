@@ -27,23 +27,23 @@ let rec print_expr fmt (expr : expr) =
   | Factor (f, e) -> Format.fprintf fmt "%g*%a" f print_expr e
   | Switch { evt; before; after } ->
     Format.fprintf fmt "@[<hv 2>(v%d ?@ %a@ : %a)@]"
-      evt
+      (Variable.uid evt)
       print_expr before
       print_expr after
   | Add (expr1, expr2) ->
     Format.fprintf fmt "@[<hv>(%a@ + %a)@]"
       print_expr expr1
       print_expr expr2
-  | Pre v -> Format.fprintf fmt "v%d" v
-  | Current v -> Format.fprintf fmt "v%d'" v
+  | Pre v -> Format.fprintf fmt "v%d" (Variable.uid v)
+  | Current v -> Format.fprintf fmt "v%d'" (Variable.uid v)
 
 let _print_provenances fmt (provs : prov_exprs) =
   Format.pp_open_vbox fmt 0;
   Variable.Map.iter (fun dest prov ->
-      Format.fprintf fmt "@[<hv 2>provs %d:@ " dest;
+      Format.fprintf fmt "@[<hv 2>provs %d:@ " (Variable.uid dest);
       Variable.Map.iter (fun src expr ->
           Format.fprintf fmt "@[<hv 2>from %d:@ %a@],@ "
-            src
+            (Variable.uid src)
             print_expr expr)
         prov.pinned_src;
       Format.fprintf fmt "from another:@ %a" print_expr prov.other_src;

@@ -36,7 +36,7 @@ module Acc = struct
   let var_shape t (v : Variable.t) =
     match Variable.Map.find_opt v t.infos.var_shapes with
     | Some shape -> shape
-    | None -> Errors.raise_error "No shape for var %d" v
+    | None -> Errors.raise_error "No shape for var %d" (Variable.uid v)
 
   let type_of t v =
     match Variable.Map.find_opt v t.infos.types with
@@ -70,7 +70,7 @@ module Acc = struct
     match find_derivation_opt t v ctx with
     | Some v -> t, v
     | None ->
-      let dv = Variable.new_var () in
+      let dv = Variable.create () in
       let { Variable.var_name } = Variable.Map.find v t.infos.var_info in
       let typ = type_of t v in
       let t = flag_variable_usage t dv in
@@ -146,7 +146,7 @@ module Acc = struct
     | Some evt -> t, evt
     | None ->
       let var_name = anon_var_name "event" in
-      let v = Variable.new_var () in
+      let v = Variable.create () in
       let t = flag_variable_usage t v in
       let t =
         { t with

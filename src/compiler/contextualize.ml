@@ -83,7 +83,7 @@ module Acc = struct
     { t with constants = Variable.Map.add v value t.constants }
 
   let register_pool t (name : string) =
-    let v = Variable.new_var () in
+    let v = Variable.create () in
     let t =
       bind_var name (RefPool v) t
       |> bind_name v name
@@ -98,7 +98,7 @@ module Acc = struct
       if typ <> ValueType.TMoney then Errors.raise_error "Wrong type for pool";
       register_pool t name
     | ReadOnly ->
-      let v = Variable.new_var () in
+      let v = Variable.create () in
       let t =
         bind_var name (RefROInput v) t
         |> bind_name v name
@@ -108,8 +108,8 @@ module Acc = struct
       t, v
 
   let register_actor t (name : string) =
-    let uv = Variable.new_var () in
-    let dv = Variable.new_var () in
+    let uv = Variable.create () in
+    let dv = Variable.create () in
     bind_var name (RefActor (BaseActor {upstream = uv; downstream = dv})) t
     |> bind_name uv name
     |> bind_type uv ValueType.TMoney
@@ -121,7 +121,7 @@ module Acc = struct
     |> bind_compound uv uv
 
   let register_event t (name : string) =
-    let v = Variable.new_var () in
+    let v = Variable.create () in
     let t =
       bind_var name (RefEvent v) t
       |> bind_name v name
@@ -130,7 +130,7 @@ module Acc = struct
     t, v
 
   let register_const t (name : string) (typ : ValueType.t) (value : literal) =
-    let v = Variable.new_var () in
+    let v = Variable.create () in
     bind_var name (RefConst v) t
     |> bind_name v name
     |> bind_type v typ
@@ -190,7 +190,7 @@ module Acc = struct
     let lname = name^"$"^label in
     match StrMap.find_opt lname t.var_table with
     | None ->
-      let vl = Variable.new_var () in
+      let vl = Variable.create () in
       let t =
         bind_var lname (RefActor (Label (vl, way))) t
         |> bind_name vl lname

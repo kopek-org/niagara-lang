@@ -10,10 +10,10 @@ let print_variable ~(with_ctx : bool) (infos : Ast.program_infos) fmt (v : Varia
       | None -> Context.empty_shape
     in
     Format.fprintf fmt "@[<hv 2>%s/%d@,%a@]"
-      var_name v
+      var_name (Variable.uid v)
       (Context.print_shape infos.contexts) shape
   else
-    Format.fprintf fmt "@[<hv 2>%s/%d@]" var_name v
+    Format.fprintf fmt "@[<hv 2>%s/%d@]" var_name (Variable.uid v)
 
 let print_literal fmt (l : literal) =
   match l with
@@ -157,13 +157,13 @@ let rec print_eqex fmt (e : eqex) =
       print_eqex e1 print_eqex e2
   | EMinus e ->
     Format.fprintf fmt "@[<hv>-%a@]" print_eqex e
-  | EVar v -> Format.fprintf fmt "v%d" v
-  | ECurrVar v -> Format.fprintf fmt "v%d'" v
+  | EVar v -> Format.fprintf fmt "v%d" (Variable.uid v)
+  | ECurrVar v -> Format.fprintf fmt "v%d'" (Variable.uid v)
 
 let print_cond fmt (cond : cond) =
   match cond with
-  | CRef evt -> Format.fprintf fmt "event %d" evt
-  | CRaising evt -> Format.fprintf fmt "when %d" evt
+  | CRef evt -> Format.fprintf fmt "event %d" (Variable.uid evt)
+  | CRaising evt -> Format.fprintf fmt "when %d" (Variable.uid evt)
   | CNorm (f, e) ->
     Format.fprintf fmt "@[<hv 1> %g*[src]@ = %a@]"
       f print_eqex e
@@ -178,15 +178,15 @@ let rec print_bdd (pp : Format.formatter -> 'a -> unit) fmt (bdd : 'a Variable.B
   | Action e -> pp fmt e
   | Decision (c, d1, d2) ->
     Format.fprintf fmt "@[<hv>if %d@ then %a@ else %a@]"
-      c (print_bdd pp) d1 (print_bdd pp) d2
+      (Variable.uid c) (print_bdd pp) d1 (print_bdd pp) d2
 
 let print_conditions fmt (eqs : event_eqs) =
   Format.pp_open_vbox fmt 0;
   Variable.Map.iter (fun dest eqs ->
-      Format.fprintf fmt "@[<hv 2>eqs %d:@ " dest;
+      Format.fprintf fmt "@[<hv 2>eqs %d:@ " (Variable.uid dest);
       Variable.Map.iter (fun src bdd ->
           Format.fprintf fmt "@[<hv 2>from %d:@ %a@],@ "
-            src
+            (Variable.uid src)
             (print_bdd print_cond) bdd)
         eqs.pinned_src;
       Format.fprintf fmt "from another:@ %a" (print_bdd print_cond) eqs.other_src;
