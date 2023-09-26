@@ -368,7 +368,8 @@ let compute_trees (s : state) (trees : Ir.RedistTree.t) (value : value) =
 
 let update_state_values (p : program) (s : state) =
   List.fold_left (fun s var ->
-      let value = get_state_next_value s var in
+      let src_is_actor = Variable.Map.mem var p.infos.actors in
+      let value = if src_is_actor then 0 else get_state_next_value s var in
       let redist_res =
         match Variable.Map.find_opt var p.trees with
         | None ->
@@ -376,6 +377,15 @@ let update_state_values (p : program) (s : state) =
             Errors.raise_error "(internal) No tree found for variable redist"
         | Some trees ->
           compute_trees s trees value
+      in
+      let s =
+        if src_is_actor then
+          (* providing actors are valuated on what they give *)
+          let sum =
+            Variable.Map.fold (fun _dest v acc -> acc + v) redist_res 0
+          in
+          add_val_to_next s (Variable.Map.singleton var sum)
+        else s
       in
       let s = add_repartition s var redist_res in
       add_val_to_next s redist_res)

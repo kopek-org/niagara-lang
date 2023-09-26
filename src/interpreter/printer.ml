@@ -7,19 +7,23 @@ let print_var_with_ctx (desc : program_desc) fmt (v : Variable.t) =
   let print_with_ctx fmt name ctx =
     Format.fprintf fmt "%s(%a)" name (Context.print_group_desc desc.contexts) ctx
   in
-  let print_with_label fmt name label =
-    match label with
+  let print_with_label ~providing fmt name label =
+    begin match label with
     | None -> Format.fprintf fmt "%s" name
-    | Some label -> Format.fprintf fmt "%s$%s" name label
+    | Some label ->
+      Format.fprintf fmt "%s$%s" name label
+    end;
+    if providing then Format.pp_print_string fmt " (as provider)"
   in
   match var_desc.var_kind with
     | ParameterInput ctx
     | PoolInput ctx
     | Intermediary ctx ->
       print_with_ctx fmt var_desc.var_name ctx.var_context_desc
-    | ReceivingActor l
+    | ReceivingActor l ->
+      print_with_label ~providing:false fmt var_desc.var_name l
     | ProvidingActor l ->
-      print_with_label fmt var_desc.var_name l
+      print_with_label ~providing:true fmt var_desc.var_name l
 
 let print_input_line (desc : program_desc) fmt (i, line : int * input_line) =
   Format.fprintf fmt "%d: %a += %a"
