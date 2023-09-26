@@ -180,7 +180,7 @@ let rec print_bdd (pp : Format.formatter -> 'a -> unit) fmt (bdd : 'a Variable.B
     Format.fprintf fmt "@[<hv>if %d@ then %a@ else %a@]"
       (Variable.uid c) (print_bdd pp) d1 (print_bdd pp) d2
 
-let print_conditions fmt (eqs : event_eqs) =
+let print_conditions fmt (eqs : event_eq Variable.Map.t) =
   Format.pp_open_vbox fmt 0;
   Variable.Map.iter (fun dest eqs ->
       Format.fprintf fmt "@[<hv 2>eqs %d:@ " (Variable.uid dest);

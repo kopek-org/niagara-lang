@@ -2,7 +2,7 @@ open Surface
 
 type variable_context = {
   var_context_group : Context.Group.t;
-  var_context_desc : Context.desc;
+  var_context_desc : Context.group_desc;
 }
 
 type actor_label = string option
@@ -41,7 +41,6 @@ let compare_kind (k1 : variable_kind) (k2 : variable_kind) =
   | Intermediary _, ReceivingActor _ -> -1
   | Intermediary _, _ -> 1
   | ReceivingActor _, _ -> 1
-
 
 let context_of_variable (p : Ir.program) (v : Variable.t) =
   match Variable.Map.find_opt v p.infos.var_shapes with

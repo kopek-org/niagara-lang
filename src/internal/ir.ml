@@ -1,11 +1,9 @@
 open Surface
 
-type money = int
-
 type literal =
   | LInteger of int
   | LRational of float
-  | LMoney of money
+  | LMoney of int
   | LDate of Date.Date.t
   | LDuration of Date.Duration.t
 
@@ -209,26 +207,6 @@ module RedistTree = struct
   let of_remainder (d : Variable.t) =
     Fractions { base_shares = NoInfo; default = DefaultVariable d; branches = [] }
 
-  let merge_default (d1 : frac_default) (d2 : frac_default) =
-    match d1, d2 with
-    | NoDefault, NoDefault -> NoDefault
-    | DefaultVariable d, NoDefault
-    | NoDefault, DefaultVariable d -> DefaultVariable d
-    | _, _ ->
-      Errors.raise_error "Multiple default definition"
-
-  let merge (t1 : t) (t2 : t) =
-    match t1, t2 with
-    | Flat _, Fractions _ | Fractions _, Flat _ ->
-      Errors.raise_error "Mixing quotepart and bonuses between operations"
-    | Flat fs, Flat fs' -> Flat (fs@fs')
-    | Fractions f1, Fractions f2 ->
-      Fractions {
-        base_shares = merge_redist0 f1.base_shares f2.base_shares;
-        default = merge_default f1.default f2.default;
-        branches = f1.branches @ f2.branches;
-      }
-
 end
 
 type eqex =
@@ -252,14 +230,14 @@ type 'a sourced = {
   other_src : 'a;
 }
 
-type event_eqs = cond Variable.BDT.t sourced Variable.Map.t
+type event_eq = cond Variable.BDT.t sourced
 
 type program = {
   infos : Ast.program_infos;
   trees : RedistTree.t Variable.Map.t;
   events : event Variable.Map.t;
   eval_order : Variable.t list;
-  equations : event_eqs;
+  equations : event_eq Variable.Map.t;
 }
 
 let get_source (src : Variable.t) (sourced : 'a sourced) =

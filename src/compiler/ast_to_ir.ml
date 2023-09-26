@@ -2,8 +2,12 @@ open Surface
 open Internal
 open Ir
 
-module Acc = struct
+(* This pass does mainly two things :
+   - Swapping abstract variables (user-side names) to their contextualized
+   versions, the concrete computation objects.
+   - Building redistribution trees for each variables flowing elsewhere. *)
 
+module Acc : sig
   type t = {
     infos : Ast.program_infos;
     used_variables : Variable.Set.t;
@@ -14,13 +18,40 @@ module Acc = struct
 
   type derivation_mode = Strict | Inclusive
 
+  type compound_derivation =
+      ActorComp of { base : Variable.t; compound : Variable.t list; }
+    | ContextVar of Variable.t list
+
+  val contexts : t -> Context.world
+  val make : Ast.program_infos -> t
+  val var_shape : t -> Variable.t -> Context.shape
+  val type_of : t -> Variable.t -> ValueType.t
+  val find_const_opt : t -> Variable.t -> Ast.literal option
+  val get_derivative_var :
+    t -> Variable.t -> Context.Group.t -> t * Variable.t
+
+  val derive_ctx_variables :
+    mode:derivation_mode ->
+    t -> Variable.t -> Context.Group.t -> t * compound_derivation
+
+  val register_event : t -> Variable.t -> event -> t
+  val lift_event : t -> event -> t * Variable.t
+  val add_tree : t -> source:Variable.t -> RedistTree.kind_tree -> t
+  val add_default : t -> source:Variable.t -> Variable.t -> t
+  val filter_usage : t -> t
+
+end = struct
+
+  type t = {
+    infos : Ast.program_infos;
+    used_variables : Variable.Set.t;
+    ctx_derivations : Variable.t Context.Group.Map.t Variable.Map.t;
+    (* Association of abstract variables to their context group versions *)
+    trees : RedistTree.t Variable.Map.t;
+    events : event Variable.Map.t;
+  }
+
   let contexts t = t.infos.contexts
-
-  let infos t = t.infos
-
-  let trees t = t.trees
-
-  let events t = t.events
 
   let make (infos : Ast.program_infos) =
     { infos;
@@ -30,6 +61,8 @@ module Acc = struct
       events = Variable.Map.empty;
     }
 
+  (** Explicit flagging of program objects to remove clutter generated in
+      previous pass *)
   let flag_variable_usage t (v : Variable.t) =
     { t with used_variables = Variable.Set.add v t.used_variables }
 
@@ -66,10 +99,15 @@ module Acc = struct
     | Some cgm ->
       Context.Group.Map.find_opt ctx cgm
 
+  (* Fetch for the one variable to this exact context group *)
   let get_derivative_var t (v : Variable.t) (ctx : Context.Group.t) =
     match find_derivation_opt t v ctx with
     | Some v -> t, v
     | None ->
+      (* Fragile: Generating new variable for the given group without checking
+         whever there is already one whose group overlap. This should not be an
+         issue as the analysis should not produce such cases, but vulnerable
+         nonetheless. *)
       let dv = Variable.create () in
       let { Variable.var_name } = Variable.Map.find v t.infos.var_info in
       let typ = type_of t v in
@@ -105,10 +143,19 @@ module Acc = struct
       in
       t, dv
 
+  (** When fetching variables in a specific context, we need the groups to
+      either be completely included in the given context, to simply overlap with
+      it, depending on the intended use of the variables. *)
+  type derivation_mode = Strict | Inclusive
+
+  (* Actors do not have context distinctions, but have labels. This type makes
+     clear what is found when requesting variables through abstract reference. *)
   type compound_derivation =
     | ActorComp of { base : Variable.t; compound : Variable.t list }
     | ContextVar of Variable.t list
 
+  (* Fetch all variables included (according to the given mode) in the given
+     context *)
   let derive_ctx_variables ~mode t (v : Variable.t) (ctx : Context.Group.t) =
     if is_actor t v then
       let compound = find_compound_vars t v in
@@ -118,7 +165,7 @@ module Acc = struct
       let shape = var_shape t v in
       let subshape =
         match mode with
-        | Strict -> Context.shape_project shape ctx
+        | Strict -> Context.shape_filter_projection shape ctx
         | Inclusive -> Context.shape_overlap_subshape shape ctx
       in
       let t, vars =
@@ -202,11 +249,14 @@ end
 let shape_of_ctx_var acc (v : Ast.contextualized_variable) =
   let v, proj = v in
   let vshape = Acc.var_shape acc v in
-  Context.shape_project vshape proj
+  Context.shape_filter_projection vshape proj
 
 let resolve_projection_context acc ~context ~refinement =
+  (* Refinement has priority over operation context *)
+  (* TODO: fix case where refinement explicitly take every groups *)
   if Context.is_any_projection (Acc.contexts acc) refinement then context else refinement
 
+(* Used only to compute constant quoteparts *)
 let rec reduce_formula (f : formula) =
   match f with
   | Literal _
@@ -385,6 +435,8 @@ let translate_binop (op : Ast.binop)
   | Div, TDuration, TRational -> Binop (DrDiv, f1, f2), ValueType.TDuration
   | _ -> Errors.raise_error "Mismatching types for binop"
 
+(* When refering a named variable, it may actually refers to several variables
+   according to the context. In this case, it refers to their sum. *)
 let aggregate_vars ~view (typ : ValueType.t) (vars : Variable.t list) =
   let op =
     match typ with
@@ -524,6 +576,12 @@ let rec translate_guarded_redist ~(ctx : Context.Group.t) acc
     let acc, afters =
       translate_condition_group ~on_raise:false ~ctx acc ~default_dest afters
     in
+    (* To preserve the intuitive priority order of the source program, the
+       resulting tree of a chain of befores and afters looks like two combs of
+       opposite ways one below the other, regardless of the actual events.
+
+       This can be improved with a proper analysis on relations between those
+       events, as well as reveal incoherent or dead branches. *)
     let btree =
       List.fold_right (fun (evt, before) after ->
           RedistTree.tbranch evt before after)
@@ -578,7 +636,7 @@ let translate_declaration acc (decl : Ast.contextualized Ast.declaration) =
     Acc.register_event acc e.ctx_event_var evt_formula
   | DVarDefault d -> translate_default acc d
   | DVarAdvance _
-  | DVarDeficit _ -> assert false
+  | DVarDeficit _ -> assert false (* TODO *)
 
 let level_fractional_attribution (t : RedistTree.t) =
   match t with
@@ -705,9 +763,9 @@ let translate_program (Contextualized (infos, prog) : Ast.contextualized Ast.pro
   let acc = level_attributions acc in
   let eval_order = evaluation_order acc in
   {
-    infos = Acc.infos acc;
-    trees = Acc.trees acc;
-    events = Acc.events acc;
+    infos = acc.infos;
+    trees = acc.trees;
+    events = acc.events;
     eval_order;
     equations = Variable.Map.empty;
   }
