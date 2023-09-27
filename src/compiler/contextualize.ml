@@ -1,31 +1,75 @@
 open Surface.Ast
 
-module Acc = struct
+module Acc : sig
+
+  type t
+
+  val empty : t
+
+  val contexts : t -> Context.world
+
+  val register_input : t -> string -> ValueType.t -> input_kind -> t * Variable.t
+
+  val register_pool : t -> string -> t * Variable.t
+
+  val register_actor : t -> string -> t
+
+  val register_actor_label :
+    way:stream_way ->
+    t ->
+    string ->
+    string ->
+    t * Variable.t
+
+  val register_event : t -> string -> t * Variable.t
+
+  val register_const : t -> string -> ValueType.t -> literal -> t
+
+  val register_context_domain : t -> string -> string list -> t
+
+  val find_pool_opt : t -> string -> Variable.t option
+
+  val find_actor : way:stream_way -> t -> string -> Variable.t
+
+  val find_event : t -> string -> Variable.t
+
+  val find_misc_var : way:stream_way -> t -> string -> Variable.t
+
+  val add_proj_constraint : t -> Variable.t -> Context.Group.t -> t
+
+  val add_var_constraint : t -> Variable.t -> Variable.t -> Context.Group.t -> t
+
+  val to_program_infos : t -> program_infos
+
+end = struct
 
   type context_constraint = {
     from_vars : Context.Group.Set.t Variable.Map.t;
+    (* Constraints related to downstream variables, projections restricted *)
     projections : Context.Group.Set.t;
+    (* User projection constraints *)
   }
+
+  (* Reference of names *)
 
   type actor_ref =
     | BaseActor of { downstream : Variable.t; upstream : Variable.t }
     | Label of Variable.t * stream_way
 
   type name_ref =
-    | RefActor of actor_ref
-    | RefPool of Variable.t
-    | RefROInput of Variable.t
+    | RefActor of actor_ref (* providers or receivers, with or without labels *)
+    | RefPool of Variable.t (* redistributable pools of money *)
+    | RefROInput of Variable.t (* Non redistributable inputs (variable parameters) *)
     | RefEvent of Variable.t
     | RefConst of Variable.t
 
   type t = {
     var_info : Variable.info Variable.Map.t;
-    var_shapes : Context.shape Variable.Map.t;
     var_table : name_ref StrMap.t;
     contexts : Context.world;
     inputs : input_kind Variable.Map.t;
     actors : stream_way Variable.Map.t;
-    compounds : Variable.Set.t Variable.Map.t;
+    compounds : Variable.Set.t Variable.Map.t; (* Aggregations of actor labels *)
     types : ValueType.t Variable.Map.t;
     constants : literal Variable.Map.t;
     constraints : context_constraint Variable.Map.t;
@@ -33,7 +77,6 @@ module Acc = struct
 
   let empty = {
     var_info = Variable.Map.empty;
-    var_shapes = Variable.Map.empty;
     var_table = StrMap.empty;
     contexts = Context.empty_world;
     inputs = Variable.Map.empty;
@@ -83,7 +126,7 @@ module Acc = struct
     { t with constants = Variable.Map.add v value t.constants }
 
   let register_pool t (name : string) =
-    let v = Variable.new_var () in
+    let v = Variable.create () in
     let t =
       bind_var name (RefPool v) t
       |> bind_name v name
@@ -95,10 +138,10 @@ module Acc = struct
   let register_input t (name : string) (typ : ValueType.t) (kind : input_kind) =
     match kind with
     | Attributable ->
-      if typ <> ValueType.TMoney then Errors.raise_error "Wrong type for pool";
+      if typ <> ValueType.TMoney then Errors.raise_error "(internal) Wrong type for pool";
       register_pool t name
     | ReadOnly ->
-      let v = Variable.new_var () in
+      let v = Variable.create () in
       let t =
         bind_var name (RefROInput v) t
         |> bind_name v name
@@ -108,8 +151,8 @@ module Acc = struct
       t, v
 
   let register_actor t (name : string) =
-    let uv = Variable.new_var () in
-    let dv = Variable.new_var () in
+    let uv = Variable.create () in
+    let dv = Variable.create () in
     bind_var name (RefActor (BaseActor {upstream = uv; downstream = dv})) t
     |> bind_name uv name
     |> bind_type uv ValueType.TMoney
@@ -121,7 +164,7 @@ module Acc = struct
     |> bind_compound uv uv
 
   let register_event t (name : string) =
-    let v = Variable.new_var () in
+    let v = Variable.create () in
     let t =
       bind_var name (RefEvent v) t
       |> bind_name v name
@@ -130,7 +173,7 @@ module Acc = struct
     t, v
 
   let register_const t (name : string) (typ : ValueType.t) (value : literal) =
-    let v = Variable.new_var () in
+    let v = Variable.create () in
     bind_var name (RefConst v) t
     |> bind_name v name
     |> bind_type v typ
@@ -190,7 +233,7 @@ module Acc = struct
     let lname = name^"$"^label in
     match StrMap.find_opt lname t.var_table with
     | None ->
-      let vl = Variable.new_var () in
+      let vl = Variable.create () in
       let t =
         bind_var lname (RefActor (Label (vl, way))) t
         |> bind_name vl lname
@@ -249,48 +292,75 @@ module Acc = struct
       }
 
   let resolve_constraints t =
-    let rec resolve_var v t =
-      match Variable.Map.find_opt v t.var_shapes with
-      | Some shape -> t, shape
+    let rec resolve_var v shapes =
+      (* Recursive memoized calls to process in topological order. Vulnerable to
+         cyclicity *)
+      match Variable.Map.find_opt v shapes with
+      | Some shape -> shapes, shape
       | None ->
         match Variable.Map.find_opt v t.constraints with
         | None ->
           let everything = Context.shape_of_everything t.contexts in
-          { t with
-            var_shapes = Variable.Map.add v everything t.var_shapes;
-          },
+          Variable.Map.add v everything shapes,
           everything
         | Some { from_vars; projections } ->
-          let t, (pshapes, uclip) =
-            Variable.Map.fold (fun v projs (t, (pshapes, uclip)) ->
-                let t, var_shape = resolve_var v t in
+          (* Core of the inference algorithm
+
+             Propagating shapes upward means having the minimum distinction of
+             groups that can properly pour downstream (each group pours in one
+             and only one group of the downstream variable).
+
+             The first part is to aggregate all the groups of each constraining
+             variables, restricted to the associated projections. Then, merge
+             them together keeping all the distinctions made for each (group
+             clipping).
+
+             The second is to filter out any part of the result that does not
+             exists in one of downstream variables but is included in the
+             projections. This is to avoid a result with groups that can be
+             poured in some cases. *)
+          let shapes, (pshapes, forbidden) =
+            Variable.Map.fold (fun v projs (shapes, (pshapes, forbidden)) ->
+                let shapes, var_shape = resolve_var v shapes in
                 let vperi = Context.shape_perimeter var_shape in
-                t, Context.Group.Set.fold (fun proj (pshapes, uclip) ->
+                shapes, Context.Group.Set.fold (fun proj (pshapes, forbidden) ->
                     Context.shape_cut_out var_shape proj :: pshapes,
-                    Context.Group.inter uclip
-                      (Context.Group.union vperi (Context.Group.not proj))
+                    Context.Group.union (Context.Group.inter forbidden vperi)
+                      (Context.Group.diff forbidden proj)
                   )
-                  projs (pshapes, uclip))
-              from_vars (t, ([], Context.any_projection t.contexts))
+                  projs (pshapes, forbidden))
+              from_vars (shapes, ([], Context.any_projection t.contexts))
           in
           let shape_from_vars =
             match pshapes with
             | [] -> Context.shape_of_everything t.contexts
             | s::ss -> List.fold_left Context.shape_clip s ss
           in
-          let clipped_shape = Context.shape_cut_out shape_from_vars uclip in
+          let filtered_shape = Context.shape_cut_out shape_from_vars forbidden in
+          (* Additionally, for simple projection constraints, we just need to
+             add distinction of what exists in the projection from what exists
+             ouside *)
           let shape_with_projs =
             Context.Group.Set.fold (fun p s -> Context.shape_imprint_projection s p)
-            projections clipped_shape
+            projections filtered_shape
           in
-          { t with
-            var_shapes = Variable.Map.add v shape_with_projs t.var_shapes;
-          },
+          Variable.Map.add v shape_with_projs shapes,
           shape_with_projs
     in
-    Variable.Map.fold (fun v _ t ->
-        fst @@ resolve_var v t)
-      t.var_info t
+    Variable.Map.fold (fun v _ shapes ->
+        fst @@ resolve_var v shapes)
+      t.var_info Variable.Map.empty
+
+  let to_program_infos t =
+    { var_info = t.var_info;
+      var_shapes = resolve_constraints t;
+      contexts = t.contexts;
+      inputs = t.inputs;
+      actors = t.actors;
+      compounds = t.compounds;
+      types = t.types;
+      constants = t.constants;
+    }
 
 end
 
@@ -380,6 +450,7 @@ let find_holder_as_source acc (h : holder) = find_holder0 ~way:Upstream acc h
 let register_input acc (i : input_decl) =
   let acc, _v = Acc.register_input acc i.input_name i.input_type i.input_kind in
   if i.input_context = [] then acc else
+    (* TODO downward shape constraints *)
     assert false
 
 let destination acc (flow : holder) =
@@ -605,16 +676,5 @@ let program (Source prog : source program) : contextualized program =
       acc prog
   in
   let prog = List.filter_map (fun x -> x) prog in
-  let acc = Acc.resolve_constraints acc in
-  let program_infos =
-    { var_info = acc.var_info;
-      var_shapes = acc.var_shapes;
-      contexts = acc.contexts;
-      inputs = acc.inputs;
-      actors = acc.actors;
-      compounds = acc.compounds;
-      types = acc.types;
-      constants = acc.constants;
-    }
-  in
+  let program_infos = Acc.to_program_infos acc in
   Contextualized (program_infos, prog)

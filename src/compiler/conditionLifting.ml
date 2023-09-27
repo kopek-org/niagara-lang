@@ -1,6 +1,9 @@
 open Internal
 open Ir
 
+(* Very similar type from Ir.eqex, maybe merge them. Although the difference
+   between [Switch] constructor and BDT might make things tedious in some
+   places. *)
 type expr =
   | Zero
   | Src
@@ -27,23 +30,23 @@ let rec print_expr fmt (expr : expr) =
   | Factor (f, e) -> Format.fprintf fmt "%g*%a" f print_expr e
   | Switch { evt; before; after } ->
     Format.fprintf fmt "@[<hv 2>(v%d ?@ %a@ : %a)@]"
-      evt
+      (Variable.uid evt)
       print_expr before
       print_expr after
   | Add (expr1, expr2) ->
     Format.fprintf fmt "@[<hv>(%a@ + %a)@]"
       print_expr expr1
       print_expr expr2
-  | Pre v -> Format.fprintf fmt "v%d" v
-  | Current v -> Format.fprintf fmt "v%d'" v
+  | Pre v -> Format.fprintf fmt "v%d" (Variable.uid v)
+  | Current v -> Format.fprintf fmt "v%d'" (Variable.uid v)
 
 let _print_provenances fmt (provs : prov_exprs) =
   Format.pp_open_vbox fmt 0;
   Variable.Map.iter (fun dest prov ->
-      Format.fprintf fmt "@[<hv 2>provs %d:@ " dest;
+      Format.fprintf fmt "@[<hv 2>provs %d:@ " (Variable.uid dest);
       Variable.Map.iter (fun src expr ->
           Format.fprintf fmt "@[<hv 2>from %d:@ %a@],@ "
-            src
+            (Variable.uid src)
             print_expr expr)
         prov.pinned_src;
       Format.fprintf fmt "from another:@ %a" print_expr prov.other_src;
@@ -51,7 +54,7 @@ let _print_provenances fmt (provs : prov_exprs) =
     provs;
   Format.fprintf fmt "@]@."
 
-let merge_expr (expr1 : expr) (expr2 : expr) =
+let add_expr (expr1 : expr) (expr2 : expr) =
   match expr1, expr2 with
   | Zero , expr
   | expr, Zero -> expr
@@ -77,43 +80,6 @@ let rec apply_expr (lexpr : expr) (xexpr : expr) =
   | Switch { evt; before; after } ->
     Switch { evt; before = apply_expr before xexpr; after = apply_expr after xexpr }
 
-let lift_expr (expr : expr) : eqex BDT.t =
-  let rec aux decided expr =
-    match expr with
-    | Zero -> BDT.NoAction
-    | Src -> BDT.Action ESrc
-    | Const l -> BDT.Action (EConst l)
-    | Factor (f, e) ->
-      let d = aux decided e in
-      Variable.BDT.map_action decided (fun _k ->
-          Option.fold ~some:(fun e -> BDT.Action (EMult (f, e))) ~none:BDT.NoAction)
-        d
-    | Pre v -> Action (EVar v)
-    | Current v -> Action (ECurrVar v)
-    | Add (e1, e2) ->
-      let d1 = aux decided e1 in
-      let d2 = aux decided e2 in
-      Variable.BDT.merge
-        (fun _k e1 e2 ->
-           match e1, e2 with
-           | None, None -> None
-           | Some e, None
-           | None, Some e -> Some e
-           | Some e1, Some e2 -> Some (EAdd (e1, e2))
-        )
-        d1 d2
-    | Switch { evt; before; after } ->
-      match Variable.Map.find_opt evt decided with
-      | None ->
-        let b = aux (Variable.Map.add evt true decided) before in
-        let a = aux (Variable.Map.add evt false decided) after in
-        Decision (evt, a, b)
-      | Some decision ->
-        let e = if decision then before else after in
-        aux decided e
-  in
-  aux Variable.Map.empty expr
-
 let merge_prov_exprs (f : expr option -> expr option -> expr option)
     (p1 : prov_exprs) (p2 : prov_exprs) =
   let opt_pinned = function
@@ -136,14 +102,17 @@ let merge_prov_exprs (f : expr option -> expr option -> expr option)
 let prov_exprs_union (p1 : prov_exprs) (p2 : prov_exprs) =
   let merge_sexpr se1 se2 =
     { pinned_src =
-        Variable.Map.union (fun _dest e1 e2 -> Some (merge_expr e1 e2))
+        Variable.Map.union (fun _dest e1 e2 -> Some (add_expr e1 e2))
           se1.pinned_src se2.pinned_src;
-      other_src = merge_expr se1.other_src se2.other_src;
+      other_src = add_expr se1.other_src se2.other_src;
     }
   in
   Variable.Map.union (fun _dest expr1 expr2 ->
       Some (merge_sexpr expr1 expr2))
     p1 p2
+
+(* The following transforms trees to provenance expressions, the source being
+   the one of the given tree. *)
 
 let rec formula_prov (provs : prov_exprs) (cf : formula) : expr sourced =
   match cf with
@@ -220,7 +189,7 @@ let rec tree_prov : type a. Variable.t -> a RedistTree.tree -> prov_exprs =
             | None, Some on_when ->
               Some (Switch { evt; before = Zero; after = on_when })
             | Some e, Some on_when ->
-              Some (Switch { evt; before = e; after = merge_expr e on_when}))
+              Some (Switch { evt; before = e; after = add_expr e on_when}))
           provs prov)
       Variable.Map.empty wr
   | Branch { evt; before; after } ->
@@ -259,6 +228,9 @@ let provenance_expressions (program : program) : prov_exprs =
       prov_exprs_union tprovs provs)
     program.trees Variable.Map.empty
 
+(* Propagate provenance until we reach actual inputs. We might want to keep
+   every intermediate points in the future, for testing and simulations, this is
+   a discussion relevant to plausible features. *)
 let prov_transitivity (provs : prov_exprs) : prov_exprs =
   let rec memoize tprovs dest =
     match Variable.Map.find_opt dest tprovs with
@@ -277,7 +249,7 @@ let prov_transitivity (provs : prov_exprs) : prov_exprs =
             in
             let ps =
               Variable.Map.union (fun _src e e' ->
-                  Some (merge_expr e e'))
+                  Some (add_expr e e'))
                 ps sps
             in
             tprovs, ps)
@@ -288,6 +260,52 @@ let prov_transitivity (provs : prov_exprs) : prov_exprs =
   in
   Variable.Map.fold (fun dest _se tprovs -> fst @@ memoize tprovs dest)
     provs Variable.Map.empty
+
+(* The following transforms event expression into equations using previously
+   definied provenance.
+
+   An important note: there is an hidden hypothesis on the way equations are
+   specified by the user. [v = v'] as an event really means "when v reach v'",
+   implying that [v] is assumed to be initially lower than [v']. This is
+   important because of the semantics of threshold passing: the event is deemed
+   reached when [v >= v'], and not reach yet (or reverted!) when [v < v']. *)
+
+let lift_expr (expr : expr) : eqex BDT.t =
+  let rec aux decided expr =
+    match expr with
+    | Zero -> BDT.NoAction
+    | Src -> BDT.Action ESrc
+    | Const l -> BDT.Action (EConst l)
+    | Factor (f, e) ->
+      let d = aux decided e in
+      Variable.BDT.map_action decided (fun _k ->
+          Option.fold ~some:(fun e -> BDT.Action (EMult (f, e))) ~none:BDT.NoAction)
+        d
+    | Pre v -> Action (EVar v)
+    | Current v -> Action (ECurrVar v)
+    | Add (e1, e2) ->
+      let d1 = aux decided e1 in
+      let d2 = aux decided e2 in
+      Variable.BDT.merge
+        (fun _k e1 e2 ->
+           match e1, e2 with
+           | None, None -> None
+           | Some e, None
+           | None, Some e -> Some e
+           | Some e1, Some e2 -> Some (EAdd (e1, e2))
+        )
+        d1 d2
+    | Switch { evt; before; after } ->
+      match Variable.Map.find_opt evt decided with
+      | None ->
+        let b = aux (Variable.Map.add evt true decided) before in
+        let a = aux (Variable.Map.add evt false decided) after in
+        Decision (evt, a, b)
+      | Some decision ->
+        let e = if decision then before else after in
+        aux decided e
+  in
+  aux Variable.Map.empty expr
 
 let event_condition (provs : prov_exprs) (event : event) : cond BDT.t sourced =
   let merge_eq d1 d2 =
@@ -335,10 +353,12 @@ let event_condition (provs : prov_exprs) (event : event) : cond BDT.t sourced =
   | EvtAnd (_, _) -> assert false
   | EvtOr (_, _) -> assert false
 
-let condition_equations (program : program) (provs : prov_exprs) : event_eqs =
+let condition_equations (program : program) (provs : prov_exprs) : event_eq Variable.Map.t =
   Variable.Map.map (event_condition provs) program.events
 
-let transform_raising_cond (eqs : event_eqs) =
+(* [when e] events are transformed to [not (already_reached e) && (test e)].
+   Mainly to avoid equation dependencies. *)
+let transform_raising_cond (eqs : event_eq Variable.Map.t) =
   let reduce_decide_on evt bdd =
     if bdd = BDT.NoAction then bdd else
       let bdd = BDT.add_decision evt bdd in
@@ -405,6 +425,11 @@ let transform_raising_cond (eqs : event_eqs) =
       })
     eqs
 
+(* Equations are assumed linear, normalization to dynamically compute limits is
+   trival. This hypothesis could be lifted as we could express polynomial
+   equations. Solving them would require more work, but I have the intuition it
+   could be not that bad in practice, since we only need to compute one limit at
+   a time (the closest). *)
 let rec extract_src_factor (e : eqex) =
   match e with
   | ESrc -> 1., EZero
@@ -441,7 +466,7 @@ let normalize_condition (e : cond) =
     in
     CNorm (factor, const_part)
 
-let normalize_equations (eqs : event_eqs) : event_eqs =
+let normalize_equations (eqs : event_eq Variable.Map.t) : event_eq Variable.Map.t =
   let eqs = transform_raising_cond eqs in
   let norm_bdd =
     Variable.BDT.map_action Variable.Map.empty (fun _k -> function

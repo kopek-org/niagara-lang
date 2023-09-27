@@ -72,7 +72,7 @@ let print_destination fmt (dest : holder) =
 
 let print_variable infos fmt (v : Variable.t) =
   let vinfos = Variable.Map.find v infos.var_info in
-  Format.fprintf fmt "%s/%d" vinfos.var_name v
+  Format.fprintf fmt "%s/%d" vinfos.var_name (Variable.uid v)
 
 let print_ctx_variable infos fmt ((v, proj) : contextualized_variable) =
   Format.fprintf fmt "@[<hv 2>%a@,%a@]" (print_variable infos) v

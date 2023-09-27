@@ -1,6 +1,7 @@
 open Internal
 open Ir
 
+(* TODO: replace with Internal.Interface.variable_kind *)
 type var_kind =
   | Pool
 
@@ -9,9 +10,26 @@ let var_kind (p : program) (var : Variable.t) =
   ignore (p, var);
   Pool
 
-(******************)
-
+(* Should be a sum type. For now we only handle integer and money value. *)
 type value = (* TODO *) int
+
+(* A note on execution semantics:
+
+   A computation step is caracterized by the fact that it processes the entire
+   value of an input. Although, this value may be broken down into several
+   pieces to account for event thresholds. This makes several sequential
+   sub-steps that, together, we call a stage.
+
+   Taking staged values is important because a program can query either the
+   integrated value since the beginning of time of the value currently flowing
+   in. "Currently", from the user point of view, being the value passing at one
+   input (i.e. a computation step), and not one sub-step.
+
+   Hence, the following type holding this distinction:
+   - [next] for the currently computed sub-step
+   - [staged] for the previouly computed value cumulated since the beginning of
+     the current stage.
+   - [past_total] the cumulated values of all previous stages. *)
 
 type 'a var_value = {
   next : 'a;
@@ -21,9 +39,14 @@ type 'a var_value = {
 
 type event = (* TODO *) bool
 
+(* The interpreter uses a stack of action to make during a stage. This is to
+   handle the consecutive splits of input value. As well as a good basis for
+   futur extensions. *)
+
 type action =
   | PoolRep of Variable.t * value
-  | FlatCheck
+
+(* Some types to output computation traces. *)
 
 type tally = {
   at_instant : value;
@@ -41,6 +64,7 @@ type event_switch =
 
 type count_changes = count Variable.Map.t
 
+(* Piled up, this is in reverse chronological order *)
 type output_line = (event_switch * count_changes) list
 
 type input_line = {
@@ -50,11 +74,17 @@ type input_line = {
 }
 
 module InputLineMap = IntMap
+(* any uid linking input and output lines would do *)
 
 type computation_inputs = input_line InputLineMap.t
 
 type computation_outputs = output_line InputLineMap.t
 
+(* The whole state of execution.
+
+   It contains the traces for outputing results. I feel the execution itself
+   should not handle it itself, and rather be instrumented by another piece of
+   code. But it will do for now. *)
 type state = {
   event_state : event var_value Variable.Map.t;
   values : value var_value Variable.Map.t;
@@ -63,8 +93,6 @@ type state = {
 }
 
 let empty_tally = { at_instant = 0; total = 0 }
-
-let empty_count = { tally = empty_tally; repartition = Variable.Map.empty }
 
 let get_event_value (s : state) (e : Variable.t) =
   match Variable.Map.find_opt e s.event_state with
@@ -82,11 +110,6 @@ let get_state_next_value (s : state) (v : Variable.t) =
   match Variable.Map.find_opt v s.values with
   | None -> 0
   | Some vv -> vv.next
-
-let get_state_stage_value (s : state) (v : Variable.t) =
-  match Variable.Map.find_opt v s.values with
-  | None -> 0
-  | Some vv -> vv.stage
 
 let update_trace_top (f : count Variable.Map.t -> count Variable.Map.t) (s : state) =
   { s with
@@ -157,6 +180,19 @@ let add_evt_to_stage (s : state) (evts : event Variable.Map.t) =
   in
   { s with event_state }
 
+(* Fractional operations are handled poorly. This is however enough to have a
+   plausible approximation (and in most cases correct) of a strictly correct
+   results. For this to become actually reliable in all cases, the changes are
+   two-folds:
+   - Handle rationnals as rationnals and not as floating point numbers.
+
+   - Propose a solution for fractionnal reattributions of values lower that 1
+   (in most cases, cent). Not only this is a fundamental issue that the user
+   must be aware of (and control is some way), but this also mean that we need
+   to change how fraction are represented in order to make sure the invariant
+   "for each cent in, a cent out" holds, which is not trival and might depend on
+   the solution adopted to the more fundamental issue. *)
+
 let div_value (v : value) (f : float) =
   (* TODO proper computation for each type *)
   Int.of_float (Float.round (Int.to_float v /. f))
@@ -191,25 +227,28 @@ let rec evaluate_eqex (s : state) (src : value) (expr : eqex) =
   | EVar v -> begin
     match Variable.Map.find_opt v s.values with
     | None -> 0
-    | Some vv -> vv.past_total (* + vv.stage *)
+    | Some vv -> vv.past_total
   end
   | ECurrVar v ->
     match Variable.Map.find_opt v s.values with
     | None -> 0
     | Some vv -> vv.stage
 
+(* Regarding event threshold crossing, we must be able to identify on which side
+   of the equality we are (i.e. < or =>). *)
 type eq_sem =
   | LimLt
   | LimGe
 
+(* Distinction of threshold approach behavior *)
 type limit_approach =
-  | Reach
-  | MustCross
-  | Diverge
-  | NoLim
+  | Reach (* attains equality *)
+  | MustCross (* reaching equality won't change state, going across will *)
+  | Diverge   (* getting farther away from the threshold *)
+  | NoLim (* no movement, or unreachable threshold *)
 
 let compute_equation_diff (s : state) (value : value) (eq : cond)
-    (sem : eq_sem) =
+    (sem : eq_sem) : limit_approach * value =
   match eq with
   | CNorm (f, expr) ->
     let expr_val = evaluate_eqex s value expr in
@@ -229,7 +268,6 @@ let find_event_threshold (p : program) (s : state) (src : Variable.t) (value : v
         match Variable.BDT.find event_state deq with
         | None -> min_val
         | Some eq ->
-          (* let value = get_state_stage_value s src + value in *)
           let sem =
             if Variable.Map.find evt event_state
             then LimGe
@@ -246,13 +284,6 @@ let push_rep_action (p : program) (s : state) (var : Variable.t) (value : value)
   match var_kind p var with
   | Pool ->
     { s with queue = PoolRep (var, value)::s.queue }
-
-let push_flat_check (s : state) =
-  { s with
-    queue = match s.queue with
-      | [] -> [ FlatCheck ]
-      | q -> q
-  }
 
 let flush_stage (s : state) =
   { s with
@@ -285,9 +316,10 @@ let flush_next (s : state) =
 let compute_formula (_s : state) (formula : Ir.formula) =
   match formula with
   | Literal l -> literal_value l
-  | Ir.Variable (_, _) -> assert false
-  | Ir.Binop (_, _, _) -> assert false
-  | Ir.RCast _ -> assert false
+  (* TODO *)
+  | Variable (_, _) -> assert false
+  | Binop (_, _, _) -> assert false
+  | RCast _ -> assert false
 
 let compute_redist (type a) (s : state) (r : a Ir.RedistTree.redist) (value : value) =
   match r with
@@ -349,6 +381,13 @@ let update_state_values (p : program) (s : state) =
       add_val_to_next s redist_res)
     s p.eval_order
 
+(* This function uses equations to compute flipped events.
+
+   In the event we want to try out more low-brow semantics of reattribution
+   without stoping at event thresholds (i.e. every inputs is processed in one
+   substep), we can change them with IR event expressions evaluation. This would
+   be a rather elegant way to swap out semantics whever we choose to populate
+   equations or not (or even choose which event needs a checkpoint!). *)
 let update_state_events (p : program) (s : state) =
   let event_state = get_event_state p s in
   let flipping_events =
@@ -375,7 +414,6 @@ let update_state_events (p : program) (s : state) =
 let compute_action (p : program) (s : state) (action : action) =
   let s =
     match action with
-    | FlatCheck -> update_state_values p s
     | PoolRep (var, value) ->
       let value_at_threshold = find_event_threshold p s var value in
       let s =

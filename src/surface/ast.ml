@@ -1,6 +1,14 @@
+(* Source program AST.
+
+   It uses GADT to factorize two versions:
+   - the textual source (parsed)
+   - the same structure as above, with name resolution and context
+   constraints
+*)
+
+(* Dummy types for GADT distinction *)
 type source = private SRC
 type contextualized = private CTX
-
 
 type literal =
   | LitInt of int
@@ -80,17 +88,11 @@ and _ redistribution_desc =
   | Flat : 'a formula -> 'a redistribution_desc
   | Retrocession : source formula * holder -> source redistribution_desc
 
-(* type _ opposition = *)
-(*   | NoOpposition : 'a opposition *)
-(*   | Opposable : 'a formula * actor *)
-
 type _ redistrib_with_dest =
   | WithHolder : source redistribution * holder option
       -> source redistrib_with_dest
   | WithVar : contextualized redistribution * contextualized_variable option
       -> contextualized redistrib_with_dest
-
-(* type redistrib_with_dest = redistribution * (holder * opposition) option *)
 
 type 'a event_expr = {
   event_expr_loc : Pos.t;
@@ -123,7 +125,6 @@ type operation_decl = {
   op_loc : Pos.t;
   op_label : string;
   op_default_dest : holder option;
-  (* op_default_dest : (holder * opposition) option; *)
   op_context : context list;
   op_source : holder;
   op_guarded_redistrib : source guarded_redistrib;
@@ -132,7 +133,6 @@ type operation_decl = {
 type ctx_operation_decl = {
   ctx_op_label : string;
   ctx_op_default_dest : contextualized_variable option;
-  (* op_default_dest : (holder * opposition) option; *)
   ctx_op_source : contextualized_variable;
   ctx_op_guarded_redistrib : contextualized guarded_redistrib;
 }
@@ -189,13 +189,6 @@ type actor_decl = {
 
 type stream_way = Upstream | Downstream
 
-(* type section = { *)
-(*   section_name : string; *)
-(*   section_context : context list; *)
-(*   section_guards : guard list; *)
-(*   section_decl : declaration list; *)
-(* } *)
-
 type default_decl = {
   default_source : holder;
   default_dest : holder;
@@ -231,7 +224,6 @@ type _ declaration =
   | DHolderDeficit : deficit_decl -> source declaration
   | DVarDefault : ctx_default_decl -> contextualized declaration
   | DVarDeficit : ctx_deficit_decl -> contextualized declaration
-  (* | DSection of section *)
 
 type program_infos = {
   var_info : Variable.info Variable.Map.t;
@@ -248,6 +240,8 @@ type _ program =
   | Source : source declaration list -> source program
   | Contextualized : program_infos * contextualized declaration list -> contextualized program
 
+
+(* constructors with locations *)
 
 let actor ?(loc = Pos.dummy) desc = {
   actor_loc = loc;
@@ -303,11 +297,11 @@ let context_refinement_item ?(loc = Pos.dummy) desc = {
   cri_desc = desc;
 }
 
-let operation_decl 
-  ?(loc = Pos.dummy) 
-  ?default_dest 
+let operation_decl
+  ?(loc = Pos.dummy)
+  ?default_dest
   ?(context = [])
-  ~source 
+  ~source
   ~guarded_redistrib
   label = {
   op_loc = loc;

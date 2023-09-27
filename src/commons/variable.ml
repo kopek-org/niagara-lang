@@ -8,16 +8,12 @@ module Graph = Graph.Persistent.Digraph.ConcreteBidirectional(struct
     let hash v = v
   end)
 
-(* type var_layout = *)
-(*   | SimpleVar *)
-(*   | ContextPoint of Context.point * t *)
-(*   | MetaVariable of Context.point Map.t *)
-
 type info = {
   var_name : string;
-  (* var_layout : var_layout; *)
 }
 
-let new_var =
+let create =
   let c = ref 0 in
   fun () -> incr c; !c
+
+let uid v = v
