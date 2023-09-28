@@ -79,12 +79,6 @@ end = struct
   let is_actor t (v : Variable.t) =
     Variable.Map.mem v t.infos.actors
 
-  let anon_var_name =
-    let c = ref 0 in
-    fun name ->
-      let i = !c in incr c;
-      "anon_" ^ name ^ "_" ^ string_of_int i
-
   let find_const_opt t (v : Variable.t) =
     Variable.Map.find_opt v t.infos.Ast.constants
 
@@ -192,7 +186,7 @@ end = struct
     match has_equal with
     | Some evt -> t, evt
     | None ->
-      let var_name = anon_var_name "event" in
+      let var_name = Variable.unique_anon_name "anon_event" in
       let v = Variable.create () in
       let t = flag_variable_usage t v in
       let t =
@@ -635,7 +629,6 @@ let translate_declaration acc (decl : Ast.contextualized Ast.declaration) =
     let acc, evt_formula = translate_event acc e.ctx_event_expr in
     Acc.register_event acc e.ctx_event_var evt_formula
   | DVarDefault d -> translate_default acc d
-  | DVarAdvance _
   | DVarDeficit _ -> assert false (* TODO *)
 
 let level_fractional_attribution (t : RedistTree.t) =

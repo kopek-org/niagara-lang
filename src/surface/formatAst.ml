@@ -213,11 +213,6 @@ let print_declaration (type a) infos fmt (decl : a declaration) =
       a.adv_label print_holder a.adv_output
       print_actor a.adv_provider
       (print_formula infos) a.adv_amount
-  | DVarAdvance a ->
-    Format.fprintf fmt "@[<hov>avance '%s' sur %a par %a@ montant %a@]"
-      a.ctx_adv_label (print_ctx_variable infos) a.ctx_adv_output
-      (print_ctx_variable infos) a.ctx_adv_provider
-      (print_formula infos) a.ctx_adv_amount
   | DHolderDefault d ->
     Format.fprintf fmt "@[<hv>defaut sur %a@ vers %a@]"
       print_holder d.default_source print_holder d.default_dest

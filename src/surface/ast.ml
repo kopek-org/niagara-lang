@@ -219,7 +219,6 @@ type _ declaration =
   | DInput : input_decl -> source declaration
   | DActor : actor_decl -> source declaration
   | DHolderAdvance : advance_decl -> source declaration
-  | DVarAdvance : ctx_advance_decl -> contextualized declaration
   | DHolderDefault : default_decl -> source declaration
   | DHolderDeficit : deficit_decl -> source declaration
   | DVarDefault : ctx_default_decl -> contextualized declaration

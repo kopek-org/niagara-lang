@@ -8,6 +8,8 @@ module Acc : sig
 
   val contexts : t -> Context.world
 
+  val add_program_decl : t -> contextualized declaration -> t
+
   val register_input : t -> string -> ValueType.t -> input_kind -> t * Variable.t
 
   val register_pool : t -> string -> t * Variable.t
@@ -35,11 +37,13 @@ module Acc : sig
 
   val find_misc_var : way:stream_way -> t -> string -> Variable.t
 
+  val generate_advance_pool : t -> Variable.t -> t * Variable.t
+
   val add_proj_constraint : t -> Variable.t -> Context.Group.t -> t
 
   val add_var_constraint : t -> Variable.t -> Variable.t -> Context.Group.t -> t
 
-  val to_program_infos : t -> program_infos
+  val to_contextualized_program : t -> contextualized program
 
 end = struct
 
@@ -64,6 +68,7 @@ end = struct
     | RefConst of Variable.t
 
   type t = {
+    program_decls : contextualized declaration list; (* the program in reverse order *)
     var_info : Variable.info Variable.Map.t;
     var_table : name_ref StrMap.t;
     contexts : Context.world;
@@ -72,10 +77,12 @@ end = struct
     compounds : Variable.Set.t Variable.Map.t; (* Aggregations of actor labels *)
     types : ValueType.t Variable.Map.t;
     constants : literal Variable.Map.t;
+    advance_pools : Variable.t Variable.Map.t; (* substitution map *)
     constraints : context_constraint Variable.Map.t;
   }
 
   let empty = {
+    program_decls = [];
     var_info = Variable.Map.empty;
     var_table = StrMap.empty;
     contexts = Context.empty_world;
@@ -84,10 +91,14 @@ end = struct
     compounds = Variable.Map.empty;
     types = Variable.Map.empty;
     constants = Variable.Map.empty;
+    advance_pools = Variable.Map.empty;
     constraints = Variable.Map.empty;
   }
 
   let contexts t = t.contexts
+
+  let add_program_decl t (decl : contextualized declaration) =
+    { t with program_decls = decl::t.program_decls }
 
   let bind_var (name : string) (vref : name_ref) t =
     let var_table =
@@ -251,6 +262,17 @@ end = struct
                           labeled actor"
         name label
 
+  let generate_advance_pool t (dest : Variable.t) =
+    let t, middle_pool = register_pool t (Variable.unique_anon_name "advance_pool") in
+    let t = { t with
+      advance_pools =
+        Variable.Map.update dest (function
+            | Some v -> Errors.raise_error "Advance already exists for %d" (Variable.uid v)
+            | None -> Some middle_pool)
+          t.advance_pools; }
+    in
+    t, middle_pool
+
   let add_var_constraint t (v : Variable.t)
       (from_var : Variable.t) (proj : Context.Group.t) =
     if Variable.Map.mem v t.actors then t else
@@ -290,6 +312,90 @@ end = struct
                 })
             t.constraints
       }
+
+  (* Tricky things going on there.
+
+     Advances are implemented by inserting a intermediary pool before the target
+     of the advance. This pool is redistributed to the target or the provider
+     depending on a generated event that check that the intermediary has reach
+     the advance amount.
+
+     This would disrupt the flow described by the user as everything flowing in
+     the target must now flow to the intermediary, amending every declaration
+     already processed.
+
+     Instead, the actual way this is done is to add the intermediary *after* the
+     target, with the right redistribution, but not taken into account by the
+     rest of the processing. Until the following function, which swap the target
+     and intermediary uids when everything has been processed. This way
+     everything is still flowing into the initial target, but the target itself
+     flow into the intermediary (through the generated operation), and
+     everything flowing out of the target then flow out of the intermediary, and
+     voila.
+
+     We have to be careful when swapping additionnal infos to remain coherent.
+     But as it stand, it works fine, with only limited noise for the user,
+     namely and additionnal event and pool, but endpoint names are properly
+     preserved and do not disturb the "interface" intended by the user. *)
+  let advance_substitution t =
+    let subst dest middle t =
+      let program_decls =
+        List.map (fun decl ->
+            match decl with
+            | DVarOperation o ->
+              DVarOperation(
+                if fst o.ctx_op_source = dest then
+                  { o with ctx_op_source = middle, snd o.ctx_op_source }
+                else if fst o.ctx_op_source = middle then
+                  (* only for the generated indirection operation *)
+                  { o with ctx_op_source = dest, snd o.ctx_op_source }
+                else o)
+            | DVarDefault d ->
+              DVarDefault(
+                if fst d.ctx_default_source = dest then
+                  { d with ctx_default_source = middle, snd d.ctx_default_source }
+                else d)
+            | DVarEvent _
+            | DVarDeficit _ -> decl
+          )
+          t.program_decls
+      in
+      let dest_is_actor = Variable.Map.mem dest t.actors in
+      let var_info =
+        (* swap names only if the initial destination is an actor, to preserve user naming *)
+        if dest_is_actor then
+          let middle_info = Variable.Map.find middle t.var_info in
+          let infos = Variable.Map.add middle (Variable.Map.find dest t.var_info) t.var_info in
+          Variable.Map.add dest middle_info infos
+        else t.var_info
+      in
+      let actors =
+        if dest_is_actor then
+          let actors = Variable.Map.add middle Downstream t.actors in
+          Variable.Map.remove dest actors
+        else t.actors
+      in
+      let constraints =
+        match Variable.Map.find_opt dest t.constraints with
+        | None -> t.constraints
+        | Some consts ->
+          let constraints = Variable.Map.add middle consts t.constraints in
+          Variable.Map.add dest {
+            from_vars =
+              Variable.Map.singleton
+                middle
+                (Context.Group.Set.singleton (Context.any_projection t.contexts));
+            projections = Context.Group.Set.empty;
+          } constraints
+      in
+      { t with
+        program_decls;
+        var_info;
+        actors;
+        constraints;
+      }
+    in
+    Variable.Map.fold subst t.advance_pools t
 
   let resolve_constraints t =
     let rec resolve_var v shapes =
@@ -351,8 +457,10 @@ end = struct
         fst @@ resolve_var v shapes)
       t.var_info Variable.Map.empty
 
-  let to_program_infos t =
-    { var_info = t.var_info;
+  let to_contextualized_program t =
+    let t = advance_substitution t in
+    let infos = {
+      var_info = t.var_info;
       var_shapes = resolve_constraints t;
       contexts = t.contexts;
       inputs = t.inputs;
@@ -361,7 +469,8 @@ end = struct
       types = t.types;
       constants = t.constants;
     }
-
+    in
+    Contextualized (infos, List.rev t.program_decls)
 end
 
 let type_of_literal (lit : literal) =
@@ -628,27 +737,64 @@ let advance acc (a : advance_decl) =
     formula acc a.adv_amount
       ~on_proj:(Context.any_projection (Acc.contexts acc))
   in
-  acc,
-  {
-    ctx_adv_label = a.adv_label;
-    ctx_adv_output = output;
-    ctx_adv_provider = provider;
-    ctx_adv_amount = amount;
+  let acc, adv_pool = Acc.generate_advance_pool acc (fst output) in
+  let adv_pool = adv_pool, snd output in
+  let acc, evt =
+    Acc.register_event acc
+      (Variable.unique_anon_name "advance_repayed")
+  in
+  let event_expr = {
+    event_expr_loc = Pos.dummy;
+    event_expr_desc =
+      EventComp
+        (Eq,
+         Surface.Ast.formula ~loc:a.adv_output.holder_loc (Variable output),
+         amount)
   }
+  in
+  let event_ref = {
+    event_expr_loc = event_expr.event_expr_loc;
+    event_expr_desc = EventVar evt;
+  }
+  in
+  let evt_decl =
+    { ctx_event_var = evt;
+      ctx_event_expr = event_expr;
+    }
+  in
+  let acc = Acc.add_program_decl acc (DVarEvent evt_decl) in
+  let build_redist dest =
+    Redists [ WithVar (Surface.Ast.redistribution
+                        (Part (Surface.Ast.formula
+                           (Literal (LitRational 1.)))), Some dest)]
+  in
+  (* operation with sources output and adv_pool will be swaped later *)
+  let redirection = {
+    ctx_op_label = a.adv_label;
+    ctx_op_default_dest = None;
+    ctx_op_source = adv_pool;
+    ctx_op_guarded_redistrib =
+      Branches {
+        befores = [event_ref, build_redist provider];
+        afters = [event_ref, build_redist adv_pool]
+      }
+  }
+  in
+  Acc.add_program_decl acc (DVarOperation redirection)
 
 let declaration acc (decl : source declaration) =
   match decl with
-  | DInput i -> register_input acc i, None
-  | DActor a -> Acc.register_actor acc a.actor_decl_desc, None
+  | DInput i -> register_input acc i
+  | DActor a -> Acc.register_actor acc a.actor_decl_desc
   | DContext c ->
-    Acc.register_context_domain acc c.context_type_name c.context_type_cases, None
+    Acc.register_context_domain acc c.context_type_name c.context_type_cases
   | DHolderOperation o ->
     let acc, op = operation acc o in
-    acc, Some (DVarOperation op)
+    Acc.add_program_decl acc (DVarOperation op)
   | DHolderEvent e ->
     let acc, e = event_decl acc e in
-    acc, Some (DVarEvent e)
-  | DConstant c -> constant acc c, None
+    Acc.add_program_decl acc (DVarEvent e)
+  | DConstant c -> constant acc c
   | DHolderDefault d ->
     let acc, (src, src_proj as ctx_default_source) =
       find_holder acc d.default_source
@@ -659,22 +805,14 @@ let declaration acc (decl : source declaration) =
     let acc =
       Acc.add_var_constraint acc src (fst ctx_default_dest) src_proj
     in
-    acc, Some (DVarDefault { ctx_default_source; ctx_default_dest })
+    Acc.add_program_decl acc (DVarDefault { ctx_default_source; ctx_default_dest })
   | DHolderDeficit d ->
     let acc, ctx_deficit_pool = find_holder acc d.deficit_pool in
     let acc, ctx_deficit_provider = find_holder acc d.deficit_provider in
-    acc, Some (DVarDeficit { ctx_deficit_pool; ctx_deficit_provider})
-  | DHolderAdvance a ->
-    let acc, a = advance acc a in
-    acc, Some (DVarAdvance a)
+    Acc.add_program_decl acc (DVarDeficit { ctx_deficit_pool; ctx_deficit_provider})
+  | DHolderAdvance a -> advance acc a
 
 let program (Source prog : source program) : contextualized program =
   let acc = Acc.empty in
-  let acc, prog =
-    List.fold_left_map (fun acc decl ->
-        declaration acc decl)
-      acc prog
-  in
-  let prog = List.filter_map (fun x -> x) prog in
-  let program_infos = Acc.to_program_infos acc in
-  Contextualized (program_infos, prog)
+  let acc = List.fold_left declaration acc prog in
+  Acc.to_contextualized_program acc

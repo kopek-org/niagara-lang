@@ -9,8 +9,11 @@ type info = { var_name : string; }
 (** Generate a fresh variable *)
 val create : unit -> t
 
-(** [uid v] returns the unique identifier of the varaible [v] *)
+(** [uid v] returns the unique identifier of the variable [v] *)
 val uid : t -> int
+
+(** [unique_anon_name s] returns a unique variable name with prefix [s] *)
+val unique_anon_name : string -> string
 
 module Map : Map.S with type key = t
 
