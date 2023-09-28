@@ -33,6 +33,8 @@ type program_desc = {
    cascade. *)
 val compare_kind : variable_kind -> variable_kind -> int
 
+val context_of_variable : Ir.program -> Variable.t -> variable_context
+
 val description_from_program : Ir.program -> program_desc
 
 val print_program_desc : Format.formatter -> program_desc -> unit
