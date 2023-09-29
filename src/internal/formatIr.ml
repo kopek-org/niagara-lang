@@ -19,7 +19,7 @@ let print_literal fmt (l : literal) =
   match l with
   | LInteger i -> Format.pp_print_int fmt i
   | LRational f ->  Format.pp_print_float fmt f
-  | LMoney i -> Format.fprintf fmt "%d.%d$" (i/100) (i mod 100)
+  | LMoney i -> Format.fprintf fmt "%d.%d€" (i/100) (i mod 100)
   | LDate d -> CalendarLib.Printer.Date.fprint "%Y/%m/%d" fmt d
   | LDuration d ->
     let y,m,d = Date.Duration.ymd d in
