@@ -58,7 +58,9 @@ module RedistTree : sig
   type 'a redist =
       NoInfo
     | Shares : float Variable.Map.t -> frac redist
-    | Flats : formula Variable.Map.t -> flat redist
+    | Flats : { transfers : formula Variable.Map.t;
+                balances : float Variable.Map.t }
+        -> flat redist
 
   type 'a tree =
     | Nothing
@@ -66,12 +68,11 @@ module RedistTree : sig
     | When : (Variable.t * flat tree) list -> flat tree
     | Branch of { evt : Variable.t; before : 'a tree; after : 'a tree }
 
-  (* Default are resolved by constructing a specific tree, which require an
-     additional analysis *)
-  type frac_default =
-    | NoDefault
-    | DefaultVariable of Variable.t
-    | DefaultTree of frac tree
+  (* Default and deficit are resolved by constructing a specific tree, which
+     require an additional analysis *)
+  type frac_balance =
+    | BalanceVars of { default : Variable.t option; deficit : Variable.t option }
+    | BalanceTree of frac tree
 
   (* An actual tree is distinguished between fractionnal redistribution (pools)
      and flat transfers (providing actors). While they are structurally similar,
@@ -88,7 +89,7 @@ module RedistTree : sig
     | Flat of flat tree list
     | Fractions of {
         base_shares : frac redist;
-        default : frac_default;
+        balance : frac_balance;
         branches : frac tree list;
       }
 
@@ -112,9 +113,11 @@ module RedistTree : sig
   val tbranch : Variable.t -> kind_tree -> kind_tree -> kind_tree
   val merge_redist : kind_redist -> kind_redist -> kind_redist
   val add_remainder : Variable.t -> t -> t
+  val add_deficit : Variable.t -> t -> t
   val add_tree : kind_tree -> t -> t
   val of_tree : kind_tree -> t
   val of_remainder : Variable.t -> t
+  val of_deficit : Variable.t -> t
 
 end
 

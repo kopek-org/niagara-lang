@@ -2,7 +2,13 @@ open Ir
 open Surface
 
 let print_variable ~(with_ctx : bool) (infos : Ast.program_infos) fmt (v : Variable.t) =
-  let Variable.{ var_name } = Variable.Map.find v infos.var_info in
+  let Variable.{ var_name } =
+    match Variable.Map.find_opt v infos.var_info with
+    | Some i -> i
+    | None ->
+      Errors.raise_error "(internal) no infos found for var %d"
+        (Variable.uid v)
+  in
   if with_ctx then
     let shape =
       match Variable.Map.find_opt v infos.var_shapes with
@@ -102,7 +108,12 @@ let print_redist (type a) (infos : Ast.program_infos) fmt (r : a RedistTree.redi
         Format.fprintf fmt "%a -> %a@ "
           (print_formula infos) f
           (print_variable ~with_ctx:true infos) v)
-      fs;
+      fs.transfers;
+    Variable.Map.iter (fun v f ->
+        Format.fprintf fmt "%.2f%% as deficit -> %a@ "
+          (f*.100.)
+          (print_variable ~with_ctx:true infos) v)
+      fs.balances;
     Format.fprintf fmt "@]"
 
 let rec print_tree : type a. Ast.program_infos -> Format.formatter -> a RedistTree.tree -> unit =
@@ -128,11 +139,16 @@ let rec print_tree : type a. Ast.program_infos -> Format.formatter -> a RedistTr
 let print_trees (type a) (infos : Ast.program_infos) fmt (ts : a RedistTree.tree list) =
   Format.fprintf fmt "@[<v>%a@]" (Format.pp_print_list (print_tree infos)) ts
 
-let print_default (infos : Ast.program_infos) fmt (d : RedistTree.frac_default) =
+let print_balance (infos : Ast.program_infos) fmt (d : RedistTree.frac_balance) =
   match d with
-  | NoDefault -> ()
-  | DefaultVariable v -> Format.fprintf fmt "default -> %a" (print_variable ~with_ctx:true infos) v
-  | DefaultTree t -> print_tree infos fmt t
+  | BalanceVars { default; deficit } ->
+    Format.pp_print_option
+      (fun fmt -> Format.fprintf fmt "default -> %a@ " (print_variable ~with_ctx:true infos))
+      fmt default;
+    Format.pp_print_option
+      (fun fmt -> Format.fprintf fmt "deficit <- %a" (print_variable ~with_ctx:false infos))
+      fmt deficit
+  | BalanceTree t -> print_tree infos fmt t
 
 let print_t (infos : Ast.program_infos) fmt (t : RedistTree.t) =
   match t with
@@ -141,7 +157,7 @@ let print_t (infos : Ast.program_infos) fmt (t : RedistTree.t) =
     Format.fprintf fmt "@[<v>%a@;%a@;%a@]"
       (print_redist infos) f.base_shares
       (print_trees infos) f.branches
-      (print_default infos) f.default
+      (print_balance infos) f.balance
 
 let rec print_eqex fmt (e : eqex) =
   match e with

@@ -9,7 +9,7 @@ open Ir
 
 module Acc : sig
   type t = {
-    infos : Ast.program_infos;
+    pinfos : Ast.program_infos;
     used_variables : Variable.Set.t;
     ctx_derivations : Variable.t Context.Group.Map.t Variable.Map.t;
     trees : RedistTree.t Variable.Map.t;
@@ -38,12 +38,13 @@ module Acc : sig
   val lift_event : t -> event -> t * Variable.t
   val add_tree : t -> source:Variable.t -> RedistTree.kind_tree -> t
   val add_default : t -> source:Variable.t -> Variable.t -> t
+  val add_deficit : t -> provider:Variable.t -> Variable.t -> t
   val filter_usage : t -> t
 
 end = struct
 
   type t = {
-    infos : Ast.program_infos;
+    pinfos : Ast.program_infos;
     used_variables : Variable.Set.t;
     ctx_derivations : Variable.t Context.Group.Map.t Variable.Map.t;
     (* Association of abstract variables to their context group versions *)
@@ -51,10 +52,10 @@ end = struct
     events : event Variable.Map.t;
   }
 
-  let contexts t = t.infos.contexts
+  let contexts t = t.pinfos.contexts
 
-  let make (infos : Ast.program_infos) =
-    { infos;
+  let make (pinfos : Ast.program_infos) =
+    { pinfos;
       used_variables = Variable.Set.empty;
       ctx_derivations = Variable.Map.empty;
       trees = Variable.Map.empty;
@@ -67,23 +68,23 @@ end = struct
     { t with used_variables = Variable.Set.add v t.used_variables }
 
   let var_shape t (v : Variable.t) =
-    match Variable.Map.find_opt v t.infos.var_shapes with
+    match Variable.Map.find_opt v t.pinfos.var_shapes with
     | Some shape -> shape
     | None -> Errors.raise_error "No shape for var %d" (Variable.uid v)
 
   let type_of t v =
-    match Variable.Map.find_opt v t.infos.types with
+    match Variable.Map.find_opt v t.pinfos.types with
     | Some typ -> typ
     | None -> Errors.raise_error "(internal) Cannot find type of variable"
 
   let is_actor t (v : Variable.t) =
-    Variable.Map.mem v t.infos.actors
+    Variable.Map.mem v t.pinfos.actors
 
   let find_const_opt t (v : Variable.t) =
-    Variable.Map.find_opt v t.infos.Ast.constants
+    Variable.Map.find_opt v t.pinfos.Ast.constants
 
   let find_compound_vars t (v : Variable.t) =
-    match Variable.Map.find_opt v t.infos.compounds with
+    match Variable.Map.find_opt v t.pinfos.compounds with
     | None -> [v]
     | Some vs -> Variable.Set.elements vs
 
@@ -103,17 +104,17 @@ end = struct
          issue as the analysis should not produce such cases, but vulnerable
          nonetheless. *)
       let dv = Variable.create () in
-      let { Variable.var_name } = Variable.Map.find v t.infos.var_info in
+      let { Variable.var_name } = Variable.Map.find v t.pinfos.var_info in
       let typ = type_of t v in
       let t = flag_variable_usage t dv in
       let t = {
         t with
-        infos = {
-          t.infos with
-          var_info = Variable.Map.add dv { Variable.var_name } t.infos.var_info;
-          types =  Variable.Map.add dv typ t.infos.types;
+        pinfos = {
+          t.pinfos with
+          var_info = Variable.Map.add dv { Variable.var_name } t.pinfos.var_info;
+          types =  Variable.Map.add dv typ t.pinfos.types;
           var_shapes = Variable.Map.add dv
-              (Context.shape_of_groups [ctx]) t.infos.var_shapes;
+              (Context.shape_of_groups [ctx]) t.pinfos.var_shapes;
         };
         ctx_derivations =
           Variable.Map.update v (function
@@ -124,16 +125,16 @@ end = struct
       }
       in
       let t =
-        match Variable.Map.find_opt v t.infos.inputs with
+        match Variable.Map.find_opt v t.pinfos.inputs with
         | None -> t
         | Some kind ->
-          { t with infos = { t.infos with inputs = Variable.Map.add dv kind t.infos.inputs }}
+          { t with pinfos = { t.pinfos with inputs = Variable.Map.add dv kind t.pinfos.inputs }}
       in
       let t =
-        match Variable.Map.find_opt v t.infos.actors with
+        match Variable.Map.find_opt v t.pinfos.actors with
         | None -> t
         | Some way ->
-          { t with infos = { t.infos with actors = Variable.Map.add dv way t.infos.actors }}
+          { t with pinfos = { t.pinfos with actors = Variable.Map.add dv way t.pinfos.actors }}
       in
       t, dv
 
@@ -191,10 +192,10 @@ end = struct
       let t = flag_variable_usage t v in
       let t =
         { t with
-          infos =
-            { t.infos with
-              var_info = Variable.Map.add v { Variable.var_name } t.infos.var_info;
-              types = Variable.Map.add v ValueType.TEvent t.infos.types;
+          pinfos =
+            { t.pinfos with
+              var_info = Variable.Map.add v { Variable.var_name } t.pinfos.var_info;
+              types = Variable.Map.add v ValueType.TEvent t.pinfos.types;
             };
         }
       in
@@ -221,20 +222,30 @@ end = struct
     in
     { t with trees }
 
+  let add_deficit t ~(provider : Variable.t) (p : Variable.t) =
+    let trees =
+      Variable.Map.update p (function
+          | None -> Some (RedistTree.of_deficit provider)
+          | Some existing ->
+            Some (RedistTree.add_deficit provider existing))
+        t.trees
+    in
+    { t with trees }
+
   let filter_usage t =
     let filter map =
       Variable.Map.filter (fun v _ -> Variable.Set.mem v t.used_variables) map
     in
     { t with
-      infos = {
-        t.infos with
-        var_info = filter t.infos.var_info;
-        var_shapes = filter t.infos.var_shapes;
-        inputs = filter t.infos.inputs;
-        actors = filter t.infos.actors;
-        compounds = filter t.infos.compounds;
-        types = filter t.infos.types;
-        constants = filter t.infos.constants;
+      pinfos = {
+        t.pinfos with
+        var_info = filter t.pinfos.var_info;
+        var_shapes = filter t.pinfos.var_shapes;
+        inputs = filter t.pinfos.inputs;
+        actors = filter t.pinfos.actors;
+        compounds = filter t.pinfos.compounds;
+        types = filter t.pinfos.types;
+        constants = filter t.pinfos.constants;
       }
     }
 
@@ -622,6 +633,20 @@ let translate_default acc (d : Ast.ctx_default_decl) =
       | _ -> Errors.raise_error "destination derivation should have been unique")
     acc source_local_shape
 
+let translate_deficit acc (d : Ast.ctx_deficit_decl) =
+  let acc, provider =
+    let prov, prov_ctx = d.ctx_deficit_provider in
+    let acc, prov = Acc.derive_ctx_variables ~mode:Strict acc prov prov_ctx in
+    acc, match prov with
+    | ContextVar _ -> Errors.raise_error "Deficit handler can only be an actor"
+    | ActorComp { base; _ } -> base
+  in
+  let pool_local_shape = shape_of_ctx_var acc d.ctx_deficit_pool in
+  Context.shape_fold (fun acc ctx ->
+      let acc, pool = Acc.get_derivative_var acc (fst d.ctx_deficit_pool) ctx in
+      Acc.add_deficit acc ~provider pool)
+    acc pool_local_shape
+
 let translate_declaration acc (decl : Ast.contextualized Ast.declaration) =
   match decl with
   | DVarOperation o -> translate_operation acc o
@@ -629,12 +654,12 @@ let translate_declaration acc (decl : Ast.contextualized Ast.declaration) =
     let acc, evt_formula = translate_event acc e.ctx_event_expr in
     Acc.register_event acc e.ctx_event_var evt_formula
   | DVarDefault d -> translate_default acc d
-  | DVarDeficit _ -> assert false (* TODO *)
+  | DVarDeficit d -> translate_deficit acc d
 
-let level_fractional_attribution (t : RedistTree.t) =
+let level_fractional_attribution (acc : Acc.t) (src : Variable.t) (t : RedistTree.t) =
   match t with
-  | Flat _ -> t
-  | Fractions { base_shares; default; branches } ->
+  | Flat _ -> acc
+  | Fractions { base_shares; balance; branches } ->
     let redist_part (r : RedistTree.frac RedistTree.redist) =
       match r with
       | NoInfo -> 0.
@@ -653,35 +678,60 @@ let level_fractional_attribution (t : RedistTree.t) =
         let default = branch_part (Variable.Map.add evt true known) default before in
         branch_part (Variable.Map.add evt false known) default after
     in
-    let base_part = redist_part base_shares in
-    let default_redist = Variable.BDT.Action (1. -. base_part) in
-    let branches_parts =
-      List.fold_left (branch_part Variable.Map.empty) default_redist branches
-    in
-    let make_default_redist =
-      match default with
-      | NoDefault -> fun _path _ -> RedistTree.Nothing (* TODO warning default needed *)
-      | DefaultTree _ -> Errors.raise_error "(internal) Default tree already computed"
-      | DefaultVariable d -> fun _ part ->
-        RedistTree.(Redist (Shares (Variable.Map.singleton d part)))
-    in
-    let default_tree =
-      Variable.BDT.fold branches_parts
-        ~noaction:(fun _k -> RedistTree.Nothing)
-        ~action:(fun k part ->
-            if part > 0.
-            then make_default_redist k part
-            else RedistTree.Nothing)
-        ~decision:(fun _k evt before after ->
-            match before, after with
-            | Nothing, Nothing -> RedistTree.Nothing
-            | _, _ -> Branch { evt; before; after })
-    in
-    Fractions { base_shares; branches; default = DefaultTree default_tree }
+    match balance with
+    | BalanceTree _ ->
+      Errors.raise_error "(internal) Default tree already computed"
+    | BalanceVars balance ->
+      let base_part = redist_part base_shares in
+      let default_redist = Variable.BDT.Action (1. -. base_part) in
+      let branches_parts =
+        List.fold_left (branch_part Variable.Map.empty) default_redist branches
+      in
+      let make_default_redist part =
+        match balance.default with
+        | Some d -> RedistTree.(Redist (Shares (Variable.Map.singleton d part)))
+        | None -> Errors.raise_error "Missing fractionnal part, may needs a default"
+      in
+      let make_deficit_redist part =
+        RedistTree.(Redist
+          (Flats { transfers = Variable.Map.empty;
+                   balances = Variable.Map.singleton src part
+                 }))
+      in
+      let default_tree, deficit_tree =
+        Variable.BDT.fold branches_parts
+          ~noaction:(fun _k -> RedistTree.Nothing, RedistTree.Nothing)
+          ~action:(fun _k part ->
+              if part > 0.
+              then make_default_redist part, Nothing
+              else if part < 0.
+              then Nothing, make_deficit_redist (-. part)
+              else RedistTree.Nothing, RedistTree.Nothing)
+          ~decision:(fun _k evt (bdft, bdfc) (adft, adfc) ->
+              let branch_or_nothing before after =
+                match before, after with
+                | RedistTree.Nothing, RedistTree.Nothing -> RedistTree.Nothing
+                | _, _ -> Branch { evt; before; after }
+              in
+              branch_or_nothing bdft adft, branch_or_nothing bdfc adfc)
+      in
+      let src_tree =
+        RedistTree.Fractions
+          { base_shares; branches; balance = BalanceTree default_tree }
+      in
+      let acc = { acc with trees = Variable.Map.add src src_tree acc.trees } in
+      match balance.deficit with
+      | Some provider ->
+        Acc.add_tree acc ~source:provider RedistTree.(FlatTree deficit_tree)
+      | None ->
+        if deficit_tree <> RedistTree.Nothing
+        then Errors.raise_error "Fractionnal repartition exceeds total, needs a deficit"
+        else acc
 
 let level_attributions (acc : Acc.t) =
-  let trees = Variable.Map.map level_fractional_attribution acc.trees in
-  { acc with trees }
+  Variable.Map.fold (fun src tree acc ->
+        level_fractional_attribution acc src tree)
+    acc.trees acc
 
 let dependancy_graph (acc : Acc.t) =
   let rec dep_formula graph src (f : formula) =
@@ -700,10 +750,15 @@ let dependancy_graph (acc : Acc.t) =
       Variable.Map.fold (fun dest _ graph -> Variable.Graph.add_edge graph src dest)
         sh graph
     | RedistTree.Flats fs ->
-      Variable.Map.fold (fun dest formula graph ->
-          let graph = Variable.Graph.add_edge graph src dest in
-          dep_formula graph src formula)
-        fs graph
+      let graph =
+        Variable.Map.fold (fun dest formula graph ->
+            let graph = Variable.Graph.add_edge graph src dest in
+            dep_formula graph src formula)
+          fs.transfers graph
+      in
+      Variable.Map.fold (fun provider _factor graph ->
+          Variable.Graph.add_edge graph provider src)
+        fs.balances graph
   in
   let rec dep_tree :
     type a. Variable.Graph.t -> Variable.t -> a RedistTree.tree -> Variable.Graph.t =
@@ -719,13 +774,20 @@ let dependancy_graph (acc : Acc.t) =
   in
   Variable.Map.fold (fun src trees graph ->
       match trees with
-      | RedistTree.Fractions { base_shares; default; branches } ->
+      | RedistTree.Fractions { base_shares; balance; branches } ->
         let graph = dep_redist graph src base_shares in
         let graph =
-          match default with
-          | NoDefault -> graph
-          | DefaultVariable d -> Variable.Graph.add_edge graph src d
-          | DefaultTree tree -> dep_tree graph src tree
+          match balance with
+          | BalanceVars b ->
+            let graph = match b.default with
+              | Some d -> Variable.Graph.add_edge graph src d
+              | None -> graph
+            in
+            begin match b.deficit with
+              | Some d -> Variable.Graph.add_edge graph d src
+              | None -> graph
+            end
+          | BalanceTree tree -> dep_tree graph src tree
         in
         List.fold_left (fun graph tree -> dep_tree graph src tree)
           graph branches
@@ -756,7 +818,7 @@ let translate_program (Contextualized (infos, prog) : Ast.contextualized Ast.pro
   let acc = level_attributions acc in
   let eval_order = evaluation_order acc in
   {
-    infos = acc.infos;
+    infos = acc.pinfos;
     trees = acc.trees;
     events = acc.events;
     eval_order;

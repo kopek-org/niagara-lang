@@ -172,7 +172,8 @@ let redist_prov (type a) (src : Variable.t) (r : a RedistTree.redist) : prov_exp
         })
       shares
   | RedistTree.Flats fs ->
-    Variable.Map.map (formula_prov Variable.Map.empty) fs
+    Variable.Map.map (formula_prov Variable.Map.empty) fs.transfers
+    (* We can ignore deficit balancing, as they have no effect on equations *)
 
 let rec tree_prov : type a. Variable.t -> a RedistTree.tree -> prov_exprs =
   fun src tree ->
@@ -209,13 +210,12 @@ let trees_prov (src : Variable.t) (t : RedistTree.t) : prov_exprs =
         let provs = tree_prov src tree in
         prov_exprs_union acc provs)
       Variable.Map.empty fs
-  | Fractions { base_shares; default; branches } ->
+  | Fractions { base_shares; balance; branches } ->
     let branches =
-      match default with
-      | NoDefault -> branches
-      | DefaultTree dt -> dt::branches
-      | DefaultVariable _ ->
-        Errors.raise_error "(internal) Default attribution should have been computed away"
+      match balance with
+      | BalanceTree bt -> bt::branches
+      | BalanceVars _ ->
+        Errors.raise_error "(internal) Balance attributions should have been computed away"
     in
     List.fold_left (fun acc tree ->
         let provs = tree_prov src tree in

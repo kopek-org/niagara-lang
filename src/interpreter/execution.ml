@@ -325,7 +325,15 @@ let compute_redist (type a) (s : state) (r : a Ir.RedistTree.redist) (value : va
   match r with
   | NoInfo -> Variable.Map.empty
   | Shares sh -> Variable.Map.map (mult_value value) sh
-  | Flats fs -> Variable.Map.map (compute_formula s) fs
+  | Flats fs ->
+    let tsf = Variable.Map.map (compute_formula s) fs.transfers in
+    let blc =
+      Variable.Map.mapi (fun v f ->
+          let v_val = get_state_next_value s v in
+          mult_value v_val f)
+        fs.balances
+    in
+    Variable.Map.union (fun _v r1 r2 -> Some (r1 + r2)) tsf blc
 
 let rec compute_tree : type a. state -> a Ir.RedistTree.tree -> value -> value Variable.Map.t =
   fun s tree value ->
@@ -352,14 +360,13 @@ let compute_trees (s : state) (trees : Ir.RedistTree.t) (value : value) =
         let r = compute_tree s tree value in
         res_union res r)
       Variable.Map.empty fs
-  | Fractions { base_shares; default; branches } ->
+  | Fractions { base_shares; balance; branches } ->
     let base = compute_redist s base_shares value in
     let default =
-      match default with
-        | NoDefault -> Variable.Map.empty
-        | DefaultVariable _ ->
+      match balance with
+        | BalanceVars _ ->
           Errors.raise_error "(internal) Default should have been computed"
-        | DefaultTree default -> compute_tree s default value
+        | BalanceTree default -> compute_tree s default value
     in
     List.fold_left (fun res tree ->
         let r = compute_tree s tree value in

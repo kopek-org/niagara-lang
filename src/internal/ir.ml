@@ -55,7 +55,9 @@ module RedistTree = struct
   type 'a redist =
     | NoInfo
     | Shares : float Variable.Map.t -> frac redist
-    | Flats : formula Variable.Map.t -> flat redist
+    | Flats : { transfers : formula Variable.Map.t;
+                balances : float Variable.Map.t }
+        -> flat redist
 
   type 'a tree =
     | Nothing
@@ -63,16 +65,15 @@ module RedistTree = struct
     | When : (Variable.t * flat tree) list -> flat tree
     | Branch of { evt : Variable.t; before : 'a tree; after : 'a tree }
 
-  type frac_default =
-    | NoDefault
-    | DefaultVariable of Variable.t
-    | DefaultTree of frac tree
+  type frac_balance =
+    | BalanceVars of { default : Variable.t option; deficit : Variable.t option }
+    | BalanceTree of frac tree
 
   type t =
     | Flat of flat tree list
     | Fractions of {
         base_shares : frac redist;
-        default : frac_default;
+        balance : frac_balance;
         branches : frac tree list;
       }
 
@@ -94,7 +95,8 @@ module RedistTree = struct
   let flat (dest : Variable.t) (formula, ftype : formula * ValueType.t) =
     if ftype <> TMoney then
       Errors.raise_error "Expected formula of type money";
-    FlatRedist (Flats (Variable.Map.singleton dest formula))
+    FlatRedist (Flats { transfers = Variable.Map.singleton dest formula;
+                        balances = Variable.Map.empty })
 
   let tredist (r : kind_redist) =
     match r with
@@ -146,12 +148,17 @@ module RedistTree = struct
       in
       Shares s
     | Flats f1, Flats f2 ->
-      let new_f =
+      let transfers =
         Variable.Map.union (fun _dest f1 f2 ->
           Some (Binop (MAdd, f1, f2)))
-          f1 f2
+          f1.transfers f2.transfers
       in
-      Flats new_f
+      let balances =
+        Variable.Map.union (fun _dest f1 f2 ->
+          Some (f1 +. f2))
+          f1.balances f2.balances
+      in
+      Flats { transfers; balances }
 
   let merge_redist (r1 : kind_redist) (r2 : kind_redist) =
     match r1, r2 with
@@ -167,11 +174,28 @@ module RedistTree = struct
     | Fractions f ->
       Fractions
         { f with
-          default = match f.default with
-            | NoDefault -> DefaultVariable d
-            | DefaultVariable _ -> Errors.raise_error "Multiple default definition"
-            | DefaultTree _ ->
+          balance = match f.balance with
+            | BalanceVars b ->
+              if Option.is_some b.default then
+                Errors.raise_error "Multiple default definition"
+              else BalanceVars { b with default = Some d }
+            | BalanceTree _ ->
               Errors.raise_error "(internal) Default variable assigned on computed tree"
+        }
+
+  let add_deficit (d : Variable.t) (t : t) =
+    match t with
+    | Flat _ -> Errors.raise_error "Cannot add deficit to source of bonuses"
+    | Fractions f ->
+      Fractions
+        { f with
+          balance = match f.balance with
+            | BalanceVars b ->
+              if Option.is_some b.deficit then
+                Errors.raise_error "Multiple default definition"
+              else BalanceVars { b with deficit = Some d }
+            | BalanceTree _ ->
+              Errors.raise_error "(internal) Deficit variable assigned on computed tree"
         }
 
   let add_tree (tree : kind_tree) (t : t) =
@@ -193,19 +217,30 @@ module RedistTree = struct
         match tree with
         | Nothing -> assert false
         | Redist r -> Fractions { f with base_shares = merge_redist0 r f.base_shares }
-        | _ -> Fractions { f with branches = tree::f.branches }
+        | Branch _ -> Fractions { f with branches = tree::f.branches }
 
   let of_tree (tree : kind_tree) =
     match tree with
     | NothingTree | FracTree Nothing | FlatTree Nothing -> assert false
     | FlatTree tree -> Flat [tree]
     | FracTree (Redist r) ->
-      Fractions { base_shares = r; default = NoDefault; branches = [] }
+      Fractions { base_shares = r;
+                  balance = BalanceVars { default = None; deficit = None };
+                  branches = [] }
     | FracTree (Branch _ as tree) ->
-      Fractions { base_shares = NoInfo; default = NoDefault; branches = [tree] }
+      Fractions { base_shares = NoInfo;
+                  balance = BalanceVars { default = None; deficit = None };
+                  branches = [tree] }
 
   let of_remainder (d : Variable.t) =
-    Fractions { base_shares = NoInfo; default = DefaultVariable d; branches = [] }
+    Fractions { base_shares = NoInfo;
+                balance = BalanceVars { default = Some d; deficit = None };
+                branches = [] }
+
+  let of_deficit (d : Variable.t) =
+    Fractions { base_shares = NoInfo;
+                balance = BalanceVars { default = None; deficit = Some d };
+                branches = [] }
 
 end
 

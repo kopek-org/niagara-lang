@@ -56,11 +56,18 @@ let dot_of_redist (type a) p g (r : a Ir.RedistTree.redist) =
         (dest, attr)::es)
       sh []
   | Flats fs ->
-    Variable.Map.fold (fun dest s es ->
+    let es =
+      Variable.Map.fold (fun dest s es ->
+          let dest = add_var p g dest in
+          let attr = [ label (Format.asprintf "%a" (FormatIr.print_formula p.infos) s) ] in
+          (dest, attr)::es)
+        fs.transfers []
+    in
+    Variable.Map.fold (fun dest f es ->
         let dest = add_var p g dest in
-        let attr = [ label (Format.asprintf "%a" (FormatIr.print_formula p.infos) s) ] in
+        let attr = [ label (Format.asprintf "deficit %g%%" (f *. 100.)) ] in
         (dest, attr)::es)
-      fs []
+      fs.balances es
 
 let rec dot_of_tree : type a. program -> graph -> a Ir.RedistTree.tree -> ((id * _ option) * attr list) list =
   fun p g t ->
@@ -89,17 +96,26 @@ let dot_of_trees p g ts =
   List.map (dot_of_tree p g) ts
   |> List.flatten
 
-let dot_of_t p g t =
+let dot_of_t p g src t =
   match (t : Ir.RedistTree.t) with
-  | Fractions { base_shares; default; branches } ->
+  | Fractions { base_shares; balance; branches } ->
     dot_of_redist p g base_shares
     @ dot_of_trees p g branches
-    @ (match (default : Ir.RedistTree.frac_default) with
-    | NoDefault -> []
-    | DefaultVariable v ->
-      let v = add_var p g v in
-      [v, [label "defaut"]]
-    | DefaultTree tree -> dot_of_tree p g tree)
+    @ (match (balance : Ir.RedistTree.frac_balance) with
+    | BalanceVars b ->
+      begin match b.deficit with
+        | None -> ()
+        | Some v ->
+          let v = add_var p g v in
+          add_edge g v src [label "deficit"]
+      end;
+      begin match b.default with
+        | None -> []
+        | Some v ->
+          let v = add_var p g v in
+          [v, [label "default"]]
+      end
+    | BalanceTree tree -> dot_of_tree p g tree)
   | Flat fs -> dot_of_trees p g fs
 
 let dot_of_program p =
@@ -114,7 +130,7 @@ let dot_of_program p =
   in
   Variable.Map.iter (fun v t ->
       let src = add_var p graph v in
-      let es = dot_of_t p graph t in
+      let es = dot_of_t p graph src t in
       List.iter (fun (e,a) ->
           add_edge graph src e a)
         es)

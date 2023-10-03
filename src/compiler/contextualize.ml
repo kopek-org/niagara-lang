@@ -541,10 +541,11 @@ let find_holder0 ~(way : stream_way) acc (h : holder) =
   | Pool (name, ctx) ->
     let proj = projection_of_context_refinement acc ctx in
     begin match Acc.find_pool_opt acc name with
-    | Some v -> acc, (v, proj)
+    | Some v ->
+      Acc.add_proj_constraint acc v proj, (v, proj)
     | None ->
       let acc, v = Acc.register_pool acc name in
-      acc, (v, proj)
+      Acc.add_proj_constraint acc v proj, (v, proj)
     end
   | Actor {actor_desc = PlainActor name; _} ->
     acc, (Acc.find_actor ~way acc name, Context.any_projection (Acc.contexts acc))
@@ -808,7 +809,7 @@ let declaration acc (decl : source declaration) =
     Acc.add_program_decl acc (DVarDefault { ctx_default_source; ctx_default_dest })
   | DHolderDeficit d ->
     let acc, ctx_deficit_pool = find_holder acc d.deficit_pool in
-    let acc, ctx_deficit_provider = find_holder acc d.deficit_provider in
+    let acc, ctx_deficit_provider = find_holder_as_source acc d.deficit_provider in
     Acc.add_program_decl acc (DVarDeficit { ctx_deficit_pool; ctx_deficit_provider})
   | DHolderAdvance a -> advance acc a
 
