@@ -7,25 +7,7 @@ type literal =
   | LDate of Date.Date.t
   | LDuration of Date.Duration.t
 
-type binop =
-  | IAdd
-  | RAdd
-  | MAdd
-  | DAdd
-  | DrAdd
-  | ISub
-  | RSub
-  | MSub
-  | DSub
-  | DrSub
-  | IMult
-  | RMult
-  | MMult
-  | DrMult
-  | IDiv
-  | RDiv
-  | MDiv
-  | DrDiv
+type binop = Ast.binop
 
 type flow_view =
   | AtInstant
@@ -35,7 +17,6 @@ type formula =
   | Literal of literal
   | Variable of Variable.t * flow_view
   | Binop of binop * formula * formula
-  | RCast of formula
 
 type comp = Eq
 
@@ -150,7 +131,7 @@ module RedistTree = struct
     | Flats f1, Flats f2 ->
       let transfers =
         Variable.Map.union (fun _dest f1 f2 ->
-          Some (Binop (MAdd, f1, f2)))
+          Some (Binop (Add, f1, f2)))
           f1.transfers f2.transfers
       in
       let balances =

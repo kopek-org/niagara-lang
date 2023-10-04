@@ -144,8 +144,14 @@ let rec formula_prov (provs : prov_exprs) (cf : formula) : expr sourced =
     let se2 = formula_prov provs f2 in
     let op e1 e2 =
       match op with
-      | IAdd
-      | MAdd -> Add (e1, e2)
+      | Add -> Add (e1, e2)
+      | Mult ->
+        begin match e1, e2 with
+        | Zero, _ | _, Zero -> Zero
+        | Const (LRational f), _ -> Factor (f, e2)
+        | _, Const (LRational f) -> Factor (f, e1)
+        | _ -> assert false
+        end
       | _ -> assert false
     in
     { pinned_src =
@@ -159,7 +165,6 @@ let rec formula_prov (provs : prov_exprs) (cf : formula) : expr sourced =
           se1.pinned_src se2.pinned_src;
       other_src = op se1.other_src se2.other_src;
     }
-  | RCast _ -> assert false
 
 let redist_prov (type a) (src : Variable.t) (r : a RedistTree.redist) : prov_exprs =
   match r with
@@ -359,10 +364,10 @@ let condition_equations (program : program) (provs : prov_exprs) : event_eq Vari
 (* [when e] events are transformed to [not (already_reached e) && (test e)].
    Mainly to avoid equation dependencies. *)
 let transform_raising_cond (eqs : event_eq Variable.Map.t) =
-  let reduce_decide_on evt bdd =
+  let reduce_decide_on evt d bdd =
     if bdd = BDT.NoAction then bdd else
       let bdd = BDT.add_decision evt bdd in
-      BDT.map_action (Variable.Map.singleton evt true)
+      BDT.map_action (Variable.Map.singleton evt (not d))
         (fun _k _c -> NoAction)
         bdd
   in
@@ -376,8 +381,8 @@ let transform_raising_cond (eqs : event_eq Variable.Map.t) =
     | CRaising evt ->
       let srcd = Variable.Map.find evt eqs in
       { pinned_src =
-          Variable.Map.map (reduce_decide_on evt) srcd.pinned_src;
-        other_src = reduce_decide_on evt srcd.other_src;
+          Variable.Map.map (reduce_decide_on evt true) srcd.pinned_src;
+        other_src = reduce_decide_on evt true srcd.other_src;
       }
   in
   Variable.Map.map (fun sourced ->
@@ -397,7 +402,10 @@ let transform_raising_cond (eqs : event_eq Variable.Map.t) =
             match c1, c2 with
             | None, None -> None
             | None, c | c, None -> c
-            | Some _, Some _ -> assert false)
+            | Some c1, Some c2 ->
+              Format.eprintf "merging %a@.%a@."
+              FormatIr.print_cond c1 FormatIr.print_cond c2;
+              assert false)
           d1 d2
       in
       let default_src =
@@ -407,13 +415,16 @@ let transform_raising_cond (eqs : event_eq Variable.Map.t) =
               { pinned_src = Variable.Map.map (BDT.cut k) srcd.pinned_src;
                 other_src = BDT.cut k srcd.other_src;
               })
-          ~decision:(fun _k _evt s1 s2 ->
+          ~decision:(fun _k evt s1 s2 ->
               { pinned_src =
                   Variable.Map.union (fun _src c1 c2 ->
                       Some (merge_bdd c1 c2))
-                    s1.pinned_src s2.pinned_src;
+                    (Variable.Map.map (reduce_decide_on evt true) s1.pinned_src)
+                    (Variable.Map.map (reduce_decide_on evt false) s2.pinned_src);
                 other_src =
-                  merge_bdd s1.other_src s2.other_src
+                  merge_bdd
+                    (reduce_decide_on evt true s1.other_src)
+                    (reduce_decide_on evt false s2.other_src)
               }
             )
           sourced.other_src

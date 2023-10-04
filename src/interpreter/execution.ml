@@ -319,7 +319,6 @@ let compute_formula (_s : state) (formula : Ir.formula) =
   (* TODO *)
   | Variable (_, _) -> assert false
   | Binop (_, _, _) -> assert false
-  | RCast _ -> assert false
 
 let compute_redist (type a) (s : state) (r : a Ir.RedistTree.redist) (value : value) =
   match r with

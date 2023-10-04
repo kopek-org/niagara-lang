@@ -263,133 +263,29 @@ let resolve_projection_context acc ~context ~refinement =
 
 (* Used only to compute constant quoteparts *)
 let rec reduce_formula (f : formula) =
+  let to_rationnal = function
+    | Literal (LInteger f) -> Some (float_of_int f)
+    | Literal (LRational f) -> Some f
+    | _ -> None
+  in
+  let lit_of_op op f1 f2 =
+    let r = match (op : binop) with
+    | Add -> f1 +. f2
+    | Sub -> f1 -. f2
+    | Mult -> f1 *. f2
+    | Div -> f1 /. f2
+    in
+    Literal (LRational r)
+  in
   match f with
   | Literal _
   | Variable _ -> f
-  | RCast f ->
-    begin match reduce_formula f with
-      | Literal (LInteger i) -> Literal (LRational (float_of_int i))
-      | Literal _ -> assert false
+  | Binop (op, f1, f2) ->
+    let f1 = to_rationnal (reduce_formula f1) in
+    let f2 = to_rationnal (reduce_formula f2) in
+      match f1, f2 with
+      | Some f1, Some f2 -> lit_of_op op f1 f2
       | _ -> f
-    end
-  | Binop (IAdd, f1, f2) ->
-    begin match reduce_formula f1, reduce_formula f2 with
-      | Literal (LInteger i1), Literal (LInteger i2) -> Literal (LInteger (i1 + i2))
-      | Literal _, Literal _ -> assert false
-      | _ -> f
-    end
-  | Binop (RAdd, f1, f2) ->
-    begin match reduce_formula f1, reduce_formula f2 with
-      | Literal (LRational f1), Literal (LRational f2) -> Literal (LRational (f1 +. f2))
-      | Literal _, Literal _ -> assert false
-      | _ -> f
-    end
-  | Binop (MAdd, f1, f2) ->
-    begin match reduce_formula f1, reduce_formula f2 with
-      | Literal (LMoney m1), Literal (LMoney m2) -> Literal (LMoney (m1 + m2))
-      | Literal _, Literal _ -> assert false
-      | _ -> f
-    end
-  | Binop (DAdd, f1, f2) ->
-    begin match reduce_formula f1, reduce_formula f2 with
-      | Literal (LDate d), Literal (LDuration dr) ->
-        Literal (LDate (Date.Date.add d dr))
-      | Literal _, Literal _ -> assert false
-      | _ -> f
-    end
-  | Binop (DrAdd, f1, f2) ->
-    begin match reduce_formula f1, reduce_formula f2 with
-      | Literal (LDuration dr1), Literal (LDuration dr2) ->
-        Literal (LDuration (Date.Duration.add dr1 dr2))
-      | Literal _, Literal _ -> assert false
-      | _ -> f
-    end
-  | Binop (ISub, f1, f2) ->
-    begin match reduce_formula f1, reduce_formula f2 with
-      | Literal (LInteger i1), Literal (LInteger i2) -> Literal (LInteger (i1 - i2))
-      | Literal _, Literal _ -> assert false
-      | _ -> f
-    end
-  | Binop (RSub, f1, f2) ->
-    begin match reduce_formula f1, reduce_formula f2 with
-      | Literal (LRational f1), Literal (LRational f2) -> Literal (LRational (f1 -. f2))
-      | Literal _, Literal _ -> assert false
-      | _ -> f
-    end
-  | Binop (MSub, f1, f2) ->
-    begin match reduce_formula f1, reduce_formula f2 with
-      | Literal (LMoney m1), Literal (LMoney m2) -> Literal (LMoney (m1 - m2))
-      | Literal _, Literal _ -> assert false
-      | _ -> f
-    end
-  | Binop (DSub, f1, f2) ->
-    begin match reduce_formula f1, reduce_formula f2 with
-      | Literal (LDate d), Literal (LDuration dr) ->
-        Literal (LDate (Date.Date.rem d dr))
-      | Literal _, Literal _ -> assert false
-      | _ -> f
-    end
-  | Binop (DrSub, f1, f2) ->
-    begin match reduce_formula f1, reduce_formula f2 with
-      | Literal (LDuration dr1), Literal (LDuration dr2) ->
-        Literal (LDuration (Date.Duration.sub dr1 dr2))
-      | Literal _, Literal _ -> assert false
-      | _ -> f
-    end
-  | Binop (IMult, f1, f2) ->
-    begin match reduce_formula f1, reduce_formula f2 with
-      | Literal (LInteger i1), Literal (LInteger i2) -> Literal (LInteger (i1 * i2))
-      | Literal _, Literal _ -> assert false
-      | _ -> f
-    end
-  | Binop (RMult, f1, f2) ->
-    begin match reduce_formula f1, reduce_formula f2 with
-      | Literal (LRational f1), Literal (LRational f2) -> Literal (LRational (f1 *. f2))
-      | Literal _, Literal _ -> assert false
-      | _ -> f
-    end
-  | Binop (MMult, f1, f2) ->
-    begin match reduce_formula f1, reduce_formula f2 with
-      | Literal (LMoney m), Literal (LRational f) ->
-        Literal (LMoney (int_of_float ((float_of_int m) *. f)))
-      | Literal _, Literal _ -> assert false
-      | _ -> f
-    end
-  | Binop (DrMult, f1, f2) ->
-    begin match reduce_formula f1, reduce_formula f2 with
-      | Literal (LDuration dr), Literal (LRational f) ->
-        let ddr = Date.Duration.nb_days dr in
-        Literal (LDuration (Date.Duration.day (int_of_float (float_of_int ddr *. f +. 0.5))))
-      | Literal _, Literal _ -> assert false
-      | _ -> f
-    end
-  | Binop (IDiv, f1, f2) ->
-    begin match reduce_formula f1, reduce_formula f2 with
-      | Literal (LInteger i1), Literal (LInteger i2) -> Literal (LInteger (i1 / i2))
-      | Literal _, Literal _ -> assert false
-      | _ -> f
-    end
-  | Binop (RDiv, f1, f2) ->
-    begin match reduce_formula f1, reduce_formula f2 with
-      | Literal (LRational f1), Literal (LRational f2) -> Literal (LRational (f1 /. f2))
-      | Literal _, Literal _ -> assert false
-      | _ -> f
-    end
-  | Binop (MDiv, f1, f2) ->
-    begin match reduce_formula f1, reduce_formula f2 with
-      | Literal (LMoney m), Literal (LRational f) ->
-        Literal (LMoney (int_of_float ((float_of_int m) /. f)))
-      | Literal _, Literal _ -> assert false
-      | _ -> f
-    end
-  | Binop (DrDiv, f1, f2) ->
-    begin match reduce_formula f1, reduce_formula f2 with
-      | Literal (LDuration dr), Literal (LRational f) ->
-        let ddr = Date.Duration.nb_days dr in
-        Literal (LDuration (Date.Duration.day (int_of_float (float_of_int ddr /. f +. 0.5))))
-      | Literal _, Literal _ -> assert false
-      | _ -> f
-    end
 
 let translate_literal (l : Ast.literal) =
   match l with
@@ -402,52 +298,54 @@ let translate_literal (l : Ast.literal) =
 let translate_binop (op : Ast.binop)
     (f1, t1 : formula * ValueType.t)
     (f2, t2 : formula * ValueType.t) =
-  match op, t1, t2 with
-  | Add, TInteger, TInteger -> Binop (IAdd, f1, f2), ValueType.TInteger
-  | Add, TInteger, TRational -> Binop (RAdd, RCast f1, f2), ValueType.TRational
-  | Add, TRational, TInteger -> Binop (RAdd, f1, RCast f2), ValueType.TRational
-  | Add, TRational, TRational -> Binop (RAdd, f1, f2), ValueType.TRational
-  | Add, TMoney, TMoney -> Binop (MAdd, f1, f2), ValueType.TMoney
-  | Add, TDate, TDuration -> Binop (DAdd, f1, f2), ValueType.TDate
-  | Add, TDuration, TDate -> Binop (DAdd, f2, f1), ValueType.TDate
-  | Add, TDuration, TDuration -> Binop (DrAdd, f1, f2), ValueType.TDuration
-  | Sub, TInteger, TInteger -> Binop (ISub, f1, f2), ValueType.TInteger
-  | Sub, TInteger, TRational -> Binop (RSub, RCast f1, f2), ValueType.TRational
-  | Sub, TRational, TInteger -> Binop (RSub, f1, RCast f2), ValueType.TRational
-  | Sub, TRational, TRational -> Binop (RSub, f1, f2), ValueType.TRational
-  | Sub, TMoney, TMoney -> Binop (MSub, f1, f2), ValueType.TMoney
-  | Sub, TDate, TDuration -> Binop (DSub, f1, f2), ValueType.TDate
-  | Sub, TDuration, TDuration -> Binop (DrSub, f1, f2), ValueType.TDuration
-  | Mult, TInteger, TInteger -> Binop (IMult, f1, f2), ValueType.TInteger
-  | Mult, TInteger, TRational -> Binop (RMult, RCast f1, f2), ValueType.TRational
-  | Mult, TRational, TInteger -> Binop (RMult, f1, RCast f2), ValueType.TRational
-  | Mult, TRational, TRational -> Binop(RMult, f1, f2), ValueType.TRational
-  | Mult, TMoney, TInteger -> Binop (MMult, f1, RCast f2), ValueType.TMoney
-  | Mult, TMoney, TRational -> Binop (MMult, f1, f2), ValueType.TMoney
-  | Mult, TInteger, TMoney -> Binop (MMult, f2, RCast f1), ValueType.TMoney
-  | Mult, TRational, TMoney -> Binop (MMult, f2, f1), ValueType.TMoney
-  | Mult, TDuration, TInteger -> Binop (DrMult, f1, RCast f2), ValueType.TDuration
-  | Mult, TDuration, TRational -> Binop (DrMult, f1, f2), ValueType.TDuration
-  | Mult, TInteger, TDuration -> Binop (DrMult, f2, RCast f1), ValueType.TDuration
-  | Mult, TRational, TDuration -> Binop (DrMult, f2, f1), ValueType.TDuration
-  | Div, TInteger, TInteger -> Binop (IDiv, f1, f2), ValueType.TInteger
-  | Div, TInteger, TRational -> Binop (RDiv, RCast f1, f2), ValueType.TRational
-  | Div, TRational, TInteger -> Binop (RDiv, f1, RCast f2), ValueType.TRational
-  | Div, TRational, TRational -> Binop (RDiv, f1, f2), ValueType.TRational
-  | Div, TMoney, TInteger -> Binop (MDiv, f1, RCast f2), ValueType.TMoney
-  | Div, TMoney, TRational -> Binop (MDiv, f1, f2), ValueType.TMoney
-  | Div, TDuration, TInteger -> Binop (DrDiv, f1, RCast f2), ValueType.TDuration
-  | Div, TDuration, TRational -> Binop (DrDiv, f1, f2), ValueType.TDuration
-  | _ -> Errors.raise_error "Mismatching types for binop"
+  let typ =
+    match op, t1, t2 with
+    | Add, TInteger, TInteger
+    | Sub, TInteger, TInteger
+    | Mult, TInteger, TInteger
+    | Div, TInteger, TInteger -> ValueType.TInteger
+    | Add, TInteger, TRational
+    | Add, TRational, TInteger
+    | Add, TRational, TRational
+    | Sub, TInteger, TRational
+    | Sub, TRational, TInteger
+    | Sub, TRational, TRational
+    | Mult, TInteger, TRational
+    | Mult, TRational, TInteger
+    | Mult, TRational, TRational
+    | Div, TInteger, TRational
+    | Div, TRational, TInteger
+    | Div, TRational, TRational -> ValueType.TRational
+    | Add, TMoney, TMoney
+    | Sub, TMoney, TMoney
+    | Mult, TMoney, TInteger
+    | Mult, TMoney, TRational
+    | Mult, TInteger, TMoney
+    | Mult, TRational, TMoney
+    | Div, TMoney, TInteger
+    | Div, TMoney, TRational -> ValueType.TMoney
+    | Add, TDate, TDuration
+    | Add, TDuration, TDate
+    | Sub, TDate, TDuration -> ValueType.TDate
+    | Add, TDuration, TDuration
+    | Sub, TDuration, TDuration
+    | Mult, TDuration, TInteger
+    | Mult, TDuration, TRational
+    | Mult, TInteger, TDuration
+    | Mult, TRational, TDuration
+    | Div, TDuration, TInteger
+    | Div, TDuration, TRational -> ValueType.TDuration
+    | _ -> Errors.raise_error "Mismatching types for binop"
+  in
+  Binop (op, f1, f2), typ
 
 (* When refering a named variable, it may actually refers to several variables
    according to the context. In this case, it refers to their sum. *)
 let aggregate_vars ~view (typ : ValueType.t) (vars : Variable.t list) =
-  let op =
-    match typ with
-    | ValueType.TInteger -> IAdd
-    | ValueType.TRational -> RAdd
-    | ValueType.TMoney -> MAdd
+  begin match typ with
+    | ValueType.TInteger
+    | ValueType.TRational
+    | ValueType.TMoney -> ()
     | ValueType.TEvent
     | ValueType.TDate
     | ValueType.TDuration ->
@@ -455,12 +353,12 @@ let aggregate_vars ~view (typ : ValueType.t) (vars : Variable.t list) =
         "(internal) there should not exist multiple derivatives for \
          variable of type %a"
         FormatAst.print_type typ
-  in
+  end;
   match vars with
   | [] -> Errors.raise_error "(internal) should have found derivative vars"
   | v::vs ->
     List.fold_left (fun f v ->
-        (Binop (op, f, Variable (v, view))))
+        (Binop (Add, f, Variable (v, view))))
       (Variable (v, view)) vs
 
 let rec translate_formula ~(ctx : Context.Group.t) acc ~(view : flow_view)
@@ -722,7 +620,10 @@ let level_fractional_attribution (acc : Acc.t) (src : Variable.t) (t : RedistTre
       let acc = { acc with trees = Variable.Map.add src src_tree acc.trees } in
       match balance.deficit with
       | Some provider ->
-        Acc.add_tree acc ~source:provider RedistTree.(FlatTree deficit_tree)
+        if deficit_tree = RedistTree.Nothing then
+          acc (* TODO warning unnecessary deficit *)
+        else
+          Acc.add_tree acc ~source:provider RedistTree.(FlatTree deficit_tree)
       | None ->
         if deficit_tree <> RedistTree.Nothing
         then Errors.raise_error "Fractionnal repartition exceeds total, needs a deficit"
@@ -741,7 +642,6 @@ let dependancy_graph (acc : Acc.t) =
     | Binop (_, f1, f2) ->
       let graph = dep_formula graph src f1 in
       dep_formula graph src f2
-    | RCast f -> dep_formula graph src f
   in
   let dep_redist (type a) graph src (r : a RedistTree.redist) =
     match r with

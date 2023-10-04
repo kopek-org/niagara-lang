@@ -93,6 +93,14 @@ let print_named fmt (named : named) =
   | Name (name, ctx) -> Format.fprintf fmt "%s%a" name print_context_refinement ctx
   | Holder h -> print_holder fmt h
 
+let print_binop fmt (op : binop) =
+  Format.pp_print_string fmt
+    (match op with
+     | Add -> "+"
+     | Sub -> "-"
+     | Mult -> "*"
+     | Div -> "/")
+
 let rec print_formula : type a. program_infos -> Format.formatter -> a formula -> unit =
   fun infos fmt f ->
   match f.formula_desc with
@@ -100,14 +108,9 @@ let rec print_formula : type a. program_infos -> Format.formatter -> a formula -
   | Named n -> print_named fmt n
   | Variable v -> print_ctx_variable infos fmt v
   | Binop (op, f1, f2) ->
-      let op = match op with
-      | Add -> "+"
-      | Sub -> "-"
-      | Mult -> "*"
-      | Div -> "/"
-      in
-      Format.fprintf fmt "@[<hov 2>(%a@ %s %a)@]"
-        (print_formula infos) f1 op
+      Format.fprintf fmt "@[<hov 2>(%a@ %a %a)@]"
+        (print_formula infos) f1
+        print_binop op
         (print_formula infos) f2
   | Total f -> Format.fprintf fmt "(%a) total" (print_formula infos) f
   | Instant f -> Format.fprintf fmt "(%a) courant" (print_formula infos) f

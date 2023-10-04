@@ -36,28 +36,7 @@ let print_view fmt (v : flow_view) =
   | AtInstant -> Format.fprintf fmt "instant"
   | Cumulated -> Format.fprintf fmt "total"
 
-let print_binop fmt (op : binop) =
-  let op = match op with
-    | IAdd -> "+i"
-    | RAdd -> "+r"
-    | MAdd -> "+m"
-    | DAdd -> "+d"
-    | DrAdd -> "+dr"
-    | ISub -> "-i"
-    | RSub -> "-r"
-    | MSub -> "-m"
-    | DSub -> "-d"
-    | DrSub -> "-dr"
-    | IMult -> "*i"
-    | RMult -> "*r"
-    | MMult -> "*m"
-    | DrMult -> "*dr"
-    | IDiv -> "/i"
-    | RDiv -> "/r"
-    | MDiv -> "/m"
-    | DrDiv -> "/dr"
-  in
-  Format.pp_print_string fmt op
+let print_binop = Surface.FormatAst.print_binop
 
 let rec print_formula (infos : Ast.program_infos) fmt (f : formula) =
   match f with
@@ -71,9 +50,6 @@ let rec print_formula (infos : Ast.program_infos) fmt (f : formula) =
       (print_formula infos) f1
       print_binop op
       (print_formula infos) f2
-  | RCast f ->
-    Format.fprintf fmt "(cast %a)"
-      (print_formula infos) f
 
 let rec print_event (infos : Ast.program_infos) fmt (ev : event) =
   match ev with

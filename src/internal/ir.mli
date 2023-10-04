@@ -7,25 +7,7 @@ type literal =
 
 (* Explicitly typed operators. It may be overkill, since the interpreter has no
    choice but to type check anyway. *)
-type binop =
-    IAdd
-  | RAdd
-  | MAdd
-  | DAdd
-  | DrAdd
-  | ISub
-  | RSub
-  | MSub
-  | DSub
-  | DrSub
-  | IMult
-  | RMult
-  | MMult
-  | DrMult
-  | IDiv
-  | RDiv
-  | MDiv
-  | DrDiv
+type binop = Surface.Ast.binop
 
 (* When refering to a variable, it can either mean to look at the total value
    or the value added at the current execution step *)
@@ -35,7 +17,6 @@ type formula =
   | Literal of literal
   | Variable of Variable.t * flow_view
   | Binop of binop * formula * formula
-  | RCast of formula (* again related to types, might not be useful *)
 
 type comp = Eq
 
