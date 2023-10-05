@@ -381,8 +381,8 @@ let transform_raising_cond (eqs : event_eq Variable.Map.t) =
     | CRaising evt ->
       let srcd = Variable.Map.find evt eqs in
       { pinned_src =
-          Variable.Map.map (reduce_decide_on evt true) srcd.pinned_src;
-        other_src = reduce_decide_on evt true srcd.other_src;
+          Variable.Map.map (reduce_decide_on evt false) srcd.pinned_src;
+        other_src = reduce_decide_on evt false srcd.other_src;
       }
   in
   Variable.Map.map (fun sourced ->
