@@ -27,6 +27,12 @@ let is_zero (v : t) =
   | VZero | VInt 0 | VRat 0. -> true
   | _ -> false
 
+let is_positive (v : t) =
+  match v with
+  | VZero -> false
+  | VInt i -> i > 0
+  | VRat r -> r > 0.
+
 let is_negative (v : t) =
   match v with
   | VZero -> false
