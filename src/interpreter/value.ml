@@ -1,6 +1,6 @@
 open Internal
 
-type value =
+type t =
   | VZero
   | VInt of int
   | VRat of float
@@ -9,7 +9,7 @@ type value =
 let typing_error () =
   Errors.raise_error "(internal) Mismatching types during interpretation"
 
-let zero_of (t : ValueType.t) : value =
+let zero_of (t : ValueType.t) : t =
   match t with
   | ValueType.TInteger | ValueType.TMoney -> VInt 0
   | ValueType.TRational -> VRat 0.
@@ -17,23 +17,23 @@ let zero_of (t : ValueType.t) : value =
   | ValueType.TDate
   | ValueType.TDuration -> assert false
 
-let zero_of_var (p : Ir.program) (var : Variable.t) : value =
+let zero_of_var (p : Ir.program) (var : Variable.t) : t =
   match Variable.Map.find_opt var p.infos.Surface.Ast.types with
   | None -> Errors.raise_error "(internal) Variable type not found"
   | Some t -> zero_of t
 
-let is_zero (v : value) =
+let is_zero (v : t) =
   match v with
   | VZero | VInt 0 | VRat 0. -> true
   | _ -> false
 
-let is_negative (v : value) =
+let is_negative (v : t) =
   match v with
   | VZero -> false
   | VInt i -> i < 0
   | VRat r -> r < 0.
 
-let add_value (v1 : value) (v2 : value) =
+let add (v1 : t) (v2 : t) =
   match v1, v2 with
   | VZero, v | v, VZero -> v
   | VInt i1, VInt i2 -> VInt (i1 + i2)
@@ -41,13 +41,13 @@ let add_value (v1 : value) (v2 : value) =
   | VRat r, VInt i -> VRat ((float_of_int i) +. r)
   | VRat r1, VRat r2 -> VRat (r1 +. r2)
 
-let minus_value (v : value) =
+let minus (v : t) =
   match v with
   | VZero -> VZero
   | VInt i -> VInt (-i)
   | VRat r -> VRat (-.r)
 
-let mult_value (v1 : value) (v2 : value) =
+let mult (v1 : t) (v2 : t) =
   match v1, v2 with
   | VZero, _ | _, VZero -> VZero
   | VInt i1, VInt i2 -> VInt (i1 * i2)
@@ -55,7 +55,7 @@ let mult_value (v1 : value) (v2 : value) =
   | VRat r, VInt i -> VRat ((float_of_int i) *. r)
   | VRat r1, VRat r2 -> VRat (r1 *. r2)
 
-let div_value (v1 : value) (v2 : value) =
+let div (v1 : t) (v2 : t) =
   match v1, v2 with
   | _, VZero -> Errors.raise_error "Division by zero"
   | VZero, _ -> VZero
@@ -64,7 +64,7 @@ let div_value (v1 : value) (v2 : value) =
   | VRat r, VInt i -> VRat ((float_of_int i) /. r)
   | VRat r1, VRat r2 -> VRat (r1 /. r2)
 
-let min_value (v1 : value) (v2 : value) =
+let min (v1 : t) (v2 : t) =
   match v1, v2 with
   | VZero, VZero -> VZero
   | VZero, VInt i | VInt i, VZero -> VInt (min 0 i)
@@ -78,7 +78,7 @@ type discrete_policy =
   (* | Ceil *)
   | StrictIncrement
 
-let discretise_value ~(mode : discrete_policy) (v : value) =
+let discretise ~(mode : discrete_policy) (v : t) =
   match mode, v with
   | Round, (VZero | VInt _) -> v
   | Round, VRat r ->
@@ -93,12 +93,12 @@ let discretise_value ~(mode : discrete_policy) (v : value) =
     in
     VInt i
 
-let cast_value (t : ValueType.t) (v : value) =
+let cast (t : ValueType.t) (v : t) =
   match t, v with
   | _, VZero
   | (TInteger | TMoney), VInt _
   | TRational, VRat _ -> v
   | TRational, VInt i -> VRat (Float.of_int i)
   | (TInteger | TMoney), VRat _ ->
-    discretise_value ~mode:Round v
+    discretise ~mode:Round v
   | _ -> assert false

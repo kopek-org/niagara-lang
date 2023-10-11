@@ -1,6 +1,7 @@
 open Internal
 open Ir
-open Value
+
+type value = Value.t
 
 (* TODO: replace with Internal.Interface.variable_kind *)
 type var_kind =
@@ -90,7 +91,7 @@ type state = {
   stage_trace : output_line;
 }
 
-let empty_tally = { at_instant = zero_of TMoney; total = zero_of TMoney }
+let empty_tally = { at_instant = Value.zero_of TMoney; total = Value.zero_of TMoney }
 
 let get_event_value (s : state) (e : Variable.t) =
   match Variable.Map.find_opt e s.event_state with
@@ -106,13 +107,13 @@ let get_event_state (p : program) (s : state) =
 
 let get_state_next_value (p : program) (s : state) (v : Variable.t) =
   match Variable.Map.find_opt v s.values with
-  | None -> zero_of_var p v
+  | None -> Value.zero_of_var p v
   | Some vv -> vv.next
 
 let get_state_cumulated_value (p : program) (s : state) (v : Variable.t) =
   match Variable.Map.find_opt v s.values with
-  | None -> zero_of_var p v
-  | Some vv -> add_value (add_value vv.next vv.stage) vv.past_total
+  | None -> Value.zero_of_var p v
+  | Some vv -> Value.add (Value.add vv.next vv.stage) vv.past_total
 
 let update_trace_top (f : count Variable.Map.t -> count Variable.Map.t) (s : state) =
   { s with
@@ -123,7 +124,7 @@ let update_trace_top (f : count Variable.Map.t -> count Variable.Map.t) (s : sta
   }
 
 let add_repartition (s : state) (src : Variable.t) (values : value Variable.Map.t) =
-  let values = Variable.Map.filter (fun _ v -> not (is_zero v)) values in
+  let values = Variable.Map.filter (fun _ v -> not (Value.is_zero v)) values in
   if Variable.Map.is_empty values then s else
     update_trace_top (Variable.Map.update src (function
         | None -> Some { tally = empty_tally; repartition = values }
@@ -137,15 +138,15 @@ let add_next_to_trace (s : state) =
               | None -> Some {
                   tally = {
                     at_instant = vv.next;
-                    total = add_value (add_value vv.next vv.stage) vv.past_total;
+                    total = Value.add (Value.add vv.next vv.stage) vv.past_total;
                   };
                   repartition = Variable.Map.empty
                 }
               | Some c -> Some {
                   c with
                   tally = {
-                    at_instant = add_value vv.next c.tally.at_instant;
-                    total = add_value vv.next c.tally.total;
+                    at_instant = Value.add vv.next c.tally.at_instant;
+                    total = Value.add vv.next c.tally.total;
                   }
                 })
             count)
@@ -170,11 +171,11 @@ let add_val_to_next (p : program) (s : state) (values : value Variable.Map.t) =
         values =
           Variable.Map.update var (function
               | None ->
-                let zero = zero_of_var p var in
+                let zero = Value.zero_of_var p var in
                 Some { next = value;
                        stage = zero;
                        past_total = zero }
-              | Some vv -> Some { vv with next = add_value vv.next value })
+              | Some vv -> Some { vv with next = Value.add vv.next value })
             s.values
       })
     values s
@@ -204,7 +205,7 @@ let add_evt_to_stage (s : state) (evts : event Variable.Map.t) =
    "for each cent in, a cent out" holds, which is not trival and might depend on
    the solution adopted to the more fundamental issue. *)
 
-let literal_value (l : Ir.literal) =
+let literal_value (l : Ir.literal) : value =
   match l with
   | Ir.LInteger i
   | Ir.LMoney i -> VInt i
@@ -212,7 +213,7 @@ let literal_value (l : Ir.literal) =
   | Ir.LDate _
   | Ir.LDuration _ -> assert false
 
-let rec evaluate_eqex (s : state) (src : value) (expr : eqex) =
+let rec evaluate_eqex (s : state) (src : value) (expr : eqex) : value =
   match expr with
   | EZero -> VZero
   | ESrc -> src
@@ -220,14 +221,14 @@ let rec evaluate_eqex (s : state) (src : value) (expr : eqex) =
   | EMult (e1, e2) ->
     let e1 = evaluate_eqex s src e1 in
     let e2 = evaluate_eqex s src e2 in
-    mult_value e1 e2
+    Value.mult e1 e2
   | EAdd (e1, e2) ->
     let e1 = evaluate_eqex s src e1 in
     let e2 = evaluate_eqex s src e2 in
-    add_value e1 e2
+    Value.add e1 e2
   | EMinus e ->
     let e = evaluate_eqex s src e in
-    minus_value e
+    Value.minus e
   | EVar v -> begin
     match Variable.Map.find_opt v s.values with
     | None -> VZero
@@ -257,15 +258,15 @@ let find_event_threshold (p : program) (s : state) (src : Variable.t) (value : v
     | CNorm { src_factor; const } ->
       let const_val = evaluate_eqex s value const in
       let factor_val = evaluate_eqex s value src_factor in
-      if is_zero factor_val then NoLim, minus_value const_val else
+      if Value.is_zero factor_val then NoLim, Value.minus const_val else
         (* Assuming normalized equations have the property of indicating their
            direction regarding the signed difference between their sides. A
            positive (resp. negative) factor mean the difference is increasing
            (resp. decreasing). I.e. "below" the equality it gets closer (resp.
            farther), and above father (resp. closer). *)
-        let diff = div_value const_val factor_val in
+        let diff = Value.div const_val factor_val in
         let diff_is_decreasing =
-          is_negative diff || (is_negative factor_val && is_zero const_val)
+          Value.is_negative diff || (Value.is_negative factor_val && Value.is_zero const_val)
         in
         let lim_app =
           match sem with
@@ -293,11 +294,11 @@ let find_event_threshold (p : program) (s : state) (src : Variable.t) (value : v
            reverting to a "before" state means we need to go strictly below *)
         let diff =
           match lim_app with
-          | Reach -> discretise_value ~mode:Round diff
-          | MustCross -> discretise_value ~mode:StrictIncrement diff
+          | Reach -> Value.discretise ~mode:Round diff
+          | MustCross -> Value.discretise ~mode:StrictIncrement diff
           | NoLim | Diverge -> min_val
         in
-        min_value min_val diff
+        Value.min min_val diff
     )
     p.equations value
 
@@ -310,9 +311,9 @@ let flush_stage (s : state) =
   { s with
     values =
       Variable.Map.map (fun v ->
-          { next = VZero;
-            stage = VZero;
-            past_total = add_value v.past_total v.stage })
+          { next = Value.VZero;
+            stage = Value.VZero;
+            past_total = Value.add v.past_total v.stage })
         s.values;
     event_state =
       Variable.Map.map (fun e ->
@@ -329,12 +330,12 @@ let flush_next (s : state) =
     values =
       Variable.Map.map (fun v ->
           { v with
-            next = zero_of TInteger;
-            stage = add_value v.stage v.next; })
+            next = Value.zero_of TInteger;
+            stage = Value.add v.stage v.next; })
         s.values;
   }
 
-let rec compute_formula (p : program) (s : state) (formula : Ir.formula) =
+let rec compute_formula (p : program) (s : state) (formula : Ir.formula) : value =
   match formula with
   | Literal l -> literal_value l
   | Variable (v, view) ->
@@ -346,24 +347,24 @@ let rec compute_formula (p : program) (s : state) (formula : Ir.formula) =
     let f1 = compute_formula p s f1 in
     let f2 = compute_formula p s f2 in
     match op with
-    | Add -> add_value f1 f2
-    | Sub -> add_value f1 (minus_value f2)
-    | Mult -> mult_value f1 f2
-    | Div -> div_value f1 f2
+    | Add -> Value.add f1 f2
+    | Sub -> Value.add f1 (Value.minus f2)
+    | Mult -> Value.mult f1 f2
+    | Div -> Value.div f1 f2
 
 let compute_redist (type a) (p : program) (s : state) (r : a Ir.RedistTree.redist) (value : value) =
   match r with
   | NoInfo -> Variable.Map.empty
-  | Shares sh -> Variable.Map.map (fun f -> mult_value value (VRat f)) sh
+  | Shares sh -> Variable.Map.map (fun f -> Value.mult value (VRat f)) sh
   | Flats fs ->
     let tsf = Variable.Map.map (compute_formula p s) fs.transfers in
     let blc =
       Variable.Map.mapi (fun v f ->
           let v_val = get_state_next_value p s v in
-          mult_value v_val (VRat f))
+          Value.mult v_val (VRat f))
         fs.balances
     in
-    Variable.Map.union (fun _v r1 r2 -> Some (add_value r1 r2)) tsf blc
+    Variable.Map.union (fun _v r1 r2 -> Some (Value.add r1 r2)) tsf blc
 
 let rec compute_tree : type a. program -> state -> a Ir.RedistTree.tree -> value -> value Variable.Map.t =
   fun p s tree value ->
@@ -374,7 +375,7 @@ let rec compute_tree : type a. program -> state -> a Ir.RedistTree.tree -> value
     List.fold_left (fun res (evt, tree) ->
         if get_event_value s evt then
           let r = compute_tree p s tree value in
-          Variable.Map.union (fun _v r1 r2 -> Some (add_value r1 r2)) res r
+          Variable.Map.union (fun _v r1 r2 -> Some (Value.add r1 r2)) res r
         else res)
       Variable.Map.empty ws
   | Branch { evt; before; after } ->
@@ -383,7 +384,7 @@ let rec compute_tree : type a. program -> state -> a Ir.RedistTree.tree -> value
     else compute_tree p s before value
 
 let compute_trees (p : program) (s : state) (trees : Ir.RedistTree.t) (value : value) =
-  let res_union = Variable.Map.union (fun _v r1 r2 -> Some (add_value r1 r2)) in
+  let res_union = Variable.Map.union (fun _v r1 r2 -> Some (Value.add r1 r2)) in
   match trees with
   | Flat fs ->
     List.fold_left (fun res tree ->
@@ -425,7 +426,7 @@ let compute_events (p : program) (s : state) =
         | EvtComp (Eq, f1, f2) ->
           let f1 = compute_formula p s f1 in
           let f2 = compute_formula p s f2 in
-          let evt_val = not (is_negative (add_value f1 (minus_value f2))) in
+          let evt_val = not (Value.is_negative (Value.add f1 (Value.minus f2))) in
           Variable.Map.add evt evt_val mem, evt_val
         | EvtAnd (_, _)
         | EvtOr (_, _)
@@ -438,7 +439,7 @@ let update_state_values (p : program) (s : state) =
   List.fold_left (fun s var ->
       let src_is_actor = Variable.Map.mem var p.infos.actors in
       let src_typ = Variable.Map.find var p.infos.types in
-      let value = if src_is_actor then zero_of TInteger else get_state_next_value p s var in
+      let value = if src_is_actor then Value.zero_of TInteger else get_state_next_value p s var in
       let redist_res =
         match Variable.Map.find_opt var p.trees with
         | None ->
@@ -446,13 +447,13 @@ let update_state_values (p : program) (s : state) =
             Errors.raise_error "(internal) No tree found for variable redist"
         | Some trees ->
           let res = compute_trees p s trees value in
-          Variable.Map.map (cast_value src_typ) res
+          Variable.Map.map (Value.cast src_typ) res
       in
       let s =
         if src_is_actor then
           (* providing actors are valuated on what they give *)
           let sum =
-            Variable.Map.fold (fun _dest v acc -> add_value acc v) redist_res (zero_of TInteger)
+            Variable.Map.fold (fun _dest v acc -> Value.add acc v) redist_res (Value.zero_of TInteger)
           in
           add_val_to_next p s (Variable.Map.singleton var sum)
         else s
@@ -479,8 +480,8 @@ let compute_action (p : program) (s : state) (action : action) =
     | PoolRep (var, value) ->
       let value_at_threshold = find_event_threshold p s var value in
       let s =
-        if is_negative (minus_value value) then
-          push_rep_action p s var (add_value value (minus_value value_at_threshold))
+        if Value.is_negative (Value.minus value) then
+          push_rep_action p s var (Value.add value (Value.minus value_at_threshold))
         else s
       in
       let s = add_val_to_next p s (Variable.Map.singleton var value_at_threshold) in

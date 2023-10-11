@@ -1,10 +1,8 @@
-open Value
-
-type tally = { at_instant : value; total : value; }
+type tally = { at_instant : Value.t; total : Value.t; }
 
 type count = {
   tally : tally;
-  repartition : value Variable.Map.t;
+  repartition : Value.t Variable.Map.t;
 }
 
 type event_switch =
