@@ -140,7 +140,7 @@ let rec print_eqex fmt (e : eqex) =
   | EZero -> Format.fprintf fmt "0"
   | ESrc -> Format.fprintf fmt "[src]"
   | EConst l -> print_literal fmt l
-  | EMult (f, e) -> Format.fprintf fmt "%g*%a" f print_eqex e
+  | EMult (e1, e2) -> Format.fprintf fmt "%a*%a" print_eqex e1 print_eqex e2
   | EAdd (e1, EMinus e2) ->
     Format.fprintf fmt "@[<hv>(%a@ - %a)@]"
       print_eqex e1 print_eqex e2
@@ -156,9 +156,9 @@ let print_cond fmt (cond : cond) =
   match cond with
   | CRef evt -> Format.fprintf fmt "event %d" (Variable.uid evt)
   | CRaising evt -> Format.fprintf fmt "when %d" (Variable.uid evt)
-  | CNorm (f, e) ->
-    Format.fprintf fmt "@[<hv 1> %g*[src]@ = %a@]"
-      f print_eqex e
+  | CNorm { src_factor; const } ->
+    Format.fprintf fmt "@[<hv 1> %a*[src]@ = %a@]"
+      print_eqex src_factor print_eqex const
   | CEq (e1, e2) ->
     Format.fprintf fmt "@[<hv 1>(%a@ = %a)@]"
       print_eqex e1

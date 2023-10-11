@@ -1,5 +1,9 @@
-(* Will change to a more comprehensive typed values eventually *)
-type value = int
+type value =
+  | VZero
+  | VInt of int
+  | VRat of float
+
+val is_zero : value -> bool
 
 type tally = { at_instant : value; total : value; }
 

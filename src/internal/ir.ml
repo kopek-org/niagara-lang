@@ -229,7 +229,7 @@ type eqex =
   | EZero
   | ESrc
   | EConst of literal
-  | EMult of float * eqex
+  | EMult of eqex * eqex
   | EAdd of eqex * eqex
   | EMinus of eqex
   | EVar of Variable.t
@@ -239,7 +239,10 @@ type cond =
   | CRef of Variable.t
   | CRaising of Variable.t
   | CEq of eqex * eqex
-  | CNorm of float * eqex
+  | CNorm of { (* ax+b *)
+      src_factor : eqex;
+      const : eqex;
+    }
 
 type 'a sourced = {
   pinned_src : 'a Variable.Map.t;
@@ -255,6 +258,15 @@ type program = {
   eval_order : Variable.t list;
   equations : event_eq Variable.Map.t;
 }
+
+let literal_is_zero (l : literal) =
+  match l with
+  | LInteger 0
+  | LRational 0.
+  | LMoney 0 -> true
+  | LDate _
+  | LDuration _ -> assert false
+  | _ -> false
 
 let get_source (src : Variable.t) (sourced : 'a sourced) =
   match Variable.Map.find_opt src sourced.pinned_src with

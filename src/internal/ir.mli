@@ -119,7 +119,7 @@ type eqex =
   | EZero
   | ESrc
   | EConst of literal
-  | EMult of float * eqex
+  | EMult of eqex * eqex
   | EAdd of eqex * eqex
   | EMinus of eqex
   | EVar of Variable.t
@@ -129,9 +129,12 @@ type cond =
   | CRef of Variable.t
   | CRaising of Variable.t
   | CEq of eqex * eqex
-  | CNorm of float * eqex (* [source factor * "constant" expr]. Proper threshold
-                             analysis should produce only normalized
-                             equations. *)
+  | CNorm of {
+      src_factor : eqex;
+      const : eqex;
+    }
+  (* [source factor * "constant" expr]. Proper threshold analysis should produce
+     only normalized equations. *)
 
 type 'a sourced = {
   pinned_src : 'a Variable.Map.t;
@@ -148,6 +151,8 @@ type program = {
   equations : event_eq Variable.Map.t;
 }
 
-(* Fetch the payload associated to the given varaible, defaults to
+val literal_is_zero : literal -> bool
+
+(* Fetch the payload associated to the given variable, defaults to
    [other_src]. *)
 val get_source : Variable.t -> 'a sourced -> 'a

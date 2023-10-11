@@ -8,7 +8,7 @@ type expr =
   | Zero
   | Src
   | Const of literal
-  | Factor of float * expr
+  | Mult of expr * expr
   | Switch of {
       evt : Variable.t;
       before : expr;
@@ -27,7 +27,7 @@ let rec print_expr fmt (expr : expr) =
   | Src -> Format.fprintf fmt "[src]"
   | Zero -> Format.fprintf fmt "0"
   | Const l -> FormatIr.print_literal fmt l
-  | Factor (f, e) -> Format.fprintf fmt "%g*%a" f print_expr e
+  | Mult (e1, e2) -> Format.fprintf fmt "%a*%a" print_expr e1 print_expr e2
   | Switch { evt; before; after } ->
     Format.fprintf fmt "@[<hv 2>(v%d ?@ %a@ : %a)@]"
       (Variable.uid evt)
@@ -58,24 +58,14 @@ let add_expr (expr1 : expr) (expr2 : expr) =
   match expr1, expr2 with
   | Zero , expr
   | expr, Zero -> expr
-  | Factor (p1, Src), Factor (p2, Src) -> Factor (p1 +. p2, Src)
-  | _, Factor (_, Src) -> Add (expr2, expr1)
+  | Mult (e1, Src), Mult (e2, Src) -> Mult (Add (e1, e2), Src)
   | _ -> Add (expr1, expr2)
-
-let rec factor_expr (e : expr) (f : float) =
-  match e with
-  | Zero -> Zero
-  | Src | Const _ | Pre _ | Current _ -> Factor (f, e)
-  | Factor (f', e) -> Factor (f*.f',e)
-  | Add (e1, e2) -> Add (factor_expr e1 f, factor_expr e2 f)
-  | Switch { evt; before; after } ->
-    Switch { evt; before = factor_expr before f; after = factor_expr after f }
 
 let rec apply_expr (lexpr : expr) (xexpr : expr) =
   match lexpr with
   | Zero | Const _ | Pre _ | Current _ -> lexpr
   | Src -> xexpr
-  | Factor (f, le) -> factor_expr (apply_expr le xexpr) f
+  | Mult (le1, le2) -> Mult (apply_expr le1 xexpr, apply_expr le2 xexpr)
   | Add (le1, le2) -> Add (apply_expr le1 xexpr, apply_expr le2 xexpr)
   | Switch { evt; before; after } ->
     Switch { evt; before = apply_expr before xexpr; after = apply_expr after xexpr }
@@ -145,13 +135,7 @@ let rec formula_prov (provs : prov_exprs) (cf : formula) : expr sourced =
     let op e1 e2 =
       match op with
       | Add -> Add (e1, e2)
-      | Mult ->
-        begin match e1, e2 with
-        | Zero, _ | _, Zero -> Zero
-        | Const (LRational f), _ -> Factor (f, e2)
-        | _, Const (LRational f) -> Factor (f, e1)
-        | _ -> assert false
-        end
+      | Mult -> Mult (e1, e2)
       | _ -> assert false
     in
     { pinned_src =
@@ -172,7 +156,7 @@ let redist_prov (type a) (src : Variable.t) (r : a RedistTree.redist) : prov_exp
   | RedistTree.Shares shares ->
     Variable.Map.map (fun f ->
         { pinned_src =
-            Variable.Map.singleton src (Factor (f, Src));
+            Variable.Map.singleton src (Mult (Const (LRational f), Src));
           other_src = Zero;
         })
       shares
@@ -281,11 +265,16 @@ let lift_expr (expr : expr) : eqex BDT.t =
     | Zero -> BDT.NoAction
     | Src -> BDT.Action ESrc
     | Const l -> BDT.Action (EConst l)
-    | Factor (f, e) ->
-      let d = aux decided e in
-      Variable.BDT.map_action decided (fun _k ->
-          Option.fold ~some:(fun e -> BDT.Action (EMult (f, e))) ~none:BDT.NoAction)
-        d
+    | Mult (e1, e2) ->
+      let d1 = aux decided e1 in
+      let d2 = aux decided e2 in
+      Variable.BDT.merge
+        (fun _k e1 e2 ->
+           match e1, e2 with
+           | None, _ | _, None -> None
+           | Some e1, Some e2 -> Some (EMult (e1, e2))
+        )
+        d1 d2
     | Pre v -> Action (EVar v)
     | Current v -> Action (ECurrVar v)
     | Add (e1, e2) ->
@@ -344,7 +333,7 @@ let event_condition (provs : prov_exprs) (event : event) : cond BDT.t sourced =
             | None ->
               match e2 with
               | None -> se1.other_src, se2.other_src
-              | Some e2 -> e2, se1.other_src
+              | Some e2 -> se1.other_src, e2
           in
           let d1 = lift_expr e1 in
           let d2 = lift_expr e2 in
@@ -443,21 +432,36 @@ let transform_raising_cond (eqs : event_eq Variable.Map.t) =
    a time (the closest). *)
 let rec extract_src_factor (e : eqex) =
   match e with
-  | ESrc -> 1., EZero
-  | EZero | EConst _ | EVar _ | ECurrVar _ -> 0., e
-  | EMult (f, e) ->
-    let srcf, e = extract_src_factor e in
-    srcf *. f, if e = EZero then e else EMult (f, e)
+  | ESrc -> EConst (LRational 1.), EZero
+  | EZero | EConst _ | EVar _ | ECurrVar _ -> EZero, e
+  | EMult (e1, e2) ->
+    let sf1, c1 = extract_src_factor e1 in
+    let sf2, c2 = extract_src_factor e2 in
+    (* sf1*sf2X^2 + sf1X*c2 + sf2X*c1 + c1*c2 *)
+    let src_factor =
+      match sf1, sf2 with
+      | EZero, _ -> EMult(sf2, c1)
+      | _, EZero -> EMult(sf1, c2)
+      | _ -> Errors.raise_error "Polynomial expression found in equation"
+    in
+    let const_part =
+      match c1, c2 with
+      | EZero, _ | _, EZero -> EZero
+      | _ -> EMult (c1, c2)
+    in
+    src_factor, const_part
   | EAdd (e1, e2) ->
-    let srcf1, e1 = extract_src_factor e1 in
-    let srcf2, e2 = extract_src_factor e2 in
-    srcf1 +. srcf2,
+    let sf1, e1 = extract_src_factor e1 in
+    let sf2, e2 = extract_src_factor e2 in
+    (if sf1 = EZero then sf2
+    else if sf2 = EZero then sf1
+    else EAdd (sf1, sf2)),
     if e1 = EZero then e2
     else if e2 = EZero then e1
     else EAdd (e1, e2)
   | EMinus e ->
-    let srcf, e = extract_src_factor e in
-    -1. *. srcf,
+    let sf, e = extract_src_factor e in
+    (if sf = EZero then EZero else EMinus sf),
     if e = EZero then e else EMinus e
 
 let normalize_condition (e : cond) =
@@ -466,8 +470,15 @@ let normalize_condition (e : cond) =
   | CEq (e1, e2) ->
     let src_factor1, const_part1 = extract_src_factor e1 in
     let src_factor2, const_part2 = extract_src_factor e2 in
-    let factor = src_factor1 -. src_factor2 in
-    let const_part =
+    let src_factor =
+      match src_factor1, src_factor2 with
+      | EZero, EZero -> EZero
+      | EZero, e -> EMinus e
+      | e, EZero -> e
+      | e1, e2 ->
+        EAdd (e1, EMinus e2)
+    in
+    let const =
       match const_part1, const_part2 with
       | EZero, EZero -> EZero
       | EZero, e -> e
@@ -475,7 +486,7 @@ let normalize_condition (e : cond) =
       | e1, e2 ->
         EAdd (e2, EMinus e1)
     in
-    CNorm (factor, const_part)
+    CNorm { src_factor; const }
 
 let normalize_equations (eqs : event_eq Variable.Map.t) : event_eq Variable.Map.t =
   let eqs = transform_raising_cond eqs in

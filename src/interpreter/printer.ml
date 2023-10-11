@@ -45,10 +45,13 @@ let print_event_switch (desc : program_desc) fmt (evt : event_switch) =
       event_name
 
 let print_value_with_typ (typ : ValueType.t) fmt value =
-  (* TODO unhack *)
-  match typ with
-  | ValueType.TInteger -> FormatIr.print_literal fmt (Ir.LInteger value)
-  | ValueType.TMoney -> FormatIr.print_literal fmt (Ir.LMoney value)
+  match typ, value with
+  | ValueType.TInteger, VZero -> Format.pp_print_int fmt 0
+  | ValueType.TMoney, VZero -> Format.fprintf fmt "0$"
+  | ValueType.TInteger, VInt i -> Format.pp_print_int fmt i
+  | ValueType.TMoney, VInt i -> Format.fprintf fmt "%d.%02d$" (i / 100) (i mod 100)
+  | ValueType.TRational, VZero -> Format.pp_print_float fmt 0.
+  | ValueType.TRational, VRat f -> Format.pp_print_float fmt f
   | _ -> assert false
 
 let print_tally (typ : ValueType.t) fmt tally =
@@ -75,7 +78,7 @@ let print_count (desc : program_desc) fmt (var, count) =
 let print_event_line (desc : program_desc) fmt (evt_swt, count) =
   let count =
     Variable.Map.bindings count
-    |> List.filter (fun (_, c) -> c.tally.at_instant <> 0)
+    |> List.filter (fun (_, c) -> not (Execution.is_zero c.tally.at_instant))
     |> List.sort (fun (v1, c1) (v2, c2) ->
         if Variable.Map.mem v1 c2.repartition then 1
         else if Variable.Map.mem v2 c1.repartition then -1
