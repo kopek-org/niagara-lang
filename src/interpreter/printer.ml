@@ -1,6 +1,7 @@
 open Internal
 open Interface
 open Execution
+open Value
 
 let print_var_with_ctx (desc : program_desc) fmt (v : Variable.t) =
   let var_desc = Variable.Map.find v desc.variables in
@@ -78,7 +79,7 @@ let print_count (desc : program_desc) fmt (var, count) =
 let print_event_line (desc : program_desc) fmt (evt_swt, count) =
   let count =
     Variable.Map.bindings count
-    |> List.filter (fun (_, c) -> not (Execution.is_zero c.tally.at_instant))
+    |> List.filter (fun (_, c) -> not (is_zero c.tally.at_instant))
     |> List.sort (fun (v1, c1) (v2, c2) ->
         if Variable.Map.mem v1 c2.repartition then 1
         else if Variable.Map.mem v2 c1.repartition then -1
