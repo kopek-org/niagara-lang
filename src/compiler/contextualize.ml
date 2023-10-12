@@ -142,7 +142,6 @@ end = struct
       bind_var name (RefPool v) t
       |> bind_name v name
       |> bind_type v ValueType.TMoney
-      |> bind_input v Attributable
     in
     t, v
 
@@ -150,7 +149,9 @@ end = struct
     match kind with
     | Attributable ->
       if typ <> ValueType.TMoney then Errors.raise_error "(internal) Wrong type for pool";
-      register_pool t name
+      let t, v = register_pool t name in
+      let t = bind_input v Attributable t in
+      t, v
     | ReadOnly ->
       let v = Variable.create () in
       let t =
