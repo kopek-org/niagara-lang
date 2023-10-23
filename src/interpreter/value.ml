@@ -66,8 +66,8 @@ let div (v1 : t) (v2 : t) =
   | _, VZero -> Errors.raise_error "Division by zero"
   | VZero, _ -> VZero
   | VInt i1, VInt i2 -> VInt (i1 / i2)
-  | VInt i, VRat r
-  | VRat r, VInt i -> VRat ((float_of_int i) /. r)
+  | VInt i, VRat r -> VRat ((float_of_int i) /. r)
+  | VRat r, VInt i -> VRat (r /. (float_of_int i))
   | VRat r1, VRat r2 -> VRat (r1 /. r2)
 
 let min (v1 : t) (v2 : t) =
@@ -81,14 +81,16 @@ let min (v1 : t) (v2 : t) =
 
 type discrete_policy =
   | Round
-  (* | Ceil *)
+  | Ceil
   | StrictIncrement
 
 let discretise ~(mode : discrete_policy) (v : t) =
   match mode, v with
-  | Round, (VZero | VInt _) -> v
+  | (Round | Ceil), (VZero | VInt _) -> v
   | Round, VRat r ->
     VInt (Int.of_float (Float.round r))
+  | Ceil, VRat r ->
+    VInt (Int.of_float (Float.ceil r))
   | StrictIncrement, VZero -> VInt 1
   | StrictIncrement, VInt i -> VInt (i+1)
   | StrictIncrement, VRat r ->
@@ -108,3 +110,10 @@ let cast (t : ValueType.t) (v : t) =
   | (TInteger | TMoney), VRat _ ->
     discretise ~mode:Round v
   | _ -> assert false
+
+
+let print fmt (v : t) =
+  match v with
+  | VZero -> Format.pp_print_int fmt 0
+  | VInt i -> Format.pp_print_int fmt i
+  | VRat f -> Format.pp_print_float fmt f

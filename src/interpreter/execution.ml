@@ -294,12 +294,11 @@ let find_event_threshold (p : program) (s : state) (src : Variable.t) (value : v
            reverting to a "before" state means we need to go strictly below *)
         let diff =
           match lim_app with
-          | Reach -> Value.discretise ~mode:Round diff
+          | Reach -> Value.discretise ~mode:Ceil diff
           | MustCross -> Value.discretise ~mode:StrictIncrement diff
           | NoLim | Diverge -> min_val
         in
-        Value.min min_val diff
-    )
+        Value.min min_val diff)
     p.equations value
 
 let push_rep_action (p : program) (s : state) (var : Variable.t) (value : value) =
