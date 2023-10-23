@@ -82,7 +82,7 @@ let print_literal fmt (lit : literal) =
   match lit with
   | LitInt i -> Format.fprintf fmt "%d" i
   | LitRational f -> Format.fprintf fmt "%f" f
-  | LitMoney m -> Format.fprintf fmt "%d.%d$" (m/100) (m mod 100)
+  | LitMoney m -> Format.fprintf fmt "%d.%02d$" (m/100) (m mod 100)
   | LitDuration d ->
     let y,m,d = Date.Duration.ymd d in
     Format.fprintf fmt "%d year, %d month, %d day" y m d

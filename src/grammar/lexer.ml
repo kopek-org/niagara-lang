@@ -62,11 +62,12 @@ let parse_money_value s : int option =
     match String.split_on_char '.' s with
     | [intpart] -> Some ((int_of_string intpart) * 100)
     | [intpart; decpart] ->
-        let intpart = int_of_string intpart in
-        let decpart = int_of_string decpart in
-        if decpart < 100 && decpart >= 0
-        then Some (intpart*100 + decpart)
-        else None
+      let declen = String.length decpart in
+      let intpart = int_of_string intpart in
+      let decpart = int_of_string decpart in
+      if declen < 3 && declen >= 0
+      then Some (intpart*100 + decpart)
+      else None
     | _ -> None
   with
   | _ -> None
