@@ -57,14 +57,27 @@ let date = [%sedlex.regexp? integer, '/', integer, '/', integer]
 let comment = [%sedlex.regexp? '#', Star (Compl '\n'), '\n']
 let label = [%sedlex.regexp? '\'', Plus (Compl ('\n' | '\r' | '\'')), '\'']
 
+let parse_money_value s : int option =
+  try (* Catch conversion errors. Should not happen from the lexer itself. *)
+    match String.split_on_char '.' s with
+    | [intpart] -> Some ((int_of_string intpart) * 100)
+    | [intpart; decpart] ->
+        let intpart = int_of_string intpart in
+        let decpart = int_of_string decpart in
+        if decpart < 100 && decpart >= 0
+        then Some (intpart*100 + decpart)
+        else None
+    | _ -> None
+  with
+  | _ -> None
+
 let parse_money_amount s =
   let invalid_arg = Invalid_argument "Lexer.parse_money_amount" in
   match String.split_on_char '$' s with
   | [s;""] -> begin
-      match String.split_on_char '.' s with
-      | [intpart] -> (int_of_string intpart) * 100
-      | [intpart; decpart] -> int_of_string (intpart^decpart)
-      | _ -> raise invalid_arg
+    match parse_money_value s with
+      | Some i -> i
+      | None -> raise invalid_arg
     end
   | _ -> raise invalid_arg
 
