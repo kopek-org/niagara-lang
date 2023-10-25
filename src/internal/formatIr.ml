@@ -21,11 +21,14 @@ let print_variable ~(with_ctx : bool) (infos : Ast.program_infos) fmt (v : Varia
   else
     Format.fprintf fmt "@[<hv 2>%s/%d@]" var_name (Variable.uid v)
 
+let print_money_value fmt (m : int) =
+  Format.fprintf fmt "%d.%02d" (m/100) (m mod 100)
+
 let print_literal fmt (l : literal) =
   match l with
   | LInteger i -> Format.pp_print_int fmt i
   | LRational f ->  R.pp_print fmt f
-  | LMoney i -> Format.fprintf fmt "%d.%02d$" (i/100) (i mod 100)
+  | LMoney i -> Format.fprintf fmt "%a$" print_money_value i
   | LDate d -> CalendarLib.Printer.Date.fprint "%Y/%m/%d" fmt d
   | LDuration d ->
     let y,m,d = Date.Duration.ymd d in
