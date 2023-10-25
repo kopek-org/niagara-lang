@@ -1,6 +1,6 @@
 type literal =
   | LInteger of int
-  | LRational of float
+  | LRational of R.t
   | LMoney of int (* cents *)
   | LDate of Date.Date.t
   | LDuration of Date.Duration.t
@@ -38,9 +38,9 @@ module RedistTree : sig
 
   type 'a redist =
       NoInfo
-    | Shares : float Variable.Map.t -> frac redist
+    | Shares : R.t Variable.Map.t -> frac redist
     | Flats : { transfers : formula Variable.Map.t;
-                balances : float Variable.Map.t }
+                balances : R.t Variable.Map.t }
         -> flat redist
 
   type 'a tree =

@@ -2,7 +2,7 @@ open Surface
 
 type literal =
   | LInteger of int
-  | LRational of float
+  | LRational of R.t
   | LMoney of int
   | LDate of Date.Date.t
   | LDuration of Date.Duration.t
@@ -35,9 +35,9 @@ module RedistTree = struct
 
   type 'a redist =
     | NoInfo
-    | Shares : float Variable.Map.t -> frac redist
+    | Shares : R.t Variable.Map.t -> frac redist
     | Flats : { transfers : formula Variable.Map.t;
-                balances : float Variable.Map.t }
+                balances : R.t Variable.Map.t }
         -> flat redist
 
   type 'a tree =
@@ -69,8 +69,8 @@ module RedistTree = struct
 
   let share (dest : Variable.t) (formula, _ft : formula * ValueType.t) =
     match formula with
-    | Literal (LRational f) ->
-      FracRedist (Shares (Variable.Map.singleton dest f))
+    | Literal (LRational r) ->
+      FracRedist (Shares (Variable.Map.singleton dest r))
     | _ -> Errors.raise_error "Expected formula to be a rational literal"
 
   let flat (dest : Variable.t) (formula, ftype : formula * ValueType.t) =
@@ -124,7 +124,7 @@ module RedistTree = struct
       let s =
         Variable.Map.union (fun _dest s1 s2 ->
             (* TODO warning *)
-            Some (s1 +. s2))
+            Some R.(s1 + s2))
           s1 s2
       in
       Shares s
@@ -136,7 +136,7 @@ module RedistTree = struct
       in
       let balances =
         Variable.Map.union (fun _dest f1 f2 ->
-          Some (f1 +. f2))
+          Some R.(f1 + f2))
           f1.balances f2.balances
       in
       Flats { transfers; balances }
@@ -262,8 +262,8 @@ type program = {
 let literal_is_zero (l : literal) =
   match l with
   | LInteger 0
-  | LRational 0.
   | LMoney 0 -> true
+  | LRational r -> R.(zero = r)
   | LDate _
   | LDuration _ -> assert false
   | _ -> false

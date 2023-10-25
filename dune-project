@@ -17,7 +17,8 @@
     (logs (>= 0.7.0))
     (fmt (>= 0.8.9))
     (cmdliner (>= 1.0.4))
-    ocamlgraph)
+    ocamlgraph
+    zarith)
 )
 
 (package

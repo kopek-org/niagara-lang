@@ -24,7 +24,7 @@ let print_variable ~(with_ctx : bool) (infos : Ast.program_infos) fmt (v : Varia
 let print_literal fmt (l : literal) =
   match l with
   | LInteger i -> Format.pp_print_int fmt i
-  | LRational f ->  Format.pp_print_float fmt f
+  | LRational f ->  R.pp_print fmt f
   | LMoney i -> Format.fprintf fmt "%d.%02d$" (i/100) (i mod 100)
   | LDate d -> CalendarLib.Printer.Date.fprint "%Y/%m/%d" fmt d
   | LDuration d ->
@@ -75,7 +75,7 @@ let print_redist (type a) (infos : Ast.program_infos) fmt (r : a RedistTree.redi
   | Shares sh ->
     Format.fprintf fmt "@[<hv>";
     Variable.Map.iter (fun v s ->
-        Format.fprintf fmt "%.2f%% -> %a@ " (s*.100.) (print_variable ~with_ctx:true infos) v)
+        Format.fprintf fmt "%a%% -> %a@ " R.pp_print R.(s * ~$100) (print_variable ~with_ctx:true infos) v)
       sh;
     Format.fprintf fmt "@]"
   | Flats fs ->
@@ -86,8 +86,8 @@ let print_redist (type a) (infos : Ast.program_infos) fmt (r : a RedistTree.redi
           (print_variable ~with_ctx:true infos) v)
       fs.transfers;
     Variable.Map.iter (fun v f ->
-        Format.fprintf fmt "%.2f%% as deficit -> %a@ "
-          (f*.100.)
+        Format.fprintf fmt "%a%% as deficit -> %a@ "
+          R.pp_print R.(f * ~$100)
           (print_variable ~with_ctx:true infos) v)
       fs.balances;
     Format.fprintf fmt "@]"

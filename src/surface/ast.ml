@@ -12,7 +12,7 @@ type contextualized = private CTX
 
 type literal =
   | LitInt of int
-  | LitRational of float
+  | LitRational of R.t
   | LitMoney of int
   | LitDate of Date.Date.t
   | LitDuration of Date.Duration.t

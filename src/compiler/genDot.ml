@@ -52,7 +52,7 @@ let dot_of_redist (type a) p g (r : a Ir.RedistTree.redist) =
   | Shares sh ->
     Variable.Map.fold (fun v f es ->
         let dest = add_var p g v in
-        let attr = [ label (Format.asprintf "%.2f%%" (f*.100.)) ] in
+        let attr = [ label (Format.asprintf "%a%%" R.pp_print R.(f * ~$100)) ] in
         (dest, attr)::es)
       sh []
   | Flats fs ->
@@ -65,7 +65,7 @@ let dot_of_redist (type a) p g (r : a Ir.RedistTree.redist) =
     in
     Variable.Map.fold (fun dest f es ->
         let dest = add_var p g dest in
-        let attr = [ label (Format.asprintf "deficit %g%%" (f *. 100.)) ] in
+        let attr = [ label (Format.asprintf "deficit %a%%" R.pp_print R.(f * ~$100)) ] in
         (dest, attr)::es)
       fs.balances es
 

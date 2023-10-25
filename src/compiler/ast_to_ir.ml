@@ -264,16 +264,16 @@ let resolve_projection_context acc ~context ~refinement =
 (* Used only to compute constant quoteparts *)
 let rec reduce_formula (f : formula) =
   let to_rationnal = function
-    | Literal (LInteger f) -> Some (float_of_int f)
+    | Literal (LInteger f) -> Some R.(~$f)
     | Literal (LRational f) -> Some f
     | _ -> None
   in
   let lit_of_op op f1 f2 =
     let r = match (op : binop) with
-    | Add -> f1 +. f2
-    | Sub -> f1 -. f2
-    | Mult -> f1 *. f2
-    | Div -> f1 /. f2
+    | Add -> R.(f1 + f2)
+    | Sub -> R.(f1 - f2)
+    | Mult -> R.(f1 * f2)
+    | Div -> R.(f1 / f2)
     in
     Literal (LRational r)
   in
@@ -560,8 +560,8 @@ let level_fractional_attribution (acc : Acc.t) (src : Variable.t) (t : RedistTre
   | Fractions { base_shares; balance; branches } ->
     let redist_part (r : RedistTree.frac RedistTree.redist) =
       match r with
-      | NoInfo -> 0.
-      | Shares sh -> Variable.Map.fold (fun _v -> (+.)) sh 0.
+      | NoInfo -> R.zero
+      | Shares sh -> Variable.Map.fold (fun _v -> R.(+)) sh R.zero
     in
     let rec branch_part known default (tree : RedistTree.frac RedistTree.tree) =
       match tree with
@@ -569,7 +569,7 @@ let level_fractional_attribution (acc : Acc.t) (src : Variable.t) (t : RedistTre
       | Redist r ->
         Variable.BDT.map_action known (fun _k -> function
             | None -> assert false
-            | Some part -> Action (part -. redist_part r))
+            | Some part -> Action R.(part - redist_part r))
           default
       | Branch { evt; before; after } ->
         let default = Variable.BDT.add_decision evt default in
@@ -581,7 +581,7 @@ let level_fractional_attribution (acc : Acc.t) (src : Variable.t) (t : RedistTre
       Errors.raise_error "(internal) Default tree already computed"
     | BalanceVars balance ->
       let base_part = redist_part base_shares in
-      let default_redist = Variable.BDT.Action (1. -. base_part) in
+      let default_redist = Variable.BDT.Action R.(one - base_part) in
       let branches_parts =
         List.fold_left (branch_part Variable.Map.empty) default_redist branches
       in
@@ -600,10 +600,10 @@ let level_fractional_attribution (acc : Acc.t) (src : Variable.t) (t : RedistTre
         Variable.BDT.fold branches_parts
           ~noaction:(fun _k -> RedistTree.Nothing, RedistTree.Nothing)
           ~action:(fun _k part ->
-              if part > 0.
+              if R.(part > zero)
               then make_default_redist part, Nothing
-              else if part < 0.
-              then Nothing, make_deficit_redist (-. part)
+              else if R.(part < zero)
+              then Nothing, make_deficit_redist R.(~- part)
               else RedistTree.Nothing, RedistTree.Nothing)
           ~decision:(fun _k evt (bdft, bdfc) (adft, adfc) ->
               let branch_or_nothing before after =

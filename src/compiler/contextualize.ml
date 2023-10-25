@@ -768,7 +768,7 @@ let advance acc (a : advance_decl) =
   let build_redist dest =
     Redists [ WithVar (Surface.Ast.redistribution
                         (Part (Surface.Ast.formula
-                           (Literal (LitRational 1.)))), Some dest)]
+                           (Literal (LitRational R.one)))), Some dest)]
   in
   (* operation with sources output and adv_pool will be swaped later *)
   let redirection = {

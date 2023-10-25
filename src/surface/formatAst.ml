@@ -81,7 +81,7 @@ let print_ctx_variable infos fmt ((v, proj) : contextualized_variable) =
 let print_literal fmt (lit : literal) =
   match lit with
   | LitInt i -> Format.fprintf fmt "%d" i
-  | LitRational f -> Format.fprintf fmt "%f" f
+  | LitRational f -> R.pp_print fmt f
   | LitMoney m -> Format.fprintf fmt "%d.%02d$" (m/100) (m mod 100)
   | LitDuration d ->
     let y,m,d = Date.Duration.ymd d in

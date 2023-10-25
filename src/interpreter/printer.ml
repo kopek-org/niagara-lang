@@ -52,7 +52,7 @@ let print_value_with_typ (typ : ValueType.t) fmt value =
   | ValueType.TInteger, VInt i -> Format.pp_print_int fmt i
   | ValueType.TMoney, VInt i -> Format.fprintf fmt "%d.%02d$" (i / 100) (i mod 100)
   | ValueType.TRational, VZero -> Format.pp_print_float fmt 0.
-  | ValueType.TRational, VRat f -> Format.pp_print_float fmt f
+  | ValueType.TRational, VRat r -> R.pp_print fmt r
   | _ -> assert false
 
 let print_tally (typ : ValueType.t) fmt tally =

@@ -84,7 +84,7 @@ let parse_money_amount s =
 
 let parse_percent s =
   match String.split_on_char '%' s with
-  | [s;""] -> (float_of_string s) /. 100.
+  | [s;""] -> R.((of_string s) / ~$100)
   | _ -> raise (Invalid_argument "Lexer.parse_percent")
 
 let parse_date s =
@@ -105,7 +105,7 @@ let rec code ~is_in_text lexbuf =
   | Plus white_space | comment -> code ~is_in_text lexbuf
   | date -> DATE (parse_date (Utf8.lexeme lexbuf))
   | (integer | decimal), '%' -> FLOAT (parse_percent (Utf8.lexeme lexbuf))
-  | decimal -> FLOAT (float_of_string (Utf8.lexeme lexbuf))
+  | decimal -> FLOAT (R.of_string (Utf8.lexeme lexbuf))
   | integer -> INT (int_of_string (Utf8.lexeme lexbuf))
   | money -> MONEY (parse_money_amount (Utf8.lexeme lexbuf))
   | label -> LABEL (strip_enclosing_chars (Utf8.lexeme lexbuf))

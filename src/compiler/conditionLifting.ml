@@ -432,7 +432,7 @@ let transform_raising_cond (eqs : event_eq Variable.Map.t) =
    a time (the closest). *)
 let rec extract_src_factor (e : eqex) =
   match e with
-  | ESrc -> EConst (LRational 1.), EZero
+  | ESrc -> EConst (LRational R.one), EZero
   | EZero | EConst _ | EVar _ | ECurrVar _ -> EZero, e
   | EMult (e1, e2) ->
     let sf1, c1 = extract_src_factor e1 in
@@ -507,6 +507,7 @@ let compute_threshold_equations (prog : program) =
   let tprovs = prov_transitivity provs in
   let eqs = condition_equations prog tprovs in
   let eqs = normalize_equations eqs in
+  Format.eprintf "%a@." FormatIr.print_conditions eqs;
   {
     infos = prog.infos;
     trees = prog.trees;

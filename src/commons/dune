@@ -9,5 +9,6 @@
     fmt
     logs
     logs.fmt
+    zarith
   )
 )
