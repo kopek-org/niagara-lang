@@ -507,7 +507,6 @@ let compute_threshold_equations (prog : program) =
   let tprovs = prov_transitivity provs in
   let eqs = condition_equations prog tprovs in
   let eqs = normalize_equations eqs in
-  Format.eprintf "%a@." FormatIr.print_conditions eqs;
   {
     infos = prog.infos;
     trees = prog.trees;

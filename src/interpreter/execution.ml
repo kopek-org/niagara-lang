@@ -91,7 +91,7 @@ type state = {
   stage_trace : output_line;
 }
 
-let empty_tally = { at_instant = Value.zero_of TMoney; total = Value.zero_of TMoney }
+let empty_tally = { at_instant = Value.zero; total = Value.zero }
 
 let get_event_value (s : state) (e : Variable.t) =
   match Variable.Map.find_opt e s.event_state with
@@ -105,14 +105,14 @@ let get_event_state (p : program) (s : state) =
       | Some vv -> vv.stage)
     p.equations
 
-let get_state_next_value (p : program) (s : state) (v : Variable.t) =
+let get_state_next_value (s : state) (v : Variable.t) =
   match Variable.Map.find_opt v s.values with
-  | None -> Value.zero_of_var p v
+  | None -> Value.zero
   | Some vv -> vv.next
 
-let get_state_cumulated_value (p : program) (s : state) (v : Variable.t) =
+let get_state_cumulated_value (s : state) (v : Variable.t) =
   match Variable.Map.find_opt v s.values with
-  | None -> Value.zero_of_var p v
+  | None -> Value.zero
   | Some vv -> Value.add (Value.add vv.next vv.stage) vv.past_total
 
 let update_trace_top (f : count Variable.Map.t -> count Variable.Map.t) (s : state) =
@@ -165,13 +165,13 @@ let add_events_to_trace (s : state) (events : event Variable.Map.t) =
   in
   { s with stage_trace }
 
-let add_val_to_next (p : program) (s : state) (values : value Variable.Map.t) =
+let add_val_to_next (s : state) (values : value Variable.Map.t) =
   Variable.Map.fold (fun var value s ->
       { s with
         values =
           Variable.Map.update var (function
               | None ->
-                let zero = Value.zero_of_var p var in
+                let zero = Value.zero in
                 Some { next = value;
                        stage = zero;
                        past_total = zero }
@@ -208,14 +208,14 @@ let add_evt_to_stage (s : state) (evts : event Variable.Map.t) =
 let literal_value (l : Ir.literal) : value =
   match l with
   | Ir.LInteger i
-  | Ir.LMoney i -> VInt i
+  | Ir.LMoney i -> VRat R.(~$i)(* VInt i *)
   | Ir.LRational r -> VRat r
   | Ir.LDate _
   | Ir.LDuration _ -> assert false
 
 let rec evaluate_eqex (s : state) (src : value) (expr : eqex) : value =
   match expr with
-  | EZero -> VZero
+  | EZero -> VRat R.zero (* VZero *)
   | ESrc -> src
   | EConst l -> literal_value l
   | EMult (e1, e2) ->
@@ -231,12 +231,12 @@ let rec evaluate_eqex (s : state) (src : value) (expr : eqex) : value =
     Value.minus e
   | EVar v -> begin
     match Variable.Map.find_opt v s.values with
-    | None -> VZero
+    | None -> VRat R.zero (* VZero *)
     | Some vv -> vv.past_total
   end
   | ECurrVar v ->
     match Variable.Map.find_opt v s.values with
-    | None -> VZero
+    | None -> VRat R.zero (* VZero *)
     | Some vv -> vv.stage
 
 (* Regarding event threshold crossing, we must be able to identify on which side
@@ -310,8 +310,8 @@ let flush_stage (s : state) =
   { s with
     values =
       Variable.Map.map (fun v ->
-          { next = Value.VZero;
-            stage = Value.VZero;
+          { next = Value.VRat R.zero (* Value.VZero *);
+            stage = Value.VRat R.zero (* Value.VZero *);
             past_total = Value.add v.past_total v.stage })
         s.values;
     event_state =
@@ -329,7 +329,7 @@ let flush_next (s : state) =
     values =
       Variable.Map.map (fun v ->
           { v with
-            next = Value.zero_of TInteger;
+            next = Value.zero;
             stage = Value.add v.stage v.next; })
         s.values;
   }
@@ -339,8 +339,8 @@ let rec compute_formula (p : program) (s : state) (formula : Ir.formula) : value
   | Literal l -> literal_value l
   | Variable (v, view) ->
     begin match view with
-    | AtInstant -> get_state_next_value p s v
-    | Cumulated -> get_state_cumulated_value p s v
+    | AtInstant -> get_state_next_value s v
+    | Cumulated -> get_state_cumulated_value s v
     end
   | Binop (op, f1, f2) ->
     let f1 = compute_formula p s f1 in
@@ -359,7 +359,7 @@ let compute_redist (type a) (p : program) (s : state) (r : a Ir.RedistTree.redis
     let tsf = Variable.Map.map (compute_formula p s) fs.transfers in
     let blc =
       Variable.Map.mapi (fun v f ->
-          let v_val = get_state_next_value p s v in
+          let v_val = get_state_next_value s v in
           Value.mult v_val (VRat f))
         fs.balances
     in
@@ -437,28 +437,25 @@ let compute_events (p : program) (s : state) =
 let update_state_values (p : program) (s : state) =
   List.fold_left (fun s var ->
       let src_is_actor = Variable.Map.mem var p.infos.actors in
-      let src_typ = Variable.Map.find var p.infos.types in
-      let value = if src_is_actor then Value.zero_of TInteger else get_state_next_value p s var in
+      let value = if src_is_actor then Value.zero else get_state_next_value s var in
       let redist_res =
         match Variable.Map.find_opt var p.trees with
         | None ->
           if Variable.Map.mem var p.infos.actors then Variable.Map.empty else
             Errors.raise_error "(internal) No tree found for variable redist"
-        | Some trees ->
-          let res = compute_trees p s trees value in
-          Variable.Map.map (Value.cast src_typ) res
+        | Some trees -> compute_trees p s trees value
       in
       let s =
         if src_is_actor then
           (* providing actors are valuated on what they give *)
           let sum =
-            Variable.Map.fold (fun _dest v acc -> Value.add acc v) redist_res (Value.zero_of TInteger)
+            Variable.Map.fold (fun _dest v acc -> Value.add acc v) redist_res Value.zero
           in
-          add_val_to_next p s (Variable.Map.singleton var sum)
+          add_val_to_next s (Variable.Map.singleton var sum)
         else s
       in
       let s = add_repartition s var redist_res in
-      add_val_to_next p s redist_res)
+      add_val_to_next s redist_res)
     s p.eval_order
 
 (* This function uses equations to compute flipped events.
@@ -483,7 +480,7 @@ let compute_action (p : program) (s : state) (action : action) =
           push_rep_action p s var (Value.add value (Value.minus value_at_threshold))
         else s
       in
-      let s = add_val_to_next p s (Variable.Map.singleton var value_at_threshold) in
+      let s = add_val_to_next s (Variable.Map.singleton var value_at_threshold) in
       update_state_values p s
   in
   let s = flush_next s in

@@ -47,13 +47,11 @@ let print_event_switch (desc : program_desc) fmt (evt : event_switch) =
 
 let print_value_with_typ (typ : ValueType.t) fmt value =
   match typ, value with
-  | ValueType.TInteger, VZero -> Format.pp_print_int fmt 0
-  | ValueType.TMoney, VZero -> Format.fprintf fmt "0$"
-  | ValueType.TInteger, VInt i -> Format.pp_print_int fmt i
-  | ValueType.TMoney, VInt i -> Format.fprintf fmt "%d.%02d$" (i / 100) (i mod 100)
-  | ValueType.TRational, VZero -> Format.pp_print_float fmt 0.
-  | ValueType.TRational, VRat r -> R.pp_print fmt r
-  | _ -> assert false
+  | TInteger, VRat r -> R.print_dec_repr fmt R.(to_dec_repr r)
+  | TMoney, VRat r ->
+    Format.fprintf fmt "%a$" R.print_dec_repr R.(to_dec_repr (r / ~$100))
+  | TRational, VRat r -> R.pp_print fmt r
+  | (TDate | TDuration | TEvent), _ -> assert false
 
 let print_tally (typ : ValueType.t) fmt tally =
   Format.fprintf fmt "{ %a, %a }"
