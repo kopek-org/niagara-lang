@@ -208,14 +208,14 @@ let add_evt_to_stage (s : state) (evts : event Variable.Map.t) =
 let literal_value (l : Ir.literal) : value =
   match l with
   | Ir.LInteger i
-  | Ir.LMoney i -> VRat R.(~$i)(* VInt i *)
+  | Ir.LMoney i -> VRat R.(~$i)
   | Ir.LRational r -> VRat r
   | Ir.LDate _
   | Ir.LDuration _ -> assert false
 
 let rec evaluate_eqex (s : state) (src : value) (expr : eqex) : value =
   match expr with
-  | EZero -> VRat R.zero (* VZero *)
+  | EZero -> VRat R.zero
   | ESrc -> src
   | EConst l -> literal_value l
   | EMult (e1, e2) ->
@@ -231,12 +231,12 @@ let rec evaluate_eqex (s : state) (src : value) (expr : eqex) : value =
     Value.minus e
   | EVar v -> begin
     match Variable.Map.find_opt v s.values with
-    | None -> VRat R.zero (* VZero *)
+    | None -> VRat R.zero
     | Some vv -> vv.past_total
   end
   | ECurrVar v ->
     match Variable.Map.find_opt v s.values with
-    | None -> VRat R.zero (* VZero *)
+    | None -> VRat R.zero
     | Some vv -> vv.stage
 
 (* Regarding event threshold crossing, we must be able to identify on which side
@@ -265,13 +265,13 @@ let find_event_threshold (p : program) (s : state) (src : Variable.t) (value : v
            (resp. decreasing). I.e. "below" the equality it gets closer (resp.
            farther), and above father (resp. closer). *)
         let diff = Value.div const_val factor_val in
-        let diff_is_decreasing =
-          Value.is_negative diff || (Value.is_negative factor_val && Value.is_zero const_val)
-        in
         let lim_app =
           match sem with
-          | LimLt -> if diff_is_decreasing then Diverge else Reach
-          | LimGe -> if diff_is_decreasing then MustCross else Diverge
+          | LimLt -> if Value.is_positive diff then Reach else Diverge
+          | LimGe ->
+            if Value.is_positive diff
+            || (Value.is_negative factor_val && Value.is_zero const_val)
+            then MustCross else Diverge
         in
         lim_app, diff
     | _ -> Errors.raise_error "(internal) equation should have been normalized"
