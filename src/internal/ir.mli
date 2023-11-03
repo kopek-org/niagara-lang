@@ -117,7 +117,6 @@ end
 
 type eqex =
   | EZero
-  | ESrc
   | EConst of literal
   | EMult of eqex * eqex
   | EAdd of eqex * eqex
@@ -125,15 +124,11 @@ type eqex =
   | EVar of Variable.t
   | ECurrVar of Variable.t
 
-type cond =
-  | CRef of Variable.t
-  | CRaising of Variable.t
-  | CEq of eqex * eqex
-  | CNorm of {
-      src_factor : eqex;
-      const : eqex;
-    }
-  (* [source factor * "constant" expr]. Proper threshold analysis should produce
+type nf_expr = {
+  src_factor : eqex;
+  const : eqex;
+}
+(* [source factor * "constant" expr]. Proper threshold analysis should produce
      only normalized equations. *)
 
 type 'a sourced = {
@@ -141,7 +136,7 @@ type 'a sourced = {
   other_src : 'a;
 }
 
-type event_eq = cond Variable.BDT.t sourced
+type event_eq = nf_expr sourced Variable.BDT.t
 
 type program = {
   infos : Surface.Ast.program_infos;
@@ -156,3 +151,8 @@ val literal_is_zero : literal -> bool
 (* Fetch the payload associated to the given variable, defaults to
    [other_src]. *)
 val get_source : Variable.t -> 'a sourced -> 'a
+
+val map_source : ('a -> 'b) -> 'a sourced -> 'b sourced
+
+(* Merge two sourced structures, sources default to [other_src] *)
+val merge_sources : ('a -> 'b -> 'c) -> 'a sourced -> 'b sourced -> 'c sourced

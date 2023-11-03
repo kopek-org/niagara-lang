@@ -216,7 +216,6 @@ let literal_value (l : Ir.literal) : value =
 let rec evaluate_eqex (s : state) (src : value) (expr : eqex) : value =
   match expr with
   | EZero -> VRat R.zero
-  | ESrc -> src
   | EConst l -> literal_value l
   | EMult (e1, e2) ->
     let e1 = evaluate_eqex s src e1 in
@@ -253,35 +252,32 @@ type limit_approach =
   | NoLim (* no movement, or unreachable threshold *)
 
 let find_event_threshold (p : program) (s : state) (src : Variable.t) (value : value) =
-  let compute_equation_diff (eq : cond) (sem : eq_sem) : limit_approach * value =
-    match eq with
-    | CNorm { src_factor; const } ->
-      let const_val = evaluate_eqex s value const in
-      let factor_val = evaluate_eqex s value src_factor in
-      if Value.is_zero factor_val then NoLim, Value.minus const_val else
-        (* Assuming normalized equations have the property of indicating their
-           direction regarding the signed difference between their sides. A
-           positive (resp. negative) factor mean the difference is increasing
-           (resp. decreasing). I.e. "below" the equality it gets closer (resp.
-           farther), and above father (resp. closer). *)
-        let diff = Value.div const_val factor_val in
-        let lim_app =
-          match sem with
-          | LimLt -> if Value.is_positive diff then Reach else Diverge
-          | LimGe ->
-            if Value.is_positive diff
-            || (Value.is_negative factor_val && Value.is_zero const_val)
-            then MustCross else Diverge
-        in
-        lim_app, diff
-    | _ -> Errors.raise_error "(internal) equation should have been normalized"
+  let compute_equation_diff (eq : nf_expr) (sem : eq_sem) : limit_approach * value =
+    let const_val = evaluate_eqex s value eq.const in
+    let factor_val = evaluate_eqex s value eq.src_factor in
+    if Value.is_zero factor_val then NoLim, Value.minus const_val else
+      (* Assuming normalized equations have the property of indicating their
+         direction regarding the signed difference between their sides. A
+         positive (resp. negative) factor mean the difference is increasing
+         (resp. decreasing). I.e. "below" the equality it gets closer (resp.
+         farther), and above father (resp. closer). *)
+      let diff = Value.div const_val factor_val in
+      let lim_app =
+        match sem with
+        | LimLt -> if Value.is_positive diff then Reach else Diverge
+        | LimGe ->
+          if Value.is_positive diff
+          || (Value.is_negative factor_val && Value.is_zero const_val)
+          then MustCross else Diverge
+      in
+      lim_app, diff
   in
   let event_state = get_event_state p s in
-  Variable.Map.fold (fun evt sourced min_val ->
-      let deq = get_source src sourced in
-      match Variable.BDT.find event_state deq with
+  Variable.Map.fold (fun evt bdd min_val ->
+      match Variable.BDT.find event_state bdd with
       | None -> min_val
-      | Some eq ->
+      | Some sourced ->
+        let eq = get_source src sourced in
         let sem =
           if Variable.Map.find evt event_state
           then LimGe

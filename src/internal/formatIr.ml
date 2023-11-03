@@ -141,7 +141,6 @@ let print_t (infos : Ast.program_infos) fmt (t : RedistTree.t) =
 let rec print_eqex fmt (e : eqex) =
   match e with
   | EZero -> Format.fprintf fmt "0"
-  | ESrc -> Format.fprintf fmt "[src]"
   | EConst l -> print_literal fmt l
   | EMult (e1, e2) -> Format.fprintf fmt "%a*%a" print_eqex e1 print_eqex e2
   | EAdd (e1, EMinus e2) ->
@@ -155,17 +154,9 @@ let rec print_eqex fmt (e : eqex) =
   | EVar v -> Format.fprintf fmt "v%d" (Variable.uid v)
   | ECurrVar v -> Format.fprintf fmt "v%d'" (Variable.uid v)
 
-let print_cond fmt (cond : cond) =
-  match cond with
-  | CRef evt -> Format.fprintf fmt "event %d" (Variable.uid evt)
-  | CRaising evt -> Format.fprintf fmt "when %d" (Variable.uid evt)
-  | CNorm { src_factor; const } ->
-    Format.fprintf fmt "@[<hv 1> %a*[src]@ = %a@]"
-      print_eqex src_factor print_eqex const
-  | CEq (e1, e2) ->
-    Format.fprintf fmt "@[<hv 1>(%a@ = %a)@]"
-      print_eqex e1
-      print_eqex e2
+let print_nf_eq fmt (eq : nf_expr) =
+  Format.fprintf fmt "@[<hv 1> %a*[src]@ = %a@]"
+      print_eqex eq.src_factor print_eqex eq.const
 
 let rec print_bdd (pp : Format.formatter -> 'a -> unit) fmt (bdd : 'a Variable.BDT.t) =
   match bdd with
@@ -177,15 +168,17 @@ let rec print_bdd (pp : Format.formatter -> 'a -> unit) fmt (bdd : 'a Variable.B
 
 let print_conditions fmt (eqs : event_eq Variable.Map.t) =
   Format.pp_open_vbox fmt 0;
-  Variable.Map.iter (fun dest eqs ->
-      Format.fprintf fmt "@[<hv 2>eqs %d:@ " (Variable.uid dest);
-      Variable.Map.iter (fun src bdd ->
-          Format.fprintf fmt "@[<hv 2>from %d:@ %a@],@ "
-            (Variable.uid src)
-            (print_bdd print_cond) bdd)
-        eqs.pinned_src;
-      Format.fprintf fmt "from another:@ %a" (print_bdd print_cond) eqs.other_src;
-      Format.fprintf fmt "@]@,")
+  Variable.Map.iter (fun dest bdd ->
+      print_bdd (fun fmt eqs ->
+          Format.fprintf fmt "@[<hv 2>eqs %d:@ " (Variable.uid dest);
+          Variable.Map.iter (fun src eq ->
+              Format.fprintf fmt "@[<hv 2>from %d:@ %a@],@ "
+                (Variable.uid src)
+                print_nf_eq eq)
+            eqs.pinned_src;
+          Format.fprintf fmt "from another:@ %a" print_nf_eq eqs.other_src;
+          Format.fprintf fmt "@]@,")
+        fmt bdd)
     eqs;
   Format.fprintf fmt "@]@."
 

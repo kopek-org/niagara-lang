@@ -15,6 +15,8 @@ val uid : t -> int
 (** [unique_anon_name s] returns a unique variable name with prefix [s] *)
 val unique_anon_name : string -> string
 
+val equal : t -> t -> bool
+
 module Map : Map.S with type key = t
 
 module Set : Set.S with type elt = t

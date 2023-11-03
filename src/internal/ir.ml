@@ -227,7 +227,6 @@ end
 
 type eqex =
   | EZero
-  | ESrc
   | EConst of literal
   | EMult of eqex * eqex
   | EAdd of eqex * eqex
@@ -235,21 +234,17 @@ type eqex =
   | EVar of Variable.t
   | ECurrVar of Variable.t
 
-type cond =
-  | CRef of Variable.t
-  | CRaising of Variable.t
-  | CEq of eqex * eqex
-  | CNorm of { (* ax+b *)
-      src_factor : eqex;
-      const : eqex;
-    }
+type nf_expr = { (* ax+b *)
+  src_factor : eqex;
+  const : eqex;
+}
 
 type 'a sourced = {
   pinned_src : 'a Variable.Map.t;
   other_src : 'a;
 }
 
-type event_eq = cond Variable.BDT.t sourced
+type event_eq = nf_expr sourced Variable.BDT.t
 
 type program = {
   infos : Ast.program_infos;
@@ -272,3 +267,20 @@ let get_source (src : Variable.t) (sourced : 'a sourced) =
   match Variable.Map.find_opt src sourced.pinned_src with
   | None -> sourced.other_src
   | Some e -> e
+
+let map_source (f : 'a -> 'b) (s : 'a sourced) =
+  { pinned_src = Variable.Map.map f s.pinned_src;
+    other_src = f s.other_src }
+
+let merge_sources (f : 'a -> 'b -> 'c) (s1 : 'a sourced) (s2 : 'b sourced) =
+  let pinned_src =
+    Variable.Map.merge (fun _v e1 e2 ->
+        match e1, e2 with
+        | None, None -> None
+        | Some e1, None -> Some (f e1 s2.other_src)
+        | None, Some e2 -> Some (f s1.other_src e2)
+        | Some e1, Some e2 -> Some (f e1 e2))
+      s1.pinned_src s2.pinned_src
+  in
+  let other_src = f s1.other_src s2.other_src in
+  { pinned_src; other_src }

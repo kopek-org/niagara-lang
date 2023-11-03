@@ -23,3 +23,5 @@ let unique_anon_name =
   fun name ->
     let i = !c in incr c;
     name ^ "_" ^ string_of_int i
+
+let equal = (=)

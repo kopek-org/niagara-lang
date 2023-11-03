@@ -6,7 +6,6 @@ open Ir
    places. *)
 type expr =
   | Zero
-  | Src
   | Const of literal
   | Mult of expr * expr
   | Switch of {
@@ -20,11 +19,10 @@ type expr =
 
 module BDT = Variable.BDT
 
-type prov_exprs = expr sourced Variable.Map.t
+type prov_exprs = expr Variable.Map.t
 
 let rec print_expr fmt (expr : expr) =
   match expr with
-  | Src -> Format.fprintf fmt "[src]"
   | Zero -> Format.fprintf fmt "0"
   | Const l -> FormatIr.print_literal fmt l
   | Mult (e1, e2) -> Format.fprintf fmt "%a*%a" print_expr e1 print_expr e2
@@ -43,14 +41,9 @@ let rec print_expr fmt (expr : expr) =
 let _print_provenances fmt (provs : prov_exprs) =
   Format.pp_open_vbox fmt 0;
   Variable.Map.iter (fun dest prov ->
-      Format.fprintf fmt "@[<hv 2>provs %d:@ " (Variable.uid dest);
-      Variable.Map.iter (fun src expr ->
-          Format.fprintf fmt "@[<hv 2>from %d:@ %a@],@ "
-            (Variable.uid src)
-            print_expr expr)
-        prov.pinned_src;
-      Format.fprintf fmt "from another:@ %a" print_expr prov.other_src;
-      Format.fprintf fmt "@]@,")
+      Format.fprintf fmt "@[<hv 2>provs %d:@ %a@]@,"
+        (Variable.uid dest)
+        print_expr prov)
     provs;
   Format.fprintf fmt "@]@."
 
@@ -58,56 +51,23 @@ let add_expr (expr1 : expr) (expr2 : expr) =
   match expr1, expr2 with
   | Zero , expr
   | expr, Zero -> expr
-  | Mult (e1, Src), Mult (e2, Src) -> Mult (Add (e1, e2), Src)
   | _ -> Add (expr1, expr2)
-
-let rec apply_expr (lexpr : expr) (xexpr : expr) =
-  match lexpr with
-  | Zero | Const _ | Pre _ | Current _ -> lexpr
-  | Src -> xexpr
-  | Mult (le1, le2) -> Mult (apply_expr le1 xexpr, apply_expr le2 xexpr)
-  | Add (le1, le2) -> Add (apply_expr le1 xexpr, apply_expr le2 xexpr)
-  | Switch { evt; before; after } ->
-    Switch { evt; before = apply_expr before xexpr; after = apply_expr after xexpr }
 
 let merge_prov_exprs (f : expr option -> expr option -> expr option)
     (p1 : prov_exprs) (p2 : prov_exprs) =
-  let opt_pinned = function
-    | None -> Variable.Map.empty
-    | Some s -> s.pinned_src
-  in
-  let opt_other = Option.map (fun s -> s.other_src) in
-  Variable.Map.merge (fun _dest expr1 expr2 ->
-      Some {
-        pinned_src = Variable.Map.merge (fun _src -> f)
-            (opt_pinned expr1) (opt_pinned expr2);
-        other_src =
-            match f (opt_other expr1) (opt_other expr2) with
-            | None -> Zero
-            | Some e -> e;
-      }
-    )
-    p1 p2
+  Variable.Map.merge (fun _dest -> f) p1 p2
 
 let prov_exprs_union (p1 : prov_exprs) (p2 : prov_exprs) =
-  let merge_sexpr se1 se2 =
-    { pinned_src =
-        Variable.Map.union (fun _dest e1 e2 -> Some (add_expr e1 e2))
-          se1.pinned_src se2.pinned_src;
-      other_src = add_expr se1.other_src se2.other_src;
-    }
-  in
   Variable.Map.union (fun _dest expr1 expr2 ->
-      Some (merge_sexpr expr1 expr2))
+      Some (add_expr expr1 expr2))
     p1 p2
 
 (* The following transforms trees to provenance expressions, the source being
    the one of the given tree. *)
 
-let rec formula_prov (provs : prov_exprs) (cf : formula) : expr sourced =
+let rec formula_prov (provs : prov_exprs) (cf : formula) : expr =
   match cf with
-  | Literal l ->
-    { pinned_src = Variable.Map.empty; other_src = Const l }
+  | Literal l -> Const l
   | Variable (v, view) ->
     let wrap_view =
       match view with
@@ -117,49 +77,23 @@ let rec formula_prov (provs : prov_exprs) (cf : formula) : expr sourced =
         | e -> Add (e, Pre v)
     in
     begin match Variable.Map.find_opt v provs with
-      | None ->
-        {
-          pinned_src =
-            Variable.Map.singleton v (wrap_view Src);
-          other_src = wrap_view (Current v);
-        }
-      | Some srcmap ->
-        {
-          pinned_src = Variable.Map.map wrap_view srcmap.pinned_src;
-          other_src = wrap_view (Add (Current v, srcmap.other_src));
-        }
+      | None -> wrap_view (Current v)
+      | Some osrc -> wrap_view (Add (Current v, osrc))
     end
   | Binop (op, f1, f2) ->
-    let se1 = formula_prov provs f1 in
-    let se2 = formula_prov provs f2 in
-    let op e1 e2 =
-      match op with
+    let e1 = formula_prov provs f1 in
+    let e2 = formula_prov provs f2 in
+    begin match op with
       | Add -> Add (e1, e2)
       | Mult -> Mult (e1, e2)
       | _ -> assert false
-    in
-    { pinned_src =
-        Variable.Map.merge (fun _src e1 e2 ->
-            match e1, e2 with
-            | None, None -> None
-            | Some e1, None -> Some (op e1 se2.other_src)
-            | None, Some e2 -> Some (op se1.other_src e2)
-            | Some e1, Some e2 -> Some (op e1 e2)
-          )
-          se1.pinned_src se2.pinned_src;
-      other_src = op se1.other_src se2.other_src;
-    }
+    end
 
 let redist_prov (type a) (src : Variable.t) (r : a RedistTree.redist) : prov_exprs =
   match r with
   | RedistTree.NoInfo -> Variable.Map.empty
   | RedistTree.Shares shares ->
-    Variable.Map.map (fun f ->
-        { pinned_src =
-            Variable.Map.singleton src (Mult (Const (LRational f), Src));
-          other_src = Zero;
-        })
-      shares
+    Variable.Map.map (fun f -> Mult (Const (LRational f), Current src)) shares
   | RedistTree.Flats fs ->
     Variable.Map.map (formula_prov Variable.Map.empty) fs.transfers
     (* We can ignore deficit balancing, as they have no effect on equations *)
@@ -221,31 +155,30 @@ let provenance_expressions (program : program) : prov_exprs =
    every intermediate points in the future, for testing and simulations, this is
    a discussion relevant to plausible features. *)
 let prov_transitivity (provs : prov_exprs) : prov_exprs =
-  let rec memoize tprovs dest =
+  let rec subst tprovs e =
+    match e with
+    | Zero | Const _ | Pre _ -> tprovs, e
+    | Current v ->
+      if Variable.Map.mem v provs then memoize tprovs v else tprovs, e
+    | Mult (e1, e2) ->
+      let tprovs, e1 = subst tprovs e1 in
+      let tprovs, e2 = subst tprovs e2 in
+      tprovs, Mult (e1, e2)
+    | Add (e1, e2) ->
+      let tprovs, e1 = subst tprovs e1 in
+      let tprovs, e2 = subst tprovs e2 in
+      tprovs,  Add (e1, e2)
+    | Switch { evt; before; after } ->
+      let tprovs, before = subst tprovs before in
+      let tprovs, after = subst tprovs after in
+      tprovs, Switch { evt; before; after }
+  and memoize tprovs dest =
     match Variable.Map.find_opt dest tprovs with
     | Some se -> tprovs, se
     | None ->
-      let se = Variable.Map.find dest provs in
-      let tprovs, pinned_src =
-        Variable.Map.fold (fun src e (tprovs, ps) ->
-            let tprovs, sps =
-              if Variable.Map.mem src provs then
-                let tprovs, sse = memoize tprovs src in
-                tprovs, Variable.Map.map (fun e' ->
-                    apply_expr e e')
-                  sse.pinned_src
-              else tprovs, Variable.Map.singleton src e
-            in
-            let ps =
-              Variable.Map.union (fun _src e e' ->
-                  Some (add_expr e e'))
-                ps sps
-            in
-            tprovs, ps)
-          se.pinned_src (tprovs, Variable.Map.empty)
-      in
-      let se = { se with pinned_src } in
-      Variable.Map.add dest se tprovs, se
+      let e = Variable.Map.find dest provs in
+      let tprovs, e' = subst tprovs e in
+      Variable.Map.add dest e' tprovs, e'
   in
   Variable.Map.fold (fun dest _se tprovs -> fst @@ memoize tprovs dest)
     provs Variable.Map.empty
@@ -263,7 +196,6 @@ let lift_expr (expr : expr) : eqex BDT.t =
   let rec aux decided expr =
     match expr with
     | Zero -> BDT.NoAction
-    | Src -> BDT.Action ESrc
     | Const l -> BDT.Action (EConst l)
     | Mult (e1, e2) ->
       let d1 = aux decided e1 in
@@ -301,212 +233,99 @@ let lift_expr (expr : expr) : eqex BDT.t =
   in
   aux Variable.Map.empty expr
 
-let event_condition (provs : prov_exprs) (event : event) : cond BDT.t sourced =
-  let merge_eq d1 d2 =
-    Variable.BDT.merge (fun _k e1 e2 ->
-        match e1, e2 with
-        | None, None
-        | Some _ , None
-        | None, Some _ -> None
-        | Some e1, Some e2 ->
-          Some (CEq (e1, e2)))
-      d1 d2
-  in
-  match event with
-  | EvtVar evt ->
-    { pinned_src = Variable.Map.empty; other_src = Action (CRef evt) }
-  | EvtOnRaise evt ->
-    { pinned_src = Variable.Map.empty; other_src = Action (CRaising evt)}
-  | EvtComp (Eq, f1, f2) ->
-    let se1 = formula_prov provs f1 in
-    let se2 = formula_prov provs f2 in
-    let pinned_src =
-      Variable.Map.merge (fun _src e1 e2 ->
-          let e1, e2 =
-            match e1 with
-            | Some e1 -> begin
-                match e2 with
-                | Some e2 -> e1, e2
-                (* Errors.raise_error "source term present in both side of equation"; *)
-                | None -> e1, se2.other_src
-              end
-            | None ->
-              match e2 with
-              | None -> se1.other_src, se2.other_src
-              | Some e2 -> se1.other_src, e2
-          in
-          let d1 = lift_expr e1 in
-          let d2 = lift_expr e2 in
-          let eq = merge_eq d1 d2 in
-          Some eq)
-        se1.pinned_src se2.pinned_src
-    in
-    let other_src = merge_eq (lift_expr se1.other_src) (lift_expr se2.other_src) in
-    { pinned_src; other_src }
-  | EvtDate _ -> assert false
-  | EvtAnd (_, _) -> assert false
-  | EvtOr (_, _) -> assert false
-
-let condition_equations (program : program) (provs : prov_exprs) : event_eq Variable.Map.t =
-  Variable.Map.map (event_condition provs) program.events
-
-(* [when e] events are transformed to [not (already_reached e) && (test e)].
-   Mainly to avoid equation dependencies. *)
-let transform_raising_cond (eqs : event_eq Variable.Map.t) =
-  let reduce_decide_on evt d bdd =
-    if bdd = BDT.NoAction then bdd else
-      let bdd = BDT.add_decision evt bdd in
-      BDT.map_action (Variable.Map.singleton evt (not d))
-        (fun _k _c -> NoAction)
-        bdd
-  in
-  let trans_raising cond =
-    match cond with
-    | CEq _ | CNorm _ ->
-      { pinned_src = Variable.Map.empty;
-        other_src = BDT.Action cond;
-      }
-    | CRef evt -> Variable.Map.find evt eqs
-    | CRaising evt ->
-      let srcd = Variable.Map.find evt eqs in
-      { pinned_src =
-          Variable.Map.map (reduce_decide_on evt false) srcd.pinned_src;
-        other_src = reduce_decide_on evt false srcd.other_src;
-      }
-  in
-  Variable.Map.map (fun sourced ->
-      let pinned_src =
-        Variable.Map.mapi (fun src bdd ->
-            BDT.map_action Variable.Map.empty (fun k act ->
-                match act with
-                | None -> NoAction
-                | Some cond ->
-                  BDT.cut k (get_source src (trans_raising cond)))
-              bdd)
-          sourced.pinned_src
-      in
-      let any_source a = { pinned_src = Variable.Map.empty; other_src = a } in
-      let merge_bdd d1 d2 =
-        BDT.merge (fun _k c1 c2 ->
-            match c1, c2 with
-            | None, None -> None
-            | None, c | c, None -> c
-            | Some c1, Some c2 ->
-              Format.eprintf "merging %a@.%a@."
-              FormatIr.print_cond c1 FormatIr.print_cond c2;
-              assert false)
-          d1 d2
-      in
-      let default_src =
-        BDT.fold ~noaction:(fun _k -> any_source BDT.NoAction)
-          ~action:(fun k cond ->
-              let srcd = trans_raising cond in
-              { pinned_src = Variable.Map.map (BDT.cut k) srcd.pinned_src;
-                other_src = BDT.cut k srcd.other_src;
-              })
-          ~decision:(fun _k evt s1 s2 ->
-              { pinned_src =
-                  Variable.Map.union (fun _src c1 c2 ->
-                      Some (merge_bdd c1 c2))
-                    (Variable.Map.map (reduce_decide_on evt true) s1.pinned_src)
-                    (Variable.Map.map (reduce_decide_on evt false) s2.pinned_src);
-                other_src =
-                  merge_bdd
-                    (reduce_decide_on evt true s1.other_src)
-                    (reduce_decide_on evt false s2.other_src)
-              }
-            )
-          sourced.other_src
-      in
-      { pinned_src =
-          Variable.Map.union (fun _src bdd _ -> Some bdd)
-            pinned_src default_src.pinned_src;
-        other_src = default_src.other_src;
-      })
-    eqs
-
-(* Equations are assumed linear, normalization to dynamically compute limits is
-   trival. This hypothesis could be lifted as we could express polynomial
-   equations. Solving them would require more work, but I have the intuition it
-   could be not that bad in practice, since we only need to compute one limit at
-   a time (the closest). *)
-let rec extract_src_factor (e : eqex) =
+let rec sourced_nf_eqex (e : eqex) =
   match e with
-  | ESrc -> EConst (LRational R.one), EZero
-  | EZero | EConst _ | EVar _ | ECurrVar _ -> EZero, e
+  | EZero | EConst _ | EVar _ ->
+    { pinned_src = Variable.Map.empty; other_src = { src_factor = EZero; const = e } }
+  | ECurrVar src ->
+    { pinned_src =
+        Variable.Map.singleton src
+          { src_factor = EConst (LRational R.one); const = EZero };
+      other_src = { src_factor = EZero; const = EZero } }
   | EMult (e1, e2) ->
-    let sf1, c1 = extract_src_factor e1 in
-    let sf2, c2 = extract_src_factor e2 in
-    (* sf1*sf2X^2 + sf1X*c2 + sf2X*c1 + c1*c2 *)
-    let src_factor =
-      match sf1, sf2 with
-      | EZero, _ -> EMult(sf2, c1)
-      | _, EZero -> EMult(sf1, c2)
-      | _ -> Errors.raise_error "Polynomial expression found in equation"
-    in
-    let const_part =
-      match c1, c2 with
-      | EZero, _ | _, EZero -> EZero
-      | _ -> EMult (c1, c2)
-    in
-    src_factor, const_part
+    let se1 = sourced_nf_eqex e1 in
+    let se2 = sourced_nf_eqex e2 in
+    merge_sources (fun e1 e2 ->
+        let src_factor =
+          match e1.src_factor, e2.src_factor with
+          | EZero, sf2 -> EMult(sf2, e1.const)
+          | sf1, EZero -> EMult(sf1, e2.const)
+          | _ -> Errors.raise_error "Polynomial expression"
+        in
+        let const =
+          match e1.const, e2.const with
+          | EZero, _ | _, EZero -> EZero
+          | c1, c2 -> EMult (c1, c2)
+        in
+        { src_factor; const })
+      se1 se2
   | EAdd (e1, e2) ->
-    let sf1, e1 = extract_src_factor e1 in
-    let sf2, e2 = extract_src_factor e2 in
-    (if sf1 = EZero then sf2
-    else if sf2 = EZero then sf1
-    else EAdd (sf1, sf2)),
-    if e1 = EZero then e2
-    else if e2 = EZero then e1
-    else EAdd (e1, e2)
+    let se1 = sourced_nf_eqex e1 in
+    let se2 = sourced_nf_eqex e2 in
+    merge_sources (fun e1 e2 ->
+        { src_factor = EAdd (e1.src_factor, e2.src_factor);
+          const = EAdd (e1.const, e2.const) })
+      se1 se2
   | EMinus e ->
-    let sf, e = extract_src_factor e in
-    (if sf = EZero then EZero else EMinus sf),
-    if e = EZero then e else EMinus e
+    let se = sourced_nf_eqex e in
+    map_source (fun e ->
+        { src_factor = EMinus e.src_factor; const = EMinus e.const })
+      se
 
-let normalize_condition (e : cond) =
-  match e with
-  | CRef _ | CRaising _ | CNorm _ -> e
-  | CEq (e1, e2) ->
-    let src_factor1, const_part1 = extract_src_factor e1 in
-    let src_factor2, const_part2 = extract_src_factor e2 in
-    let src_factor =
-      match src_factor1, src_factor2 with
-      | EZero, EZero -> EZero
-      | EZero, e -> EMinus e
-      | e, EZero -> e
-      | e1, e2 ->
-        EAdd (e1, EMinus e2)
-    in
-    let const =
-      match const_part1, const_part2 with
-      | EZero, EZero -> EZero
-      | EZero, e -> e
-      | e, EZero -> EMinus e
-      | e1, e2 ->
-        EAdd (e2, EMinus e1)
-    in
-    CNorm { src_factor; const }
+let eq_normal_form (e1 : eqex) (e2 : eqex) =
+  let se1 = sourced_nf_eqex e1 in
+  let se2 = sourced_nf_eqex e2 in
+  merge_sources (fun e1 e2 ->
+      let src_factor =
+        EAdd (e1.src_factor, EMinus e2.src_factor)
+      in
+      let const = EAdd (e2.const, EMinus e1.const) in
+      { src_factor; const })
+    se1 se2
 
-let normalize_equations (eqs : event_eq Variable.Map.t) : event_eq Variable.Map.t =
-  let eqs = transform_raising_cond eqs in
-  let norm_bdd =
-    Variable.BDT.map_action Variable.Map.empty (fun _k -> function
-        | None -> NoAction
-        | Some c -> Action (normalize_condition c))
+let equality_to_equation (provs : prov_exprs) (f1 : formula) (f2 : formula) =
+  let e1 = lift_expr (formula_prov provs f1) in
+  let e2 = lift_expr (formula_prov provs f2) in
+  BDT.merge (fun _k e1 e2 ->
+      match e1, e2 with
+      | None, _ | _, None -> None
+      | Some e1, Some e2 -> Some (eq_normal_form e1 e2))
+    e1 e2
+
+let condition_equations (prog : program) (provs : prov_exprs) =
+  let rec conv eqs expr =
+    match expr with
+    | EvtComp (Eq, f1, f2) -> eqs, equality_to_equation provs f1 f2
+    | EvtVar evt -> memoize eqs evt
+    | EvtOnRaise evt ->
+      let eqs, eq = memoize eqs evt in
+      (* [when e] events are transformed to [not (already_reached e) && (test e)].
+         Mainly to avoid equation dependencies. *)
+      if eq = BDT.NoAction then eqs, eq else
+        let eq = BDT.add_decision evt eq in
+        let eq =
+          BDT.map_action (Variable.Map.singleton evt true)
+            (fun _k _c -> NoAction)
+            eq
+        in
+        eqs, eq
+    | EvtAnd _ | EvtOr _ | EvtDate _ -> assert false
+  and memoize eqs evt =
+    match Variable.Map.find_opt evt eqs with
+    | Some eq -> eqs, eq
+    | None ->
+      let expr = Variable.Map.find evt prog.events in
+      let eqs, eq = conv eqs expr in
+      Variable.Map.add evt eq eqs, eq
   in
-  Variable.Map.map (fun sourced ->
-      { pinned_src =
-          Variable.Map.map norm_bdd sourced.pinned_src;
-        other_src = norm_bdd sourced.other_src;
-      })
-    eqs
+  Variable.Map.fold (fun evt _ eqs ->
+      fst @@ memoize eqs evt)
+    prog.events Variable.Map.empty
 
 let compute_threshold_equations (prog : program) =
   let provs = provenance_expressions prog in
   let tprovs = prov_transitivity provs in
   let eqs = condition_equations prog tprovs in
-  let eqs = normalize_equations eqs in
   {
     infos = prog.infos;
     trees = prog.trees;
