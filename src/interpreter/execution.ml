@@ -19,20 +19,12 @@ let var_kind (p : program) (var : Variable.t) =
    pieces to account for event thresholds. This makes several sequential
    sub-steps that, together, we call a stage.
 
-   Taking staged values is important because a program can query either the
-   integrated value since the beginning of time of the value currently flowing
-   in. "Currently", from the user point of view, being the value passing at one
-   input (i.e. a computation step), and not one sub-step.
-
    Hence, the following type holding this distinction:
-   - [next] for the currently computed sub-step
-   - [staged] for the previouly computed value cumulated since the beginning of
-     the current stage.
-   - [past_total] the cumulated values of all previous stages. *)
+   - [current] for the currently computed sub-step
+   - [past_total] the cumulated values of all previous (sub-)steps. *)
 
 type 'a var_value = {
-  next : 'a;
-  stage : 'a;
+  current : 'a;
   past_total : 'a;
 }
 
@@ -96,24 +88,24 @@ let empty_tally = { at_instant = Value.zero; total = Value.zero }
 let get_event_value (s : state) (e : Variable.t) =
   match Variable.Map.find_opt e s.event_state with
   | None -> false
-  | Some vv -> vv.stage
+  | Some vv -> vv.current
 
 let get_event_state (p : program) (s : state) =
   Variable.Map.mapi (fun evt _ ->
       match Variable.Map.find_opt evt s.event_state with
       | None -> false
-      | Some vv -> vv.stage)
-    p.equations
+      | Some vv -> vv.current)
+    p.events
 
-let get_state_next_value (s : state) (v : Variable.t) =
+let get_state_current_value (s : state) (v : Variable.t) =
   match Variable.Map.find_opt v s.values with
   | None -> Value.zero
-  | Some vv -> vv.next
+  | Some vv -> vv.current
 
 let get_state_cumulated_value (s : state) (v : Variable.t) =
   match Variable.Map.find_opt v s.values with
   | None -> Value.zero
-  | Some vv -> Value.add (Value.add vv.next vv.stage) vv.past_total
+  | Some vv -> Value.add vv.current vv.past_total
 
 let update_trace_top (f : count Variable.Map.t -> count Variable.Map.t) (s : state) =
   { s with
@@ -131,22 +123,22 @@ let add_repartition (s : state) (src : Variable.t) (values : value Variable.Map.
         | Some c -> Some { c with repartition = values }))
       s
 
-let add_next_to_trace (s : state) =
+let add_current_to_trace (s : state) =
   update_trace_top (fun count ->
       Variable.Map.fold (fun var vv count ->
           Variable.Map.update var (function
               | None -> Some {
                   tally = {
-                    at_instant = vv.next;
-                    total = Value.add (Value.add vv.next vv.stage) vv.past_total;
+                    at_instant = vv.current;
+                    total = Value.add vv.current vv.past_total;
                   };
                   repartition = Variable.Map.empty
                 }
               | Some c -> Some {
                   c with
                   tally = {
-                    at_instant = Value.add vv.next c.tally.at_instant;
-                    total = Value.add vv.next c.tally.total;
+                    at_instant = Value.add vv.current c.tally.at_instant;
+                    total = Value.add vv.current c.tally.total;
                   }
                 })
             count)
@@ -165,45 +157,43 @@ let add_events_to_trace (s : state) (events : event Variable.Map.t) =
   in
   { s with stage_trace }
 
-let add_val_to_next (s : state) (values : value Variable.Map.t) =
+let add_val_to_current (s : state) (values : value Variable.Map.t) =
   Variable.Map.fold (fun var value s ->
       { s with
         values =
           Variable.Map.update var (function
               | None ->
-                let zero = Value.zero in
-                Some { next = value;
-                       stage = zero;
-                       past_total = zero }
-              | Some vv -> Some { vv with next = Value.add vv.next value })
+                Some { current = value;
+                       past_total = Value.zero }
+              | Some vv -> Some { vv with current = Value.add vv.current value })
             s.values
       })
     values s
 
-let add_evt_to_stage (s : state) (evts : event Variable.Map.t) =
+let add_evt_to_current (s : state) (evts : event Variable.Map.t) =
   let event_state =
     Variable.Map.merge (fun _evt s e ->
         match s, e with
         | None, None -> None
         | Some s, None -> Some s
-        | None, Some e -> Some { next = false; stage = e; past_total = false }
-        | Some s, Some e -> Some { s with stage = e })
+        | None, Some e -> Some { current = e; past_total = false }
+        | Some s, Some e -> Some { s with current = e })
       s.event_state evts
   in
   { s with event_state }
 
-(* Fractional operations are handled poorly. This is however enough to have a
-   plausible approximation (and in most cases correct) of a strictly correct
-   results. For this to become actually reliable in all cases, the changes are
-   two-folds:
-   - Handle rationnals as rationnals and not as floating point numbers.
+(* We use rationnals throughout the interpreter for valuation which enable us to
+   keep exact precision all the way (with specific rounding for event
+   thresholds).
 
-   - Propose a solution for fractionnal reattributions of values lower that 1
-   (in most cases, cent). Not only this is a fundamental issue that the user
-   must be aware of (and control is some way), but this also mean that we need
-   to change how fraction are represented in order to make sure the invariant
-   "for each cent in, a cent out" holds, which is not trival and might depend on
-   the solution adopted to the more fundamental issue. *)
+   This defers the issue of how to present the result and the handling of
+   rounding errors to the user.
+
+   Rationnal values are, in the general, sensible to complexity. However for our
+   purpose its will mostly remain within combination of humain-readable
+   percentages which reduces greatly the possibility of hard-to-reduce fractions
+   appearance.
+*)
 
 let literal_value (l : Ir.literal) : value =
   match l with
@@ -236,7 +226,7 @@ let rec evaluate_eqex (s : state) (src : value) (expr : eqex) : value =
   | ECurrVar v ->
     match Variable.Map.find_opt v s.values with
     | None -> VRat R.zero
-    | Some vv -> vv.stage
+    | Some vv -> vv.current
 
 (* Regarding event threshold crossing, we must be able to identify on which side
    of the equality we are (i.e. < or =>). *)
@@ -302,32 +292,27 @@ let push_rep_action (p : program) (s : state) (var : Variable.t) (value : value)
   | Pool ->
     { s with queue = PoolRep (var, value)::s.queue }
 
-let flush_stage (s : state) =
+let flush_current_valuation (s : state) =
   { s with
     values =
       Variable.Map.map (fun v ->
-          { next = Value.VRat R.zero (* Value.VZero *);
-            stage = Value.VRat R.zero (* Value.VZero *);
-            past_total = Value.add v.past_total v.stage })
+          { current = Value.zero;
+            past_total = Value.add v.current v.past_total; })
         s.values;
     event_state =
       Variable.Map.map (fun e ->
-          { next = false;
-            stage = e.stage;
-            past_total = e.stage })
+          { e with
+            past_total = e.current })
         s.event_state;
-    stage_trace = [NoEvent, Variable.Map.empty];
   }
 
-let flush_next (s : state) =
-  let s = add_next_to_trace s in
-  { s with
-    values =
-      Variable.Map.map (fun v ->
-          { v with
-            next = Value.zero;
-            stage = Value.add v.stage v.next; })
-        s.values;
+let flush_current_to_trace (s : state) =
+  let s = add_current_to_trace s in
+  flush_current_valuation s
+
+let flush_stage_trace (s : state) =
+  { (flush_current_valuation s) with
+    stage_trace = [NoEvent, Variable.Map.empty];
   }
 
 let rec compute_formula (p : program) (s : state) (formula : Ir.formula) : value =
@@ -335,7 +320,7 @@ let rec compute_formula (p : program) (s : state) (formula : Ir.formula) : value
   | Literal l -> literal_value l
   | Variable (v, view) ->
     begin match view with
-    | AtInstant -> get_state_next_value s v
+    | AtInstant -> get_state_current_value s v
     | Cumulated -> get_state_cumulated_value s v
     end
   | Binop (op, f1, f2) ->
@@ -355,7 +340,7 @@ let compute_redist (type a) (p : program) (s : state) (r : a Ir.RedistTree.redis
     let tsf = Variable.Map.map (compute_formula p s) fs.transfers in
     let blc =
       Variable.Map.mapi (fun v f ->
-          let v_val = get_state_next_value s v in
+          let v_val = get_state_current_value s v in
           Value.mult v_val (VRat f))
         fs.balances
     in
@@ -400,32 +385,30 @@ let compute_trees (p : program) (s : state) (trees : Ir.RedistTree.t) (value : v
       (res_union base default) branches
 
 let compute_events (p : program) (s : state) =
-  let rec memo mem (evt : Variable.t) =
+  let rec compute mem expr =
+    match expr with
+    | EvtVar e -> memo mem e
+    | EvtOnRaise e ->
+      let mem, rised = memo mem e in
+      let past = get_event_value s e in
+      mem, if past then false else rised
+    | EvtComp (Eq, f1, f2) ->
+      let f1 = compute_formula p s f1 in
+      let f2 = compute_formula p s f2 in
+      let evt_val = not (Value.is_negative (Value.add f1 (Value.minus f2))) in
+      mem, evt_val
+    | EvtAnd (_, _)
+    | EvtOr (_, _)
+    | EvtDate _ -> assert false
+  and memo mem (evt : Variable.t) =
     match Variable.Map.find_opt evt mem with
     | Some v -> mem, v
     | None ->
       match Variable.Map.find_opt evt p.events with
       | None -> Errors.raise_error "(internal) Event %d not found" (Variable.uid evt)
       | Some expr ->
-        match expr with
-        | EvtVar e ->
-          let mem, evt_val = memo mem e in
-          Variable.Map.add evt evt_val mem, evt_val
-        | EvtOnRaise e ->
-          let mem, rised = memo mem e in
-          let past = get_event_value s e in
-          let evt_val =
-            if past then false else rised
-          in
-          Variable.Map.add evt evt_val mem, evt_val
-        | EvtComp (Eq, f1, f2) ->
-          let f1 = compute_formula p s f1 in
-          let f2 = compute_formula p s f2 in
-          let evt_val = not (Value.is_negative (Value.add f1 (Value.minus f2))) in
-          Variable.Map.add evt evt_val mem, evt_val
-        | EvtAnd (_, _)
-        | EvtOr (_, _)
-        | EvtDate _ -> assert false
+        let mem, evt_val = compute mem expr in
+        Variable.Map.add evt evt_val mem, evt_val
   in
   Variable.Map.fold (fun evt _expr mem -> fst @@ memo mem evt)
     p.events Variable.Map.empty
@@ -433,7 +416,7 @@ let compute_events (p : program) (s : state) =
 let update_state_values (p : program) (s : state) =
   List.fold_left (fun s var ->
       let src_is_actor = Variable.Map.mem var p.infos.actors in
-      let value = if src_is_actor then Value.zero else get_state_next_value s var in
+      let value = if src_is_actor then Value.zero else get_state_current_value s var in
       let redist_res =
         match Variable.Map.find_opt var p.trees with
         | None ->
@@ -447,11 +430,11 @@ let update_state_values (p : program) (s : state) =
           let sum =
             Variable.Map.fold (fun _dest v acc -> Value.add acc v) redist_res Value.zero
           in
-          add_val_to_next s (Variable.Map.singleton var sum)
+          add_val_to_current s (Variable.Map.singleton var sum)
         else s
       in
       let s = add_repartition s var redist_res in
-      add_val_to_next s redist_res)
+      add_val_to_current s redist_res)
     s p.eval_order
 
 (* This function uses equations to compute flipped events.
@@ -464,7 +447,7 @@ let update_state_values (p : program) (s : state) =
 let update_state_events (p : program) (s : state) =
   let new_events_values = compute_events p s in
   let s = add_events_to_trace s new_events_values in
-  add_evt_to_stage s new_events_values
+  add_evt_to_current s new_events_values
 
 let compute_action (p : program) (s : state) (action : action) =
   let s =
@@ -476,10 +459,10 @@ let compute_action (p : program) (s : state) (action : action) =
           push_rep_action p s var (Value.add value (Value.minus value_at_threshold))
         else s
       in
-      let s = add_val_to_next s (Variable.Map.singleton var value_at_threshold) in
+      let s = add_val_to_current s (Variable.Map.singleton var value_at_threshold) in
       update_state_values p s
   in
-  let s = flush_next s in
+  let s = flush_current_to_trace s in
   update_state_events p s
 
 let rec compute_queue (p : program) (s : state) =
@@ -490,7 +473,7 @@ let rec compute_queue (p : program) (s : state) =
     compute_queue p s
 
 let compute_input_value (p : program) (s : state) (i : Variable.t) (value : Ir.literal) =
-  let s = flush_stage s in
+  let s = flush_stage_trace s in
   let s = push_rep_action p s i (literal_value value) in
   compute_queue p s
 
@@ -502,7 +485,7 @@ let init_state (p : program) =
     stage_trace = []; }
   in
   let s = update_state_events p s in
-  flush_stage s
+  flush_stage_trace s
 
 let compute_input_lines (p : program) (lines : computation_inputs) =
   let s = init_state p in
