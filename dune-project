@@ -4,6 +4,16 @@
 
 (name niagara-lang)
 
+(maintainers "keryan.didier@ocamlpro.com")
+
+(authors 
+    "keyran.didier@ocamlpro.com"
+    "julien.blond@ocamlpro.com")
+  
+(homepage "https://github.com/OCamlPro/niagara-lang")
+  
+(bug_reports "https://github.com/OCamlPro/niagara-lang/issues")
+
 (package
   (name niagara-lang-lib)
   (synopsis "The Niagara language compiler library")
@@ -19,6 +29,7 @@
     (cmdliner (>= 1.0.4))
     ocamlgraph
     zarith)
+  
 )
 
 (package
