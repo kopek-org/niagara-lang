@@ -138,7 +138,7 @@ let add_current_to_trace (s : state) =
                   c with
                   tally = {
                     at_instant = Value.add vv.current c.tally.at_instant;
-                    total = Value.add vv.current c.tally.total;
+                    total = Value.add vv.current vv.past_total;
                   }
                 })
             count)
@@ -311,7 +311,8 @@ let flush_current_to_trace (s : state) =
   flush_current_valuation s
 
 let flush_stage_trace (s : state) =
-  { (flush_current_valuation s) with
+  let s = flush_current_valuation s in
+  { s with
     stage_trace = [NoEvent, Variable.Map.empty];
   }
 
