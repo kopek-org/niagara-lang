@@ -125,58 +125,6 @@ module RedistTree = struct
     in
     FlatTree tree
 
-  (* let tbranch (evt : Variable.t) (value : bool) (tree : kind_tree) = *)
-  (*   let k = Variable.Map.singleton evt value in *)
-  (*   match tree with *)
-  (*   | NothingTree -> NothingTree *)
-  (*   | FlatTree t -> FlatTree (Variable.BDT.only_when k t) *)
-  (*   | FracTree t -> FracTree (Variable.BDT.only_when k t) *)
-
-  (* let tbranch (evt : Variable.t) (value : bool) (tree : kind_tree) = *)
-  (*   let to_bdt tree : _ Variable.BDT.t = *)
-  (*     match tree with *)
-  (*       | Nothing -> NoAction *)
-  (*       | Branch bdt -> bdt *)
-  (*       | _ -> Action tree *)
-  (*   in *)
-  (*   match tree with *)
-  (*   | NothingTree -> NothingTree *)
-  (*   | FlatTree t -> *)
-  (*     let b = *)
-  (*       Variable.BDT.map_action (Variable.Map.singleton evt (not value)) *)
-  (*         (fun _k act -> *)
-  (*            match act with *)
-  (*            | None -> NoAction *)
-  (*            | Some _ -> assert false) *)
-  (*         (Variable.BDT.add_decision evt (to_bdt t)) *)
-  (*     in *)
-  (*     FlatTree (Branch b) *)
-  (*   | FracTree t -> *)
-  (*     let b = *)
-  (*       Variable.BDT.map_action (Variable.Map.singleton evt (not value)) *)
-  (*         (fun _k act -> *)
-  (*            match act with *)
-  (*            | None -> NoAction *)
-  (*            | Some _ -> assert false) *)
-  (*         (Variable.BDT.add_decision evt (to_bdt t)) *)
-  (*     in *)
-  (*     FracTree (Branch b) *)
-
-  (* let tbefore (evt : Variable.t) (before : kind_tree) (after : kind_tree) = *)
-  (*   begin match before, after with *)
-  (*   | FracTree _, FlatTree _ | FlatTree _, FracTree _ -> *)
-  (*     Errors.raise_error "Mixing quotepart and bonuses between branches" *)
-  (*   | _ -> () *)
-  (*   end; *)
-  (*   let after = *)
-  (*     match after with *)
-  (*     | NothingTree -> NoAction *)
-  (*     | FlatTree t | FracTree t -> *)
-  (*       Variable.BDT.cut (Variable.Map.singleton evt true) t *)
-        
-  (* let tafter (evt : Variable.t) (before : kind_tree) (after : kind_tree) = *)
-  (*   tbranch evt true after *)
-
   let tbranch (evt : Variable.t) (before : kind_tree) (after : kind_tree) =
     let mixing_error () =
       Errors.raise_error "Mixing quotepart and bonuses between branches"
@@ -206,7 +154,6 @@ module RedistTree = struct
       | FracTree after -> FracTree (build_branch before after)
       | NothingTree -> FracTree (build_branch before NoAction)
       | FlatTree _ -> mixing_error ()
-
 
   let merge_redist (r1 : kind_redist) (r2 : kind_redist) =
     match r1, r2 with

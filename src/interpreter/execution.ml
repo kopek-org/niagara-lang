@@ -352,13 +352,6 @@ let rec compute_tree : type a. program -> state -> a Ir.RedistTree.tree -> value
   match tree with
   | NoAction -> Variable.Map.empty
   | Action r -> compute_redist p s r value
-  (* | When ws -> *)
-  (*   List.fold_left (fun res (evt, tree) -> *)
-  (*       if get_event_value s evt then *)
-  (*         let r = compute_tree p s tree value in *)
-  (*         Variable.Map.union (fun _v r1 r2 -> Some (Value.add r1 r2)) res r *)
-  (*       else res) *)
-  (*     Variable.Map.empty ws *)
   | Decision (evt, after, before) ->
     if get_event_value s evt
     then compute_tree p s after value

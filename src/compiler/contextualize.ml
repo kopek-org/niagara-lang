@@ -264,7 +264,8 @@ end = struct
         name label
 
   let generate_advance_pool t (dest : Variable.t) =
-    let t, middle_pool = register_pool t (Variable.unique_anon_name "advance_pool") in
+    let dest_name = (Variable.Map.find dest t.var_info).var_name in
+    let t, middle_pool = register_pool t (Variable.unique_anon_name ("advance_"^dest_name)) in
     let t = { t with
       advance_pools =
         Variable.Map.update dest (function
