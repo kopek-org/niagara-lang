@@ -563,18 +563,15 @@ let level_fractional_attribution (acc : Acc.t) (src : Variable.t) (t : RedistTre
       | NoInfo -> R.zero
       | Shares sh -> Variable.Map.fold (fun _v -> R.(+)) sh R.zero
     in
-    let rec branch_part known default (tree : RedistTree.frac RedistTree.tree) =
-      match tree with
-      | Nothing -> default
-      | Redist r ->
-        Variable.BDT.map_action known (fun _k -> function
-            | None -> assert false
-            | Some part -> Action R.(part - redist_part r))
-          default
-      | Branch { evt; before; after } ->
-        let default = Variable.BDT.add_decision evt default in
-        let default = branch_part (Variable.Map.add evt true known) default before in
-        branch_part (Variable.Map.add evt false known) default after
+    let branch_part default (tree : RedistTree.frac RedistTree.tree) =
+      Variable.BDT.merge (fun _k d t ->
+          match d, t with
+          | None, None -> None
+          | None, Some r -> Some R.(- redist_part r)
+          | d, None -> d
+          | Some d, Some r -> Some R.(d - (redist_part r))
+        )
+        default tree
     in
     match balance with
     | BalanceTree _ ->
@@ -583,33 +580,36 @@ let level_fractional_attribution (acc : Acc.t) (src : Variable.t) (t : RedistTre
       let base_part = redist_part base_shares in
       let default_redist = Variable.BDT.Action R.(one - base_part) in
       let branches_parts =
-        List.fold_left (branch_part Variable.Map.empty) default_redist branches
+        List.fold_left branch_part default_redist branches
       in
       let make_default_redist part =
         match balance.default with
-        | Some d -> RedistTree.(Redist (Shares (Variable.Map.singleton d part)))
+        | Some d -> Variable.BDT.Action (RedistTree.Shares (Variable.Map.singleton d part))
         | None -> Errors.raise_error "Missing fractionnal part, may needs a default"
       in
       let make_deficit_redist part =
-        RedistTree.(Redist
-          (Flats { transfers = Variable.Map.empty;
+        Variable.BDT.Action
+          (RedistTree.Flats { transfers = Variable.Map.empty;
                    balances = Variable.Map.singleton src part
-                 }))
+                 })
       in
       let default_tree, deficit_tree =
         Variable.BDT.fold branches_parts
-          ~noaction:(fun _k -> RedistTree.Nothing, RedistTree.Nothing)
+          ~noaction:(fun _k -> Variable.BDT.(NoAction, NoAction))
           ~action:(fun _k part ->
               if R.(part > zero)
-              then make_default_redist part, Nothing
+              then make_default_redist part, NoAction
               else if R.(part < zero)
-              then Nothing, make_deficit_redist R.(~- part)
-              else RedistTree.Nothing, RedistTree.Nothing)
-          ~decision:(fun _k evt (bdft, bdfc) (adft, adfc) ->
+              then NoAction, make_deficit_redist R.(~- part)
+              else NoAction, NoAction)
+          ~decision:(fun _k evt (adft, adfc) (bdft, bdfc) ->
               let branch_or_nothing before after =
                 match before, after with
-                | RedistTree.Nothing, RedistTree.Nothing -> RedistTree.Nothing
-                | _, _ -> Branch { evt; before; after }
+                | Variable.BDT.(NoAction, NoAction) -> Variable.BDT.NoAction
+                | _, _ ->
+                  Decision (evt,
+                    Variable.BDT.cut (Variable.Map.singleton evt true) after,
+                    Variable.BDT.cut (Variable.Map.singleton evt false) before)
               in
               branch_or_nothing bdft adft, branch_or_nothing bdfc adfc)
       in
@@ -620,12 +620,12 @@ let level_fractional_attribution (acc : Acc.t) (src : Variable.t) (t : RedistTre
       let acc = { acc with trees = Variable.Map.add src src_tree acc.trees } in
       match balance.deficit with
       | Some provider ->
-        if deficit_tree = RedistTree.Nothing then
+        if deficit_tree = Variable.BDT.NoAction then
           acc (* TODO warning unnecessary deficit *)
         else
           Acc.add_tree acc ~source:provider RedistTree.(FlatTree deficit_tree)
       | None ->
-        if deficit_tree <> RedistTree.Nothing
+        if deficit_tree <> Variable.BDT.NoAction
         then Errors.raise_error "Fractionnal repartition exceeds total, needs a deficit"
         else acc
 
@@ -663,14 +663,12 @@ let dependancy_graph (acc : Acc.t) =
   let rec dep_tree :
     type a. Variable.Graph.t -> Variable.t -> a RedistTree.tree -> Variable.Graph.t =
     fun graph src tree ->
-    match tree with
-    | RedistTree.Nothing -> graph
-    | RedistTree.Redist r -> dep_redist graph src r
-    | RedistTree.When ws ->
-      List.fold_left (fun graph (_,tree) -> dep_tree graph src tree) graph ws
-    | RedistTree.Branch { before; after; _ } ->
-      let graph = dep_tree graph src before in
-      dep_tree graph src after
+      match tree with
+      | NoAction -> graph
+      | Action r -> dep_redist graph src r
+      | Decision (_, after, before) ->
+        let graph = dep_tree graph src before in
+        dep_tree graph src after
   in
   Variable.Map.fold (fun src trees graph ->
       match trees with

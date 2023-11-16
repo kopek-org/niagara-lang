@@ -72,19 +72,10 @@ let dot_of_redist (type a) p g (r : a Ir.RedistTree.redist) =
 let rec dot_of_tree : type a. program -> graph -> a Ir.RedistTree.tree -> ((id * _ option) * attr list) list =
   fun p g t ->
   match t with
-  | Nothing -> []
-  | Redist r ->
+  | NoAction -> []
+  | Action r ->
     dot_of_redist p g r
-  | When ws ->
-    List.map (fun (evt, wt) ->
-        let e = add_event p g evt in
-        let w = dot_of_tree p g wt in
-        List.iter (fun (bn,l) -> add_edge g e bn ((tlabel "quand")::l)) w;
-        [e,[]]
-      )
-      ws
-    |> List.flatten
-  | Branch { evt; before; after } ->
+  | Decision (evt, after,before) ->
     let e = add_event p g evt in
     let bf = dot_of_tree p g before in
     let af = dot_of_tree p g after in

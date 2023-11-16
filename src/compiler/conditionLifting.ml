@@ -98,33 +98,17 @@ let redist_prov (type a) (src : Variable.t) (r : a RedistTree.redist) : prov_exp
     Variable.Map.map (formula_prov Variable.Map.empty) fs.transfers
     (* We can ignore deficit balancing, as they have no effect on equations *)
 
-let rec tree_prov : type a. Variable.t -> a RedistTree.tree -> prov_exprs =
-  fun src tree ->
-  match tree with
-  | Nothing -> Variable.Map.empty
-  | Redist r -> redist_prov src r
-  | When wr ->
-    List.fold_left (fun provs (evt, r) ->
-        let prov = tree_prov src r in
-        merge_prov_exprs (fun p w ->
-            match p, w with
-            | None, None -> assert false
-            | Some e, None -> Some e
-            | None, Some on_when ->
-              Some (Switch { evt; before = Zero; after = on_when })
-            | Some e, Some on_when ->
-              Some (Switch { evt; before = e; after = add_expr e on_when}))
-          provs prov)
-      Variable.Map.empty wr
-  | Branch { evt; before; after } ->
-    let befores = tree_prov src before in
-    let afters = tree_prov src after in
-    merge_prov_exprs (fun e1 e2 ->
-        let before = Option.value ~default:Zero e1 in
-        let after = Option.value ~default:Zero e2 in
-        if before = after then Some before else
-          Some (Switch { evt; before; after }))
-      befores afters
+let tree_prov (type a) (src : Variable.t) (tree : a RedistTree.tree) =
+  Variable.BDT.fold tree
+    ~noaction:(fun _ -> Variable.Map.empty)
+    ~action:(fun _ r -> redist_prov src r)
+    ~decision:(fun _ evt afters befores ->
+        merge_prov_exprs (fun e1 e2 ->
+            let before = Option.value ~default:Zero e1 in
+            let after = Option.value ~default:Zero e2 in
+            if before = after then Some before else
+              Some (Switch { evt; before; after }))
+          befores afters)
 
 let trees_prov (src : Variable.t) (t : RedistTree.t) : prov_exprs =
   match t with
@@ -302,11 +286,8 @@ let condition_equations (prog : program) (provs : prov_exprs) =
       (* [when e] events are transformed to [not (already_reached e) && (test e)].
          Mainly to avoid equation dependencies. *)
       if eq = BDT.NoAction then eqs, eq else
-        let eq = BDT.add_decision evt eq in
         let eq =
-          BDT.map_action (Variable.Map.singleton evt true)
-            (fun _k _c -> NoAction)
-            eq
+          BDT.only_when (Variable.Map.singleton evt false) eq
         in
         eqs, eq
     | EvtAnd _ | EvtOr _ | EvtDate _ -> assert false

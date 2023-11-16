@@ -6,19 +6,19 @@ module type S = sig
     | Action of 'a
     | NoAction
   type knowledge = bool KnowledgeMap.t
+  val empty : 'a t
+  val add_action : knowledge -> ('a option -> 'a) -> 'a t -> 'a t
   val find : knowledge -> 'a t -> 'a option
   val fold :
     'a t ->
     noaction:(knowledge -> 'b) ->
     action:(knowledge -> 'a -> 'b) ->
     decision:(knowledge -> condition -> 'b -> 'b -> 'b) -> 'b
-  val add_decision : condition -> 'a t -> 'a t
-  val map_action :
-    knowledge -> (knowledge -> 'a option -> 'a t) -> 'a t -> 'a t
   val cut : knowledge -> 'a t -> 'a t
+  val only_when : knowledge -> 'a t -> 'a t
   val merge :
-    (knowledge -> 'a option -> 'a option -> 'b option) ->
-    'a t -> 'a t -> 'b t
+    (knowledge -> 'a option -> 'b option -> 'c option) ->
+    'a t -> 'b t -> 'c t
 end
 
 
@@ -34,6 +34,36 @@ module Make(Cond : Map.OrderedType)(KnowledgeMap : Map.S with type key = Cond.t)
     | NoAction
 
   type knowledge = bool KnowledgeMap.t
+
+  let empty = NoAction
+
+  let add_action (k : knowledge) (act : 'a option -> 'a) (t : 'a t) =
+    let build_on rk def =
+      let up_act = match def with
+        | Decision _ -> assert false
+        | NoAction -> act None
+        | Action a -> act (Some a)
+      in
+      KnowledgeMap.fold (fun cond d t ->
+          if d
+          then Decision (cond, t, def)
+          else Decision (cond, def, t))
+        rk (Action up_act)
+    in
+    let rec aux rk t =
+      match t with
+      | Decision (cond, yes, no) ->
+        begin match KnowledgeMap.find_opt cond rk with
+          | None -> Decision (cond, aux rk yes, aux rk no)
+          | Some d ->
+            let rk = KnowledgeMap.remove cond rk in
+            if d
+            then Decision (cond, aux rk yes, no)
+            else Decision (cond, yes, aux rk no)
+        end
+      | leaf -> build_on rk leaf
+    in
+    aux k t
 
   let rec find (knowledge : knowledge) (t : 'a t) =
     match t with
@@ -63,29 +93,6 @@ module Make(Cond : Map.OrderedType)(KnowledgeMap : Map.S with type key = Cond.t)
     in
     aux KnowledgeMap.empty t
 
-  let rec add_decision (cond : Cond.t) (t : 'a t) =
-    match t with
-    | NoAction | Action _ -> Decision (cond, t, t)
-    | Decision (c, yes, no) ->
-      if Cond.compare cond c = 0 then t
-      else Decision (c, add_decision cond yes, add_decision cond no)
-
-  let rec map_action (knowledge : knowledge)
-      (f : knowledge -> 'a option -> 'a t) (t : 'a t) =
-    match t with
-    | NoAction -> f knowledge None
-    | Action a -> f knowledge (Some a)
-    | Decision (cond, yes, no) ->
-      match KnowledgeMap.find_opt cond knowledge with
-      | None ->
-        Decision (cond,
-                  map_action (KnowledgeMap.add cond true knowledge) f yes,
-                  map_action (KnowledgeMap.add cond false knowledge) f no)
-      | Some true ->
-        Decision (cond, map_action knowledge f yes, no)
-      | Some false ->
-        Decision (cond, yes, map_action knowledge f no)
-
   let rec cut (knowledge : knowledge) (t : 'a t) =
     match t with
     | NoAction | Action _ -> t
@@ -95,7 +102,14 @@ module Make(Cond : Map.OrderedType)(KnowledgeMap : Map.S with type key = Cond.t)
       | Some true -> cut knowledge yes
       | Some false -> cut knowledge no
 
-  let merge (f : knowledge -> 'a option -> 'a option -> 'b option) (d1 : 'a t) (d2 : 'a t) =
+  let only_when (k : knowledge) (t : 'a t) =
+    KnowledgeMap.fold (fun cond d t ->
+        if d
+        then Decision (cond, t, NoAction)
+        else Decision (cond, NoAction, t))
+      k (cut k t)
+
+  let merge (f : knowledge -> 'a option -> 'b option -> 'c option) (d1 : 'a t) (d2 : 'b t) =
     let rec run_down knowledge act d =
       match d with
       | NoAction -> begin

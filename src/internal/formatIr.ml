@@ -98,22 +98,15 @@ let print_redist (type a) (infos : Ast.program_infos) fmt (r : a RedistTree.redi
 let rec print_tree : type a. Ast.program_infos -> Format.formatter -> a RedistTree.tree -> unit =
   fun infos fmt t ->
   match t with
-  | Nothing -> Format.fprintf fmt "nothing"
-  | Redist r -> (print_redist infos) fmt r
-  | Branch {evt; before; after} ->
+  | NoAction -> Format.fprintf fmt "nothing"
+  | Action r -> (print_redist infos) fmt r
+  | Decision (evt, after, before) ->
     Format.fprintf fmt "@[<hv 2>branch on %a@ "
       (print_variable ~with_ctx:true infos) evt;
     Format.fprintf fmt "@[<hv 2>before@ %a@]@ "
       (print_tree infos) before;
     Format.fprintf fmt "@[<hv 2>after@ %a@]@]@ done"
       (print_tree infos) after
-  | When cr ->
-    Format.pp_print_list
-      (fun fmt (evt, t) ->
-         Format.fprintf fmt "@[<hv 2>when %a@ @[do@ %a@]@]@ done"
-           (print_variable ~with_ctx:true infos) evt
-           (print_tree infos) t)
-      fmt cr
 
 let print_trees (type a) (infos : Ast.program_infos) fmt (ts : a RedistTree.tree list) =
   Format.fprintf fmt "@[<v>%a@]" (Format.pp_print_list (print_tree infos)) ts

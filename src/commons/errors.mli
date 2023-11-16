@@ -50,11 +50,11 @@ val secondary : ?loc:Pos.t -> ('a, Format.formatter, unit, detail) format4 -> 'a
 
 (** [note ~loc fmt] creates a primary additional message according to [fmt]
     and [loc]. *)
-    val note : ?loc:Pos.t -> ('a, Format.formatter, unit, detail) format4 -> 'a
+val note : ?loc:Pos.t -> ('a, Format.formatter, unit, detail) format4 -> 'a
 
 (** [hint ~loc fmt] creates a primary additional message according to [fmt]
     and [loc]. *)
-    val hint : ?loc:Pos.t -> ('a, Format.formatter, unit, detail) format4 -> 'a
+val hint : ?loc:Pos.t -> ('a, Format.formatter, unit, detail) format4 -> 'a
 
 (** Initializes logs with the given reporter, if any. Default reporter uses
     standard output/error. *)

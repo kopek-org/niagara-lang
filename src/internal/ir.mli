@@ -43,11 +43,7 @@ module RedistTree : sig
                 balances : R.t Variable.Map.t }
         -> flat redist
 
-  type 'a tree =
-    | Nothing
-    | Redist of 'a redist
-    | When : (Variable.t * flat tree) list -> flat tree
-    | Branch of { evt : Variable.t; before : 'a tree; after : 'a tree }
+  type 'a tree = 'a redist Variable.BDT.t
 
   (* Default and deficit are resolved by constructing a specific tree, which
      require an additional analysis *)

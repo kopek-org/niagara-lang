@@ -350,16 +350,16 @@ let compute_redist (type a) (p : program) (s : state) (r : a Ir.RedistTree.redis
 let rec compute_tree : type a. program -> state -> a Ir.RedistTree.tree -> value -> value Variable.Map.t =
   fun p s tree value ->
   match tree with
-  | Nothing -> Variable.Map.empty
-  | Redist r -> compute_redist p s r value
-  | When ws ->
-    List.fold_left (fun res (evt, tree) ->
-        if get_event_value s evt then
-          let r = compute_tree p s tree value in
-          Variable.Map.union (fun _v r1 r2 -> Some (Value.add r1 r2)) res r
-        else res)
-      Variable.Map.empty ws
-  | Branch { evt; before; after } ->
+  | NoAction -> Variable.Map.empty
+  | Action r -> compute_redist p s r value
+  (* | When ws -> *)
+  (*   List.fold_left (fun res (evt, tree) -> *)
+  (*       if get_event_value s evt then *)
+  (*         let r = compute_tree p s tree value in *)
+  (*         Variable.Map.union (fun _v r1 r2 -> Some (Value.add r1 r2)) res r *)
+  (*       else res) *)
+  (*     Variable.Map.empty ws *)
+  | Decision (evt, after, before) ->
     if get_event_value s evt
     then compute_tree p s after value
     else compute_tree p s before value

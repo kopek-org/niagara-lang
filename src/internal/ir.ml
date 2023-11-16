@@ -40,11 +40,7 @@ module RedistTree = struct
                 balances : R.t Variable.Map.t }
         -> flat redist
 
-  type 'a tree =
-    | Nothing
-    | Redist of 'a redist
-    | When : (Variable.t * flat tree) list -> flat tree
-    | Branch of { evt : Variable.t; before : 'a tree; after : 'a tree }
+  type 'a tree = 'a redist Variable.BDT.t
 
   type frac_balance =
     | BalanceVars of { default : Variable.t option; deficit : Variable.t option }
@@ -81,44 +77,11 @@ module RedistTree = struct
 
   let tredist (r : kind_redist) =
     match r with
-    | FlatRedist r -> FlatTree (Redist r)
-    | FracRedist r -> FracTree (Redist r)
-
-  let twhen (ts : (Variable.t * kind_tree) list) =
-    FlatTree (When
-      (List.map (fun (dest, tree) ->
-           match tree with
-           | NothingTree -> dest, Nothing
-           | FlatTree t -> dest, t
-           | FracTree _ -> Errors.raise_error "Quotepart should not be when-guarded")
-          ts))
-
-  let tbranch (evt : Variable.t) (before : kind_tree) (after : kind_tree) =
-    let mixing_error () =
-      Errors.raise_error "Mixing quotepart and bonuses between branches"
-    in
-    match before with
-    | NothingTree -> begin
-        match after with
-        | FlatTree after -> FlatTree (Branch { evt; before = Nothing; after })
-        | FracTree after -> FracTree (Branch { evt; before = Nothing; after })
-        | NothingTree -> NothingTree
-      end
-    | FlatTree before -> begin
-        match after with
-        | FlatTree after -> FlatTree (Branch { evt; before; after })
-        | NothingTree -> FlatTree (Branch { evt; before; after = Nothing })
-        | FracTree _ -> mixing_error ()
-      end
-    | FracTree before ->
-      match after with
-      | FracTree after -> FracTree (Branch { evt; before; after })
-      | NothingTree -> FracTree (Branch { evt; before; after = Nothing })
-      | FlatTree _ -> mixing_error ()
+    | FlatRedist r -> FlatTree (Action r)
+    | FracRedist r -> FracTree (Action r)
 
   let merge_redist0 (type a) (r1 : a redist) (r2 : a redist) : a redist =
     match r1, r2 with
-    | NoInfo, NoInfo -> NoInfo
     | NoInfo, r | r, NoInfo -> r
     | Shares s1, Shares s2 ->
       let s =
@@ -140,6 +103,110 @@ module RedistTree = struct
           f1.balances f2.balances
       in
       Flats { transfers; balances }
+
+  let twhen (ts : (Variable.t * kind_tree) list) =
+    let tree =
+      List.fold_left (fun tree (evt, kt) ->
+          match kt with
+          | NothingTree -> tree
+          | FracTree _ -> Errors.raise_error "Quotepart should not be when-guarded"
+          | FlatTree t ->
+            let t = Variable.BDT.only_when (Variable.Map.singleton evt true) t in
+            Variable.BDT.merge (fun _k tree t ->
+                match tree, t with
+                | None, None -> None
+                | Some _, None -> tree
+                | None, Some _ -> t
+                | Some r1, Some r2 -> Some (merge_redist0 r1 r2)
+              )
+              tree t
+        )
+        Variable.BDT.empty ts
+    in
+    FlatTree tree
+
+  (* let tbranch (evt : Variable.t) (value : bool) (tree : kind_tree) = *)
+  (*   let k = Variable.Map.singleton evt value in *)
+  (*   match tree with *)
+  (*   | NothingTree -> NothingTree *)
+  (*   | FlatTree t -> FlatTree (Variable.BDT.only_when k t) *)
+  (*   | FracTree t -> FracTree (Variable.BDT.only_when k t) *)
+
+  (* let tbranch (evt : Variable.t) (value : bool) (tree : kind_tree) = *)
+  (*   let to_bdt tree : _ Variable.BDT.t = *)
+  (*     match tree with *)
+  (*       | Nothing -> NoAction *)
+  (*       | Branch bdt -> bdt *)
+  (*       | _ -> Action tree *)
+  (*   in *)
+  (*   match tree with *)
+  (*   | NothingTree -> NothingTree *)
+  (*   | FlatTree t -> *)
+  (*     let b = *)
+  (*       Variable.BDT.map_action (Variable.Map.singleton evt (not value)) *)
+  (*         (fun _k act -> *)
+  (*            match act with *)
+  (*            | None -> NoAction *)
+  (*            | Some _ -> assert false) *)
+  (*         (Variable.BDT.add_decision evt (to_bdt t)) *)
+  (*     in *)
+  (*     FlatTree (Branch b) *)
+  (*   | FracTree t -> *)
+  (*     let b = *)
+  (*       Variable.BDT.map_action (Variable.Map.singleton evt (not value)) *)
+  (*         (fun _k act -> *)
+  (*            match act with *)
+  (*            | None -> NoAction *)
+  (*            | Some _ -> assert false) *)
+  (*         (Variable.BDT.add_decision evt (to_bdt t)) *)
+  (*     in *)
+  (*     FracTree (Branch b) *)
+
+  (* let tbefore (evt : Variable.t) (before : kind_tree) (after : kind_tree) = *)
+  (*   begin match before, after with *)
+  (*   | FracTree _, FlatTree _ | FlatTree _, FracTree _ -> *)
+  (*     Errors.raise_error "Mixing quotepart and bonuses between branches" *)
+  (*   | _ -> () *)
+  (*   end; *)
+  (*   let after = *)
+  (*     match after with *)
+  (*     | NothingTree -> NoAction *)
+  (*     | FlatTree t | FracTree t -> *)
+  (*       Variable.BDT.cut (Variable.Map.singleton evt true) t *)
+        
+  (* let tafter (evt : Variable.t) (before : kind_tree) (after : kind_tree) = *)
+  (*   tbranch evt true after *)
+
+  let tbranch (evt : Variable.t) (before : kind_tree) (after : kind_tree) =
+    let mixing_error () =
+      Errors.raise_error "Mixing quotepart and bonuses between branches"
+    in
+    let build_branch before after =
+      Variable.BDT.Decision (evt,
+         Variable.BDT.cut (Variable.Map.singleton evt true) after,
+         Variable.BDT.cut (Variable.Map.singleton evt false) before)
+    in
+    match before with
+    | NothingTree -> begin
+        match after with
+        | FlatTree after ->
+          FlatTree (build_branch NoAction after)
+        | FracTree after ->
+          FracTree (build_branch NoAction after)
+        | NothingTree -> NothingTree
+      end
+    | FlatTree before -> begin
+        match after with
+        | FlatTree after -> FlatTree (build_branch before after)
+        | NothingTree -> FlatTree (build_branch before NoAction)
+        | FracTree _ -> mixing_error ()
+      end
+    | FracTree before ->
+      match after with
+      | FracTree after -> FracTree (build_branch before after)
+      | NothingTree -> FracTree (build_branch before NoAction)
+      | FlatTree _ -> mixing_error ()
+
 
   let merge_redist (r1 : kind_redist) (r2 : kind_redist) =
     match r1, r2 with
@@ -186,29 +253,28 @@ module RedistTree = struct
     match tree with
     | NothingTree -> t
     | FlatTree tree -> begin
-        if tree = Nothing then t else
-          match t with
+        match t with
           | Fractions _ -> mixing_error ()
           | Flat fs -> Flat (tree::fs)
-    end
+      end
     | FracTree tree ->
       match t with
       | Flat _ -> mixing_error ()
       | Fractions f ->
         match tree with
-        | Nothing -> assert false
-        | Redist r -> Fractions { f with base_shares = merge_redist0 r f.base_shares }
-        | Branch _ -> Fractions { f with branches = tree::f.branches }
+        | NoAction -> assert false
+        | Action r -> Fractions { f with base_shares = merge_redist0 r f.base_shares }
+        | Decision _ -> Fractions { f with branches = tree::f.branches }
 
   let of_tree (tree : kind_tree) =
     match tree with
-    | NothingTree | FracTree Nothing | FlatTree Nothing -> assert false
+    | NothingTree | FracTree NoAction | FlatTree NoAction -> assert false
     | FlatTree tree -> Flat [tree]
-    | FracTree (Redist r) ->
+    | FracTree (Action r) ->
       Fractions { base_shares = r;
                   balance = BalanceVars { default = None; deficit = None };
                   branches = [] }
-    | FracTree (Branch _ as tree) ->
+    | FracTree (Decision _ as tree) ->
       Fractions { base_shares = NoInfo;
                   balance = BalanceVars { default = None; deficit = None };
                   branches = [tree] }

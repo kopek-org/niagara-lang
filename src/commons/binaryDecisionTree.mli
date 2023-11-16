@@ -13,6 +13,14 @@ module type S = sig
 
   type knowledge = bool KnowledgeMap.t
 
+  (** BDT with no actions *)
+  val empty : 'a t
+
+  (** [add_action k f bdt] returns [bdt] where leaves satisfying [k] are updated
+      into an action following [f]. If [k] contains decisions that does not
+      already appears in the path, they will be added where necessary. *)
+  val add_action : knowledge -> ('a option -> 'a) -> 'a t -> 'a t
+
   (** [find k bdt] returns the leaf of the tree that match the given
       knowledge [k]. Returns [None] when there is no action, [Some a] when
       there is one, and will fail in case [k] doesn't contain enough
@@ -31,21 +39,12 @@ module type S = sig
     action:(knowledge -> 'a -> 'b) ->
     decision:(knowledge -> condition -> 'b -> 'b -> 'b) -> 'b
 
-  (** [add_decision c bdt] returns a BDT that represents the same decisions
-      as [bdt] with the addition of [c] everywhere this decision didn't
-      already existed. The existing actions are preserved regarding the
-      decision of [bdt]. *)
-  val add_decision : condition -> 'a t -> 'a t
-
-  (** [map_action k f bdt] returns a [bdt] where every leaves [l] satisfying
-      [k] are replaced with the subdiagram [f k' l] where [k'] is the
-      accumulated knowlegde on the path to [l]. *)
-  val map_action :
-    knowledge -> (knowledge -> 'a option -> 'a t) -> 'a t -> 'a t
-
   (** [cut k bdt] returns a BDT corresponding to [bdt] where every decision
       node whose condition exists in [k] have been shortcuted to match [k] *)
   val cut : knowledge -> 'a t -> 'a t
+
+  (** [only_when k bdt] returns [bdt] down the path described by [k]. *)
+  val only_when : knowledge -> 'a t -> 'a t
 
   (** [merge f bdt1 bdt2] returns a BDT that respects the decision patterns
       of [bdt1] and [bdt2] with the leaves resulting from the merge [f k' l1
@@ -53,8 +52,8 @@ module type S = sig
       [bdt2] resp. and [k'] is the combinated knowledge on the path of [l1]
       and [l2] *)
   val merge :
-    (knowledge -> 'a option -> 'a option -> 'b option) ->
-    'a t -> 'a t -> 'b t
+    (knowledge -> 'a option -> 'b option -> 'c option) ->
+    'a t -> 'b t -> 'c t
 end
 
 module Make :
