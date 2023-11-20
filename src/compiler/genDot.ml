@@ -109,7 +109,7 @@ let dot_of_t p g src t =
     | BalanceTree tree -> dot_of_tree p g tree)
   | Flat fs -> dot_of_trees p g fs
 
-let dot_of_program p =
+let graph_of_program p =
   let graph = {
     strict = false;
     kind = Digraph;
@@ -126,4 +126,10 @@ let dot_of_program p =
           add_edge graph src e a)
         es)
     p.trees;
-  print_file "graph.dot" graph
+  graph
+
+let dot_srting_of_program p =
+  string_of_graph @@ graph_of_program p
+
+let dot_of_program p =
+  print_file "graph.dot" @@ graph_of_program p
