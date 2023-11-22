@@ -7,7 +7,7 @@ module type S = sig
     | NoAction
   type knowledge = bool KnowledgeMap.t
   val empty : 'a t
-  val add_action : knowledge -> ('a option -> 'a) -> 'a t -> 'a t
+  val add_action : knowledge -> ('a option -> 'a option) -> 'a t -> 'a t
   val find : knowledge -> 'a t -> 'a option
   val fold :
     'a t ->
@@ -37,18 +37,22 @@ module Make(Cond : Map.OrderedType)(KnowledgeMap : Map.S with type key = Cond.t)
 
   let empty = NoAction
 
-  let add_action (k : knowledge) (act : 'a option -> 'a) (t : 'a t) =
+  let add_action (k : knowledge) (act : 'a option -> 'a option) (t : 'a t) =
+    let wrap_opt = function
+      | None -> NoAction
+      | Some a -> Action a
+    in
     let build_on rk def =
       let up_act = match def with
         | Decision _ -> assert false
-        | NoAction -> act None
-        | Action a -> act (Some a)
+        | NoAction -> wrap_opt (act None)
+        | Action a -> wrap_opt (act (Some a))
       in
       KnowledgeMap.fold (fun cond d t ->
           if d
           then Decision (cond, t, def)
           else Decision (cond, def, t))
-        rk (Action up_act)
+        rk up_act
     in
     let rec aux rk t =
       match t with

@@ -120,7 +120,7 @@ type eqex =
   | EVar of Variable.t
   | ECurrVar of Variable.t
 
-type nf_expr = {
+type nf_eq = {
   src_factor : eqex;
   const : eqex;
 }
@@ -132,7 +132,7 @@ type 'a sourced = {
   other_src : 'a;
 }
 
-type event_eq = nf_expr sourced Variable.BDT.t
+type event_eq = nf_eq Variable.BDT.t sourced
 
 type program = {
   infos : Surface.Ast.program_infos;

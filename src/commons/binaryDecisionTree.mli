@@ -19,7 +19,7 @@ module type S = sig
   (** [add_action k f bdt] returns [bdt] where leaves satisfying [k] are updated
       into an action following [f]. If [k] contains decisions that does not
       already appears in the path, they will be added where necessary. *)
-  val add_action : knowledge -> ('a option -> 'a) -> 'a t -> 'a t
+  val add_action : knowledge -> ('a option -> 'a option) -> 'a t -> 'a t
 
   (** [find k bdt] returns the leaf of the tree that match the given
       knowledge [k]. Returns [None] when there is no action, [Some a] when

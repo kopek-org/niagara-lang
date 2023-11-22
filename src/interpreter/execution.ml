@@ -242,7 +242,7 @@ type limit_approach =
   | NoLim (* no movement, or unreachable threshold *)
 
 let find_event_threshold (p : program) (s : state) (src : Variable.t) (value : value) =
-  let compute_equation_diff (eq : nf_expr) (sem : eq_sem) : limit_approach * value =
+  let compute_equation_diff (eq : nf_eq) (sem : eq_sem) : limit_approach * value =
     let const_val = evaluate_eqex s value eq.const in
     let factor_val = evaluate_eqex s value eq.src_factor in
     if Value.is_zero factor_val then NoLim, Value.minus const_val else
@@ -263,11 +263,11 @@ let find_event_threshold (p : program) (s : state) (src : Variable.t) (value : v
       lim_app, diff
   in
   let event_state = get_event_state p s in
-  Variable.Map.fold (fun evt bdd min_val ->
+  Variable.Map.fold (fun evt sourced min_val ->
+      let bdd = get_source src sourced in
       match Variable.BDT.find event_state bdd with
       | None -> min_val
-      | Some sourced ->
-        let eq = get_source src sourced in
+      | Some eq ->
         let sem =
           if Variable.Map.find evt event_state
           then LimGe

@@ -147,7 +147,7 @@ let rec print_eqex fmt (e : eqex) =
   | EVar v -> Format.fprintf fmt "v%d" (Variable.uid v)
   | ECurrVar v -> Format.fprintf fmt "v%d'" (Variable.uid v)
 
-let print_nf_eq fmt (eq : nf_expr) =
+let print_nf_eq fmt (eq : nf_eq) =
   Format.fprintf fmt "@[<hv 1> %a*[src]@ = %a@]"
       print_eqex eq.src_factor print_eqex eq.const
 
@@ -161,19 +161,16 @@ let rec print_bdd (pp : Format.formatter -> 'a -> unit) fmt (bdd : 'a Variable.B
 
 let print_conditions fmt (eqs : event_eq Variable.Map.t) =
   Format.pp_open_vbox fmt 0;
-  Variable.Map.iter (fun dest bdd ->
-      print_bdd (fun fmt eqs ->
-          Format.fprintf fmt "@[<hv 2>eqs %d:@ " (Variable.uid dest);
-          Variable.Map.iter (fun src eq ->
-              Format.fprintf fmt "@[<hv 2>from %d:@ %a@],@ "
-                (Variable.uid src)
-                print_nf_eq eq)
-            eqs.pinned_src;
-          Format.fprintf fmt "from another:@ %a" print_nf_eq eqs.other_src;
-          Format.fprintf fmt "@]@,")
-        fmt bdd)
-    eqs;
-  Format.fprintf fmt "@]@."
+  Variable.Map.iter (fun dest eqs ->
+      Format.fprintf fmt "@[<hv 2>eqs %d:@ " (Variable.uid dest);
+      Variable.Map.iter (fun src bdd ->
+          Format.fprintf fmt "@[<hv 2>from %d:@ %a@],@ "
+            (Variable.uid src)
+            (print_bdd print_nf_eq) bdd)
+        eqs.pinned_src;
+      Format.fprintf fmt "from another:@ %a" (print_bdd print_nf_eq) eqs.other_src;
+      Format.fprintf fmt "@]@,")
+    eqs
 
 let print_program fmt (p : program) =
   Format.fprintf fmt "@[<v 2>Events:@,";
