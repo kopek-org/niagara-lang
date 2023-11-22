@@ -187,7 +187,12 @@ end = struct
     match has_equal with
     | Some evt -> t, evt
     | None ->
-      let var_name = Variable.unique_anon_name "anon_event" in
+      let var_name =
+        match event with
+        | EvtOnRaise evt ->
+          "when_" ^ (Variable.Map.find evt t.pinfos.var_info).var_name
+        | _ -> Variable.unique_anon_name "anon_event"
+      in
       let v = Variable.create () in
       let t = flag_variable_usage t v in
       let t =
