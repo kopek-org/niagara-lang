@@ -74,10 +74,12 @@ let description_from_program (p : Ir.program) =
     Variable.Map.filter_map (fun v Variable.{ var_name } ->
         if Variable.Map.mem v events then None else
           let var_name, label_name =
-            match String.split_on_char '$' var_name with
-            | [] -> assert false
-            | [vn] -> vn, None
-            | vn::ln -> vn, Some (String.concat "$" ln)
+            if Variable.Map.mem v p.infos.actors then
+              match String.split_on_char '$' var_name with
+              | [] -> assert false
+              | [vn] -> vn, None
+              | vn::ln -> vn, Some (String.concat "$" ln)
+            else var_name, None
           in
           let var_kind =
             match Variable.Map.find_opt v p.infos.inputs with

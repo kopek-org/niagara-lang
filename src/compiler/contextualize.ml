@@ -37,7 +37,7 @@ module Acc : sig
 
   val find_misc_var : way:stream_way -> t -> string -> Variable.t
 
-  val generate_advance_pool : t -> Variable.t -> t * Variable.t
+  val generate_advance_pool : t -> Variable.t -> t * Variable.t * string
 
   val add_proj_constraint : t -> Variable.t -> Context.Group.t -> t
 
@@ -265,7 +265,8 @@ end = struct
 
   let generate_advance_pool t (dest : Variable.t) =
     let dest_name = (Variable.Map.find dest t.var_info).var_name in
-    let t, middle_pool = register_pool t (Variable.unique_anon_name ("advance_"^dest_name)) in
+    let pool_name = "advance_" ^ dest_name in
+    let t, middle_pool = register_pool t pool_name in
     let t = { t with
       advance_pools =
         Variable.Map.update dest (function
@@ -273,7 +274,7 @@ end = struct
             | None -> Some middle_pool)
           t.advance_pools; }
     in
-    t, middle_pool
+    t, middle_pool, pool_name
 
   let add_var_constraint t (v : Variable.t)
       (from_var : Variable.t) (proj : Context.Group.t) =
@@ -740,12 +741,9 @@ let advance acc (a : advance_decl) =
     formula acc a.adv_amount
       ~on_proj:(Context.any_projection (Acc.contexts acc))
   in
-  let acc, adv_pool = Acc.generate_advance_pool acc (fst output) in
+  let acc, adv_pool, pool_name = Acc.generate_advance_pool acc (fst output) in
   let adv_pool = adv_pool, snd output in
-  let acc, evt =
-    Acc.register_event acc
-      (Variable.unique_anon_name "advance_repayed")
-  in
+  let acc, evt = Acc.register_event acc ("repayed_" ^ pool_name) in
   let event_expr = {
     event_expr_loc = Pos.dummy;
     event_expr_desc =
