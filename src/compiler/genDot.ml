@@ -3,6 +3,20 @@ open Surface
 open Internal
 open Ir
 
+type var_incl_policy = Exact | DepsTo | DepsOf
+
+type filtering = {
+  event_knowledge : bool Variable.Map.t;
+  context : Context.Group.t option;
+  variable_inclusion : (Variable.Set.t * var_incl_policy) option;
+}
+
+let no_filtering = {
+  event_knowledge = Variable.Map.empty;
+  context = None;
+  variable_inclusion = None;
+}
+
 let label s =
   Simple_id "label", Some (Double_quoted_id s)
 
@@ -52,7 +66,7 @@ let dot_of_redist (type a) p g (r : a Ir.RedistTree.redist) =
   | Shares sh ->
     Variable.Map.fold (fun v f es ->
         let dest = add_var p g v in
-        let attr = [ label (Format.asprintf "%a%%" R.pp_print R.(f * ~$100)) ] in
+        let attr = [ label (Format.asprintf "%a%%" R.print_as_dec_repr R.(f * ~$100)) ] in
         (dest, attr)::es)
       sh []
   | Flats fs ->
@@ -65,7 +79,7 @@ let dot_of_redist (type a) p g (r : a Ir.RedistTree.redist) =
     in
     Variable.Map.fold (fun dest f es ->
         let dest = add_var p g dest in
-        let attr = [ label (Format.asprintf "deficit %a%%" R.pp_print R.(f * ~$100)) ] in
+        let attr = [ label (Format.asprintf "deficit %a%%" R.print_as_dec_repr R.(f * ~$100)) ] in
         (dest, attr)::es)
       fs.balances es
 
@@ -75,7 +89,7 @@ let rec dot_of_tree : type a. program -> graph -> a Ir.RedistTree.tree -> ((id *
   | NoAction -> []
   | Action r ->
     dot_of_redist p g r
-  | Decision (evt, after,before) ->
+  | Decision (evt, after, before) ->
     let e = add_event p g evt in
     let bf = dot_of_tree p g before in
     let af = dot_of_tree p g after in
@@ -87,29 +101,78 @@ let dot_of_trees p g ts =
   List.map (dot_of_tree p g) ts
   |> List.flatten
 
-let dot_of_t p g src t =
+let filter_redist (type a) ~filter (r : a RedistTree.redist) : a RedistTree.redist =
+  let vars_filter m =
+    match filter.variable_inclusion with
+    | None -> m
+    | Some (vars, _) -> Variable.Map.filter (fun v _ -> Variable.Set.mem v vars) m
+  in
+  match r with
+  | NoInfo -> NoInfo
+  | Shares sh ->
+    let fsh = vars_filter sh in
+    if Variable.Map.is_empty fsh
+    then NoInfo
+    else Shares fsh
+  | Flats { transfers; balances } ->
+    let transfers = vars_filter transfers in
+    let balances = vars_filter balances in
+    if Variable.Map.is_empty transfers && Variable.Map.is_empty balances
+    then NoInfo
+    else Flats { transfers; balances }
+
+let filter_tree ~filter t =
+  let rec aux : type a. a RedistTree.tree -> a RedistTree.tree =
+    fun t -> match t with
+    | NoAction -> NoAction
+    | Action r ->
+      begin match filter_redist ~filter r with
+        | NoInfo -> NoAction
+        | r -> Action r
+      end
+    | Decision (evt, after, before) ->
+      match Variable.Map.find_opt evt filter.event_knowledge with
+      | None ->
+        begin match aux after, aux before with
+        | NoAction, NoAction -> NoAction
+        | after, before -> Decision (evt, after, before)
+        end
+      | Some true ->
+        begin match aux after with
+          | NoAction -> NoAction
+          | a -> Decision (evt, a, NoAction)
+        end
+      | Some false ->
+        begin match aux before with
+          | NoAction -> NoAction
+          | a -> Decision (evt, NoAction, a)
+        end
+  in
+  aux t
+
+let dot_of_t ~filter p g src t =
   match (t : Ir.RedistTree.t) with
   | Fractions { base_shares; balance; branches } ->
-    dot_of_redist p g base_shares
-    @ dot_of_trees p g branches
+    dot_of_redist p g (filter_redist ~filter base_shares)
+    @ dot_of_trees p g (List.map (filter_tree ~filter) branches)
     @ (match (balance : Ir.RedistTree.frac_balance) with
-    | BalanceVars b ->
-      begin match b.deficit with
-        | None -> ()
-        | Some v ->
-          let v = add_var p g v in
-          add_edge g v src [label "deficit"]
-      end;
-      begin match b.default with
-        | None -> []
-        | Some v ->
-          let v = add_var p g v in
-          [v, [label "default"]]
-      end
-    | BalanceTree tree -> dot_of_tree p g tree)
-  | Flat fs -> dot_of_trees p g fs
+        | BalanceVars b ->
+          begin match b.deficit with
+            | None -> ()
+            | Some v ->
+              let v = add_var p g v in
+              add_edge g v src [label "deficit"]
+          end;
+          begin match b.default with
+            | None -> []
+            | Some v ->
+              let v = add_var p g v in
+              [v, [label "default"]]
+          end
+        | BalanceTree tree -> dot_of_tree p g (filter_tree ~filter tree))
+  | Flat fs -> dot_of_trees p g (List.map (filter_tree ~filter) fs)
 
-let graph_of_program p =
+let graph_of_program p filter =
   let graph = {
     strict = false;
     kind = Digraph;
@@ -119,17 +182,58 @@ let graph_of_program p =
     ];
   }
   in
+  let module Traversal = Graph.Traverse.Dfs(Variable.Graph) in
+  let variable_inclusion =
+    match filter.variable_inclusion with
+    | None | Some (_, Exact) -> filter.variable_inclusion
+    | Some (vars, DepsOf) ->
+      let module GOP = Graph.Oper.P(Variable.Graph) in
+      let rev_graph = GOP.mirror p.dep_graph in
+      let vars =
+        Variable.Set.fold (fun v vars ->
+            if Variable.Graph.mem_vertex rev_graph v then
+              Traversal.fold_component Variable.Set.add vars rev_graph v
+            else vars)
+          vars vars
+      in
+      Some (vars, Exact)
+    | Some (vars, DepsTo) ->
+      let vars =
+        Variable.Set.fold (fun v vars ->
+            if Variable.Graph.mem_vertex p.dep_graph v then
+              Traversal.fold_component Variable.Set.add vars p.dep_graph v
+            else vars)
+          vars vars
+      in
+      Some (vars, Exact)
+  in
+  let filter = { filter with variable_inclusion } in
   Variable.Map.iter (fun v t ->
-      let src = add_var p graph v in
-      let es = dot_of_t p graph src t in
-      List.iter (fun (e,a) ->
-          add_edge graph src e a)
-        es)
+      let is_included =
+        match filter.variable_inclusion with
+        | None -> true
+        | Some (vars, Exact) -> Variable.Set.mem v vars
+        | _ -> assert false
+      in
+      let match_context =
+        match filter.context with
+        | None -> true
+        | Some ctx ->
+          let s = Variable.Map.find v p.infos.var_shapes in
+          not (Context.is_empty_shape (Context.shape_overlap_subshape s ctx))
+      in
+      if is_included && match_context then begin
+        let src = add_var p graph v in
+        let es = dot_of_t ~filter p graph src t in
+        List.iter (fun (e,a) ->
+            add_edge graph src e a)
+          es
+      end)
     p.trees;
   graph
 
-let dot_srting_of_program p =
-  string_of_graph @@ graph_of_program p
+let dot_string_of_program p filter =
+  string_of_graph @@ graph_of_program p filter
 
-let dot_of_program p =
-  print_file "graph.dot" @@ graph_of_program p
+let dot_of_program p filter =
+  print_file "graph.dot" @@ graph_of_program p filter

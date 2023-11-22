@@ -35,6 +35,7 @@ let print_dec_repr fmt dr =
   Format.fprintf fmt "%s.%s" dr.intpart dr.fixdec;
   Option.iter (Format.fprintf fmt "(%s)") dr.repeatend
 
+let print_as_dec_repr fmt r = print_dec_repr fmt (to_dec_repr r)
 
 include Q
 
