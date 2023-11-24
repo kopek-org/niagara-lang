@@ -138,6 +138,7 @@ type program = {
   infos : Surface.Ast.program_infos;
   trees : RedistTree.t Variable.Map.t;
   events : event Variable.Map.t;
+  dep_graph : Variable.Graph.t;
   eval_order : Variable.t list;
   equations : event_eq Variable.Map.t;
 }

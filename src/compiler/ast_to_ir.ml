@@ -698,10 +698,9 @@ let dependancy_graph (acc : Acc.t) =
         List.fold_left (fun graph tree -> dep_tree graph src tree) graph fs)
     acc.trees Variable.Graph.empty
 
-let evaluation_order (acc : Acc.t) =
-  let graph = dependancy_graph acc in
+let evaluation_order (acc : Acc.t) (g : Variable.Graph.t) =
   let module SCC = Graph.Components.Make(Variable.Graph) in
-  let scc = SCC.scc_list graph in
+  let scc = SCC.scc_list g in
   List.fold_left (fun order comp ->
       match comp with
       | [] -> assert false
@@ -719,11 +718,13 @@ let translate_program (Contextualized (infos, prog) : Ast.contextualized Ast.pro
   in
   let acc = Acc.filter_usage acc in
   let acc = level_attributions acc in
-  let eval_order = evaluation_order acc in
+  let dep_graph = dependancy_graph acc in
+  let eval_order = evaluation_order acc dep_graph in
   {
     infos = acc.pinfos;
     trees = acc.trees;
     events = acc.events;
     eval_order;
+    dep_graph;
     equations = Variable.Map.empty;
   }

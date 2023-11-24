@@ -390,5 +390,6 @@ let compute_threshold_equations (prog : program) =
     trees = prog.trees;
     events = prog.events;
     equations = eqs;
+    dep_graph = prog.dep_graph;
     eval_order = prog.eval_order;
   }
