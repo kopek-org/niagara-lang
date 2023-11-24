@@ -43,6 +43,8 @@ module Acc : sig
 
   val add_var_constraint : t -> Variable.t -> Variable.t -> Context.Group.t -> t
 
+  val add_deps_from : t -> Variable.t -> Variable.t list -> t
+
   val to_contextualized_program : t -> contextualized program
 
 end = struct
@@ -79,6 +81,7 @@ end = struct
     constants : literal Variable.Map.t;
     advance_pools : Variable.t Variable.Map.t; (* substitution map *)
     constraints : context_constraint Variable.Map.t;
+    deps : Variable.Set.t Variable.Map.t; (* maps src -> dests, for cycle detections *)
   }
 
   let empty = {
@@ -93,6 +96,7 @@ end = struct
     constants = Variable.Map.empty;
     advance_pools = Variable.Map.empty;
     constraints = Variable.Map.empty;
+    deps = Variable.Map.empty;
   }
 
   let contexts t = t.contexts
@@ -460,6 +464,24 @@ end = struct
         fst @@ resolve_var v shapes)
       t.var_info Variable.Map.empty
 
+  let add_deps_from t (src : Variable.t) (dests : Variable.t list) =
+    let tdeps =
+      List.fold_left (fun tdeps dest ->
+          match Variable.Map.find_opt dest t.deps with
+          | None -> Variable.Set.add dest tdeps
+          | Some tds -> Variable.Set.union (Variable.Set.add dest tds) tdeps)
+        Variable.Set.empty dests
+    in
+    if Variable.Set.mem src tdeps then
+      Errors.raise_error "Cyclic repartition";
+    let deps =
+      Variable.Map.update src (function
+          | None -> Some tdeps
+          | Some tds -> Some (Variable.Set.union tds tdeps))
+        t.deps
+    in
+    { t with deps }
+
   let to_contextualized_program t =
     let t = advance_substitution t in
     let infos = {
@@ -703,6 +725,7 @@ let operation acc (op : operation_decl) =
   let acc, default_dest = destination_opt acc op.op_default_dest in
   let acc, g_redist, dests = guarded_redist acc op.op_guarded_redistrib ~on_proj in
   let dests = dests @ (Option.to_list default_dest) in
+  let acc = Acc.add_deps_from acc src (List.map fst dests) in
   let acc =
     List.fold_left (fun acc (dest,_) ->
         Acc.add_var_constraint acc src dest on_proj)
@@ -806,10 +829,12 @@ let declaration acc (decl : source declaration) =
     let acc =
       Acc.add_var_constraint acc src (fst ctx_default_dest) src_proj
     in
+    let acc = Acc.add_deps_from acc (fst ctx_default_source) [fst ctx_default_dest] in
     Acc.add_program_decl acc (DVarDefault { ctx_default_source; ctx_default_dest })
   | DHolderDeficit d ->
     let acc, ctx_deficit_pool = find_holder acc d.deficit_pool in
     let acc, ctx_deficit_provider = find_holder_as_source acc d.deficit_provider in
+    let acc = Acc.add_deps_from acc (fst ctx_deficit_provider) [fst ctx_deficit_pool] in
     Acc.add_program_decl acc (DVarDeficit { ctx_deficit_pool; ctx_deficit_provider})
   | DHolderAdvance a -> advance acc a
 
