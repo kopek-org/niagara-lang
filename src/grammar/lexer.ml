@@ -64,7 +64,10 @@ let parse_money_value s : int option =
     | [intpart; decpart] ->
       let declen = String.length decpart in
       let intpart = int_of_string intpart in
-      let decpart = int_of_string decpart in
+      let decpart =
+        let d = int_of_string decpart in
+        if String.length decpart = 1 then d*10 else d
+      in
       if declen < 3 && declen >= 0
       then Some (intpart*100 + decpart)
       else None
