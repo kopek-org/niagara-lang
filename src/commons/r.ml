@@ -8,7 +8,8 @@ let to_dec_repr (rat : Q.t) =
   let substr_from n s = String.sub s n ((String.length s) - n) in
   let open Z in
   let open Z.Compare in
-  let Q.{ num = n; den = d } = rat in
+  let sign = if Q.(rat < zero) then "-" else "" in
+  let Q.{ num = n; den = d } = Q.abs rat in
   let rec dec_list rest n =
     let q = n / d in
     let r = n mod d in
@@ -17,7 +18,7 @@ let to_dec_repr (rat : Q.t) =
     if r = zero || reach_loop then rest else
       dec_list rest (r * ~$10)
   in
-  let intpart = to_string (n/d) in
+  let intpart = sign ^ (to_string (n/d)) in
   let rdec = dec_list [] (abs (n mod d)) in
   match rdec with
   | [] -> { intpart; fixdec = ""; repeatend = None }
