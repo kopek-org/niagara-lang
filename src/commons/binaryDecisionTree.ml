@@ -102,7 +102,11 @@ module Make(Cond : Map.OrderedType)(KnowledgeMap : Map.S with type key = Cond.t)
     | NoAction | Action _ -> t
     | Decision (cond, yes, no) ->
       match KnowledgeMap.find_opt cond knowledge with
-      | None -> Decision (cond, cut knowledge yes, cut knowledge no)
+      | None ->
+        begin match cut knowledge yes, cut knowledge no with
+          | NoAction, NoAction -> NoAction
+          | yes, no -> Decision (cond, yes, no)
+        end
       | Some true -> cut knowledge yes
       | Some false -> cut knowledge no
 

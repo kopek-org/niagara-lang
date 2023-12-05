@@ -640,45 +640,45 @@ let level_attributions (acc : Acc.t) =
     acc.trees acc
 
 let dependancy_graph (acc : Acc.t) =
-  let rec dep_formula graph src (f : formula) =
+  let rec dep_formula graph k src (f : formula) =
     match f with
     | Literal _ -> graph
-    | Variable (v, _) -> Variable.Graph.add_edge graph v src
+    | Variable (v, _) -> Variable.Graph.add_edge_e graph (v, k, src)
     | Binop (_, f1, f2) ->
-      let graph = dep_formula graph src f1 in
-      dep_formula graph src f2
+      let graph = dep_formula graph k src f1 in
+      dep_formula graph k src f2
   in
-  let dep_redist (type a) graph src (r : a RedistTree.redist) =
+  let dep_redist (type a) graph k src (r : a RedistTree.redist) =
     match r with
     | RedistTree.NoInfo -> graph
     | RedistTree.Shares sh ->
-      Variable.Map.fold (fun dest _ graph -> Variable.Graph.add_edge graph src dest)
+      Variable.Map.fold (fun dest _ graph -> Variable.Graph.add_edge_e graph (src, k, dest))
         sh graph
     | RedistTree.Flats fs ->
       let graph =
         Variable.Map.fold (fun dest formula graph ->
-            let graph = Variable.Graph.add_edge graph src dest in
-            dep_formula graph src formula)
+            let graph = Variable.Graph.add_edge_e graph (src, k, dest) in
+            dep_formula graph k src formula)
           fs.transfers graph
       in
-      Variable.Map.fold (fun provider _factor graph ->
-          Variable.Graph.add_edge graph provider src)
+      Variable.Map.fold (fun dest _factor graph ->
+          Variable.Graph.add_edge_e graph (src, k, dest))
         fs.balances graph
   in
   let rec dep_tree :
-    type a. Variable.Graph.t -> Variable.t -> a RedistTree.tree -> Variable.Graph.t =
-    fun graph src tree ->
+    type a. Variable.Graph.t -> bool Variable.Map.t -> Variable.t -> a RedistTree.tree -> Variable.Graph.t =
+    fun graph k src tree ->
       match tree with
       | NoAction -> graph
-      | Action r -> dep_redist graph src r
-      | Decision (_, after, before) ->
-        let graph = dep_tree graph src before in
-        dep_tree graph src after
+      | Action r -> dep_redist graph k src r
+      | Decision (cond, after, before) ->
+        let graph = dep_tree graph (Variable.Map.add cond false k) src before in
+        dep_tree graph (Variable.Map.add cond true k) src after
   in
   Variable.Map.fold (fun src trees graph ->
       match trees with
       | RedistTree.Fractions { base_shares; balance; branches } ->
-        let graph = dep_redist graph src base_shares in
+        let graph = dep_redist graph Variable.Map.empty src base_shares in
         let graph =
           match balance with
           | BalanceVars b ->
@@ -690,12 +690,13 @@ let dependancy_graph (acc : Acc.t) =
               | Some d -> Variable.Graph.add_edge graph d src
               | None -> graph
             end
-          | BalanceTree tree -> dep_tree graph src tree
+          | BalanceTree tree -> dep_tree graph Variable.Map.empty src tree
         in
-        List.fold_left (fun graph tree -> dep_tree graph src tree)
+        List.fold_left (fun graph tree -> dep_tree graph Variable.Map.empty src tree)
           graph branches
       | RedistTree.Flat fs ->
-        List.fold_left (fun graph tree -> dep_tree graph src tree) graph fs)
+        List.fold_left (fun graph tree -> dep_tree graph Variable.Map.empty src tree)
+          graph fs)
     acc.trees Variable.Graph.empty
 
 let evaluation_order (acc : Acc.t) (g : Variable.Graph.t) =

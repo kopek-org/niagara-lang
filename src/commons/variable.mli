@@ -24,5 +24,8 @@ module Set : Set.S with type elt = t
 (** Binary decision tree whose branches are based on variables *)
 module BDT : BinaryDecisionTree.S with type condition = t and module KnowledgeMap = Map
 
-(** Directed graph whose nodes are variables *)
-module Graph : Graph.Sig.P with type V.t = t
+(** Directed graph whose nodes are variables and edges event conditions *)
+module Graph : Graph.Sig.P
+  with type V.t = t
+   and type E.label = bool Map.t
+   and type E.t = t * bool Map.t * t
