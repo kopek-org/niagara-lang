@@ -6,6 +6,7 @@ module type S = sig
     | Action of 'a
     | NoAction
   type knowledge = bool KnowledgeMap.t
+  val contradictory_knowledge : knowledge -> knowledge -> bool
   val empty : 'a t
   val add_action : knowledge -> ('a option -> 'a option) -> 'a t -> 'a t
   val find : knowledge -> 'a t -> 'a option
@@ -34,6 +35,13 @@ module Make(Cond : Map.OrderedType)(KnowledgeMap : Map.S with type key = Cond.t)
     | NoAction
 
   type knowledge = bool KnowledgeMap.t
+
+  let contradictory_knowledge (k1 : knowledge) (k2 : knowledge) =
+    KnowledgeMap.exists (fun c d1 ->
+      match KnowledgeMap.find_opt c k2 with
+        | None -> false
+        | Some d2 -> d1 <> d2)
+      k1
 
   let empty = NoAction
 

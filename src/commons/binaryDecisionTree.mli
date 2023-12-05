@@ -13,6 +13,9 @@ module type S = sig
 
   type knowledge = bool KnowledgeMap.t
 
+  (** test for contradiction between knowledge bases *)
+  val contradictory_knowledge : knowledge -> knowledge -> bool
+
   (** BDT with no actions *)
   val empty : 'a t
 

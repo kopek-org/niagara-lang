@@ -172,6 +172,28 @@ let dot_of_t ~filter p g src t =
         | BalanceTree tree -> dot_of_tree p g (filter_tree ~filter tree))
   | Flat fs -> dot_of_trees p g (List.map (filter_tree ~filter) fs)
 
+let graph_filter p g ~(filter : filtering) (starts_v : Variable.Set.t) =
+  let match_context v =
+    match filter.context with
+    | None -> true
+    | Some ctx ->
+      let s = Variable.Map.find v p.infos.var_shapes in
+      not (Context.is_empty_shape (Context.shape_overlap_subshape s ctx))
+  in
+  let rec aux v incl =
+    let es = Variable.Graph.succ_e g v in
+    List.fold_left (fun incl (_s, k, e) ->
+        if Variable.Set.mem e incl then incl else
+        if Variable.BDT.contradictory_knowledge filter.event_knowledge k
+        then incl else
+        if match_context e then
+          aux e (Variable.Set.add e incl)
+        else incl)
+      incl es
+  in
+  let starts = Variable.Set.filter (Variable.Graph.mem_vertex g) starts_v in
+  Variable.Set.fold aux starts starts
+
 let graph_of_program p filter =
   let graph = {
     strict = false;
@@ -189,22 +211,10 @@ let graph_of_program p filter =
     | Some (vars, DepsOf) ->
       let module GOP = Graph.Oper.P(Variable.Graph) in
       let rev_graph = GOP.mirror p.dep_graph in
-      let vars =
-        Variable.Set.fold (fun v vars ->
-            if Variable.Graph.mem_vertex rev_graph v then
-              Traversal.fold_component Variable.Set.add vars rev_graph v
-            else vars)
-          vars vars
-      in
+      let vars = graph_filter p rev_graph ~filter vars in
       Some (vars, Exact)
     | Some (vars, DepsTo) ->
-      let vars =
-        Variable.Set.fold (fun v vars ->
-            if Variable.Graph.mem_vertex p.dep_graph v then
-              Traversal.fold_component Variable.Set.add vars p.dep_graph v
-            else vars)
-          vars vars
-      in
+      let vars = graph_filter p p.dep_graph ~filter vars in
       Some (vars, Exact)
   in
   let filter = { filter with variable_inclusion } in
@@ -215,14 +225,7 @@ let graph_of_program p filter =
         | Some (vars, Exact) -> Variable.Set.mem v vars
         | _ -> assert false
       in
-      let match_context =
-        match filter.context with
-        | None -> true
-        | Some ctx ->
-          let s = Variable.Map.find v p.infos.var_shapes in
-          not (Context.is_empty_shape (Context.shape_overlap_subshape s ctx))
-      in
-      if is_included && match_context then begin
+      if is_included then begin
         let src = add_var p graph v in
         let es = dot_of_t ~filter p graph src t in
         List.iter (fun (e,a) ->
