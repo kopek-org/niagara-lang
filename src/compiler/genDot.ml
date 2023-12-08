@@ -182,17 +182,25 @@ let graph_filter p g ~(filter : filtering) (starts_v : Variable.Set.t) =
   in
   let rec aux v incl =
     let es = Variable.Graph.succ_e g v in
-    List.fold_left (fun incl (_s, k, e) ->
-        if Variable.Set.mem e incl then incl else
-        if Variable.BDT.contradictory_knowledge filter.event_knowledge k
-        then incl else
-        if match_context e then
-          aux e (Variable.Set.add e incl)
-        else incl)
-      incl es
+    match es with [] -> Some incl | _ ->
+      List.fold_left (fun inclo (_s, k, e) ->
+          if Variable.Set.mem e incl then inclo else
+          if Variable.BDT.contradictory_knowledge filter.event_knowledge k
+          then inclo else
+          if match_context e then
+            match inclo, aux e (Variable.Set.add e incl) with
+            | inclo, None -> inclo
+            | None, Some i -> Some i
+            | Some io, Some i -> Some (Variable.Set.union i io)
+          else inclo)
+        None es
   in
   let starts = Variable.Set.filter (Variable.Graph.mem_vertex g) starts_v in
-  Variable.Set.fold aux starts starts
+  Variable.Set.fold (fun v incl ->
+      match aux v incl with
+      | None -> incl
+      | Some i -> Variable.Set.union i incl)
+    starts starts
 
 let graph_of_program p filter =
   let graph = {
