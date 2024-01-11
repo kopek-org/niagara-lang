@@ -212,7 +212,6 @@ let graph_of_program p filter =
     ];
   }
   in
-  let module Traversal = Graph.Traverse.Dfs(Variable.Graph) in
   let variable_inclusion =
     match filter.variable_inclusion with
     | None | Some (_, Exact) -> filter.variable_inclusion

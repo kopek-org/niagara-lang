@@ -251,7 +251,8 @@ end = struct
         compounds = filter t.pinfos.compounds;
         types = filter t.pinfos.types;
         constants = filter t.pinfos.constants;
-      }
+      };
+      trees = filter t.trees;
     }
 
 end
@@ -699,6 +700,65 @@ let dependancy_graph (acc : Acc.t) =
           graph fs)
     acc.trees Variable.Graph.empty
 
+let compute_used_vars (acc : Acc.t) (g : Variable.Graph.t) =
+  let vmap2set map =
+    Variable.Map.fold (fun v _ s -> Variable.Set.add v s) map Variable.Set.empty
+  in
+  let top_vars =
+    Variable.Map.fold (fun v _ vs ->
+        if Variable.Graph.mem_vertex g v
+        then Variable.Set.add v vs else vs)
+      acc.pinfos.Ast.inputs Variable.Set.empty
+    |> Variable.Map.fold (fun v way vs ->
+        if way = Ast.Upstream && Variable.Graph.mem_vertex g v
+        then Variable.Set.add v vs else vs)
+      acc.pinfos.Ast.actors
+  in
+  let rec aux v used =
+    match Variable.Graph.succ g v with
+    | [] ->
+      begin match Variable.Map.find_opt v acc.pinfos.Ast.actors with
+      | None ->
+        Errors.raise_error
+          "(internal) Variable %d don't flow in a receiving actor"
+          (Variable.uid v)
+      | Some Upstream -> used
+      | Some Downstream -> Variable.Set.add v used
+      end
+    | succs ->
+      List.fold_left (fun used v -> aux v used) (Variable.Set.add v used) succs
+  in
+  let used = Variable.Set.fold aux top_vars top_vars in
+  let used_with_compound =
+    Variable.Map.fold (fun v cmp uwc ->
+        if Variable.Set.exists (fun v -> Variable.Set.mem v used) cmp
+        then Variable.Set.add v uwc else uwc)
+      acc.pinfos.Ast.compounds used
+  in
+  let event_occurrences =
+    let rec formula_vars (f : formula) vars =
+      match f with
+      | Literal _ -> vars
+      | Variable (v, _) -> Variable.Set.add v vars
+      | Binop (_, f1, f2) ->
+        formula_vars f1 vars |> formula_vars f2
+    in
+    let rec event_vars (e : event) vars =
+      match e with
+      | EvtVar _ -> vars
+      | EvtOnRaise _ -> vars
+      | EvtAnd (e1, e2)
+      | EvtOr (e1, e2) -> event_vars e1 vars |> event_vars e2
+      | EvtComp (_, f1, f2) -> formula_vars f1 vars |> formula_vars f2
+      | EvtDate _ -> assert false
+    in
+    Variable.Map.fold (fun _ -> event_vars)
+      acc.events Variable.Set.empty
+  in
+  Variable.Set.union (vmap2set acc.pinfos.Ast.constants) used_with_compound
+  |> Variable.Set.union (vmap2set acc.events)
+  |> Variable.Set.union event_occurrences
+
 let evaluation_order (acc : Acc.t) (g : Variable.Graph.t) =
   let module SCC = Graph.Components.Make(Variable.Graph) in
   let scc = SCC.scc_list g in
@@ -720,6 +780,31 @@ let translate_program (Contextualized (infos, prog) : Ast.contextualized Ast.pro
   let acc = Acc.filter_usage acc in
   let acc = level_attributions acc in
   let dep_graph = dependancy_graph acc in
+  let used_vars = compute_used_vars acc dep_graph in
+  (* Variable.Set.iter (fun v -> Format.printf "incl %d@;" (Variable.uid v)) used_vars; *)
+  let filter map =
+    Variable.Map.filter (fun v _ -> Variable.Set.mem v used_vars) map
+  in
+  let acc =
+    { acc with
+      pinfos = {
+        acc.pinfos with
+        var_info = filter acc.pinfos.var_info;
+        var_shapes = filter acc.pinfos.var_shapes;
+        inputs = filter acc.pinfos.inputs;
+        actors = filter acc.pinfos.actors;
+        compounds = filter acc.pinfos.compounds;
+        types = filter acc.pinfos.types;
+      };
+      trees = filter acc.trees;
+    }
+  in
+  let dep_graph =
+    Variable.Graph.fold_vertex (fun v g ->
+        if Variable.Set.mem v used_vars then g else
+          Variable.Graph.remove_vertex g v)
+      dep_graph dep_graph
+  in
   let eval_order = evaluation_order acc dep_graph in
   {
     infos = acc.pinfos;

@@ -6,6 +6,7 @@ let print_variable ~(with_ctx : bool) (infos : Ast.program_infos) fmt (v : Varia
     match Variable.Map.find_opt v infos.var_info with
     | Some i -> i
     | None ->
+      Format.pp_print_flush fmt ();
       Errors.raise_error "(internal) no infos found for var %d"
         (Variable.uid v)
   in
