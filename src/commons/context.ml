@@ -24,36 +24,38 @@ module Group = struct
      only to be known be this file, so complitely rework the implementation
      should not come at un unfair price.
   *)
+  type t = Z.t (* a type with bitwise operators *)
 
-  type t = int (* a type with bitwise operators *)
+  (* Dynamic group size to bound operations to sizes seen up to now *)
+  let max_size = ref 32
 
-  (* For now, 63 elements sets are enough. We could extend this using an array
-     if the need arise. *)
-  let max_val = Sys.int_size
+  let check_bound n =
+    if n >= !max_size then max_size := n+1
 
-  module Map = IntMap
-  module Set = IntSet
+  module Map = Map.Make(Z)
+  module Set = Set.Make(Z)
 
-  let empty = 0
+  let empty = Z.zero
 
-  let everything_up_to n = (1 lsl (n+1)) - 1
+  let everything_up_to n =
+    check_bound n;
+    Z.((one lsl Int.(add n 1)) - one)
 
-  let is_empty g = g = 0
+  let is_empty g = g = Z.zero
 
   (* Set operations *)
 
   let add n g =
-    if n > max_val then
-      Errors.raise_error "Added value exceeds group capacity";
-    g lor (1 lsl n)
+    check_bound n;
+    Z.(g lor (one lsl n))
 
-  let union = (lor)
+  let union = Z.(lor)
 
-  let inter = (land)
+  let inter = Z.(land)
 
-  let equal = (=)
+  let equal = Z.equal
 
-  let diff g1 g2 = g1 land (lnot g2)
+  let diff g1 g2 = Z.(g1 land ~!g2)
 
   (* Clipping refers here to the operation of computing the maximum common sets.
      Think Venn diagrams.
@@ -76,14 +78,18 @@ module Group = struct
   *)
   let select g (offset : int) (length : int) (period : int) =
     let rec aux off len acc =
-      if off + len > max_val then acc else
+      if off + len >= !max_size then acc else
         let acc = add off acc in
         if len = 0
         then aux (off-length+period+1) (length -1) acc
         else aux (off+1) (len-1) acc
     in
-    let mask = aux offset (length -1) 0 in
+    let mask = aux offset (length -1) Z.zero in
     inter g mask
+
+  let rec print fmt t =
+    if is_empty t then () else
+      Format.fprintf fmt "%a%X" print Z.(t / ~$16) Z.(to_int (t mod ~$16))
 
 end
 
@@ -273,11 +279,7 @@ let add_domain =
       StrMap.add dom domain world.domain_table
     in
     let group_repr_size =
-      let s = world.group_repr_size * (!c - domain) in
-       if s > Group.max_val then
-         Errors.raise_error "(internal) Too many contexts for %d bits bitvector"
-           Group.max_val
-       else s
+      world.group_repr_size * (!c - domain)
     in
     let domains =
       DomainMap.add domain
@@ -331,7 +333,7 @@ let group_desc world (g : Group.t) =
       if DomainMap.is_empty ndoms then [DomainMap.empty] else
         aux (DomainMap.choose ndoms) ndoms g
     in
-    let case_split : (CaseSet.t * Group.t) IntMap.t =
+    let case_split : (CaseSet.t * Group.t) Group.Map.t =
       (* Dreadful programming trick:
 
          We want all cases of a domain with the same existence pattern to be
@@ -345,16 +347,16 @@ let group_desc world (g : Group.t) =
           (* [cg] is the initial group where only case [c] of the current domain
              exists. *)
           if Group.is_empty cg then acc else
-            IntMap.update (cg lsr align) (function
+            Group.Map.update Z.(cg asr align) (function
                 | None -> Some (CaseSet.singleton c, cg)
                 | Some (cs, csg) ->
                   (* Reconstructing the group with several cases for recursive
                      calls *)
-                  Some (CaseSet.add c cs, csg lor cg))
+                  Some (CaseSet.add c cs, Z.(csg lor cg)))
               acc)
-        infos.domain_cases IntMap.empty
+        infos.domain_cases Group.Map.empty
     in
-    IntMap.fold (fun _ (cs, csg) acc ->
+    Group.Map.fold (fun _ (cs, csg) acc ->
         (* [csg] is the initial group where only the cases [cs] exist. Recursive
            call to the other domains within this pattern. *)
         let odoms = aux csg in
@@ -390,7 +392,7 @@ let print_dommap world fmt (dm : CaseSet.t DomainMap.t) =
 
 let print_group world fmt (g : Group.t) =
   let dommaps = group_desc world g in
-  Format.fprintf fmt "@[<hv>%X@," g;
+  Format.fprintf fmt "@[<hv>%a@," Group.print g;
     Format.pp_print_list
       (fun fmt map ->
         Format.fprintf fmt "- %a@ " (print_dommap world) map)
@@ -416,9 +418,6 @@ let print_shape world fmt (s : shape) =
       fmt s;
     Format.fprintf fmt "@]}"
   end
-
-let print_group_id fmt (g : Group.t) =
-  Format.fprintf fmt "%X" g
 
 let print_group_desc world fmt (desc : group_desc) =
   let print_one fmt d =

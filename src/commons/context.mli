@@ -31,6 +31,8 @@ module Group : sig
       in [g2]. *)
   val diff : t -> t -> t
 
+  val print : Format.formatter -> t -> unit
+
 end
 
 (** A shape is a set of disjoint groups that represents the various
@@ -170,8 +172,6 @@ val group_desc : world -> Group.t -> group_desc
 
 
 (** Various debug printing *)
-
-val print_group_id : Format.formatter -> Group.t -> unit
 
 val print_group_desc : world -> Format.formatter -> group_desc -> unit
 

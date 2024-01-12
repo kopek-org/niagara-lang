@@ -117,7 +117,7 @@ let print_actor_label fmt (l : actor_label) =
 
 let print_var_context contexts fmt (ctx : variable_context) =
   Format.fprintf fmt "@[<v 2>Context:@ Group id: %a@ Group desc: @[<h>%a@]@]"
-    Context.print_group_id ctx.var_context_group
+    Context.Group.print ctx.var_context_group
     (Context.print_group_desc contexts) ctx.var_context_desc
 
 let print_var_kind contexts fmt (kind : variable_kind) =
