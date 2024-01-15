@@ -26,28 +26,19 @@ module Group = struct
   *)
   type t = Z.t (* a type with bitwise operators *)
 
-  (* Dynamic group size to bound operations to sizes seen up to now *)
-  let max_size = ref 32
-
-  let check_bound n =
-    if n >= !max_size then max_size := n+1
-
   module Map = Map.Make(Z)
   module Set = Set.Make(Z)
 
   let empty = Z.zero
 
   let everything_up_to n =
-    check_bound n;
     Z.((one lsl Int.(add n 1)) - one)
 
   let is_empty g = g = Z.zero
 
   (* Set operations *)
 
-  let add n g =
-    check_bound n;
-    Z.(g lor (one lsl n))
+  let add n g = Z.(g lor (one lsl n))
 
   let union = Z.(lor)
 
@@ -78,7 +69,7 @@ module Group = struct
   *)
   let select g (offset : int) (length : int) (period : int) =
     let rec aux off len acc =
-      if off + len >= !max_size then acc else
+      if Z.(g < one lsl off) then acc else
         let acc = add off acc in
         if len = 0
         then aux (off-length+period+1) (length -1) acc
