@@ -198,7 +198,7 @@ let add_evt_to_current (s : state) (evts : event Variable.Map.t) =
 let literal_value (l : Ir.literal) : value =
   match l with
   | Ir.LInteger i
-  | Ir.LMoney i -> VRat R.(~$i)
+  | Ir.LMoney i -> VRat R.(~$$i)
   | Ir.LRational r -> VRat r
   | Ir.LDate _
   | Ir.LDuration _ -> assert false

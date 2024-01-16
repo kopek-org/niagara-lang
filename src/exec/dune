@@ -3,6 +3,7 @@
   (package niagara-lang)
   (public_name niagara)
   (libraries
+    zarith
     calendar
     commons
     cmdliner

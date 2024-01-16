@@ -1,7 +1,7 @@
 type literal =
-  | LInteger of int
+  | LInteger of Z.t
   | LRational of R.t
-  | LMoney of int (* cents *)
+  | LMoney of Z.t (* cents *)
   | LDate of Date.Date.t
   | LDuration of Date.Duration.t
 

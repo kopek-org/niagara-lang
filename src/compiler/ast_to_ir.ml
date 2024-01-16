@@ -270,7 +270,7 @@ let resolve_projection_context acc ~context ~refinement =
 (* Used only to compute constant quoteparts *)
 let rec reduce_formula (f : formula) =
   let to_rationnal = function
-    | Literal (LInteger f) -> Some R.(~$f)
+    | Literal (LInteger f) -> Some R.(~$$f)
     | Literal (LRational f) -> Some f
     | _ -> None
   in

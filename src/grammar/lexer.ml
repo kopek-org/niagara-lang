@@ -57,19 +57,19 @@ let date = [%sedlex.regexp? integer, '/', integer, '/', integer]
 let comment = [%sedlex.regexp? '#', Star (Compl '\n'), '\n']
 let label = [%sedlex.regexp? '\'', Plus (Compl ('\n' | '\r' | '\'')), '\'']
 
-let parse_money_value s : int option =
+let parse_money_value s : Z.t option =
   try (* Catch conversion errors. Should not happen from the lexer itself. *)
     match String.split_on_char '.' s with
-    | [intpart] -> Some ((int_of_string intpart) * 100)
+    | [intpart] -> Some Z.((of_string intpart) * ~$100)
     | [intpart; decpart] ->
       let declen = String.length decpart in
-      let intpart = int_of_string intpart in
+      let intpart = Z.of_string intpart in
       let decpart =
         let d = int_of_string decpart in
         if String.length decpart = 1 then d*10 else d
       in
       if declen < 3 && declen >= 0
-      then Some (intpart*100 + decpart)
+      then Some Z.(intpart * ~$100 + ~$decpart)
       else None
     | _ -> None
   with
@@ -109,7 +109,7 @@ let rec code ~is_in_text lexbuf =
   | date -> DATE (parse_date (Utf8.lexeme lexbuf))
   | (integer | decimal), '%' -> FLOAT (parse_percent (Utf8.lexeme lexbuf))
   | decimal -> FLOAT (R.of_string (Utf8.lexeme lexbuf))
-  | integer -> INT (int_of_string (Utf8.lexeme lexbuf))
+  | integer -> INT (Z.of_string (Utf8.lexeme lexbuf))
   | money -> MONEY (parse_money_amount (Utf8.lexeme lexbuf))
   | label -> LABEL (strip_enclosing_chars (Utf8.lexeme lexbuf))
   | '+' -> PLUS

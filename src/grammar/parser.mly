@@ -10,7 +10,7 @@ let pos (start, stop) = Pos.make ~start ~stop
 %token LPAR RPAR VERS ATTEINT PLUS MINUS MULT DIV EQ COLON EOF DEFICIT
 %token AVANCE MONTANT COMMA RETROCESSION // OPPOSABLE SECTION FIN
 %token<R.t> FLOAT
-%token<int> INT MONEY
+%token<Z.t> INT MONEY
 %token<string> LIDENT UIDENT LABEL
 %token<Date.Date.t> DATE
 
@@ -183,14 +183,14 @@ duration:
 
 duration_year:
 | i = INT ANS m = duration_month?
- { let y = Date.Duration.year i in
+ { let y = Date.Duration.year (Z.to_int i) in
    match m with
    | None -> y
    | Some m -> Date.Duration.add y m
  }
 
 duration_month:
-| i = INT MOIS { Date.Duration.month i }
+  | i = INT MOIS { Date.Duration.month (Z.to_int i) }
 
 // Flow and IO
 

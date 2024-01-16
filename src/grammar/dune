@@ -7,6 +7,7 @@
   (name grammar)
   (public_name niagara-lang-lib.grammar)
   (libraries
+  zarith
   calendar
   commons
   gen

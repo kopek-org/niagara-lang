@@ -1,9 +1,9 @@
 open Surface
 
 type literal =
-  | LInteger of int
+  | LInteger of Z.t
   | LRational of R.t
-  | LMoney of int
+  | LMoney of Z.t
   | LDate of Date.Date.t
   | LDuration of Date.Duration.t
 
@@ -270,12 +270,11 @@ type program = {
 
 let literal_is_zero (l : literal) =
   match l with
-  | LInteger 0
-  | LMoney 0 -> true
-  | LRational r -> R.(zero = r)
+  | LInteger i
+  | LMoney i -> Z.(equal zero i)
+  | LRational r -> R.(equal zero r)
   | LDate _
   | LDuration _ -> assert false
-  | _ -> false
 
 let get_source (src : Variable.t) (sourced : 'a sourced) =
   match Variable.Map.find_opt src sourced.pinned_src with

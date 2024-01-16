@@ -11,9 +11,9 @@ type source = private SRC
 type contextualized = private CTX
 
 type literal =
-  | LitInt of int
+  | LitInt of Z.t
   | LitRational of R.t
-  | LitMoney of int
+  | LitMoney of Z.t
   | LitDate of Date.Date.t
   | LitDuration of Date.Duration.t
 
