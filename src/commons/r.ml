@@ -44,7 +44,7 @@ let frac r = Z.(rem r.num r.den) /// r.den
 
 let round r =
   let rr = (abs r) + 1//2 in
-  (if r < zero then (~-) else (~+)) ~$(to_int rr)
+  (if r < zero then (~-) else (~+)) ~$$(to_bigint rr)
 
 let ceil r =
   let remain = frac r in
