@@ -4,7 +4,9 @@ open Execution
 open Value
 
 let print_var_with_ctx (desc : program_desc) fmt (v : Variable.t) =
-  let var_desc = Variable.Map.find v desc.variables in
+  let var_desc = try Variable.Map.find v desc.variables with
+    | Not_found -> Errors.raise_error "No description for var %d" (Variable.uid v)
+  in
   let print_with_ctx fmt name ctx =
     Format.fprintf fmt "%s(%a)" name (Context.print_group_desc desc.contexts) ctx
   in

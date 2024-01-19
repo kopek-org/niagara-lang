@@ -3,6 +3,11 @@ open Ir
 
 type value = Value.t
 
+type value_and_balance = {
+  distributed : value;
+  balanced : value;
+}
+
 (* TODO: replace with Internal.Interface.variable_kind *)
 type var_kind =
   | Pool
@@ -333,10 +338,14 @@ let rec compute_formula (p : program) (s : state) (formula : Ir.formula) : value
     | Mult -> Value.mult f1 f2
     | Div -> Value.div f1 f2
 
-let compute_redist (type a) (p : program) (s : state) (r : a Ir.RedistTree.redist) (value : value) =
+let compute_redist (type a) (p : program) (s : state)
+    (r : a Ir.RedistTree.redist) (value : value) : value_and_balance Variable.Map.t =
   match r with
   | NoInfo -> Variable.Map.empty
-  | Shares sh -> Variable.Map.map (fun f -> Value.mult value (VRat f)) sh
+  | Shares sh ->
+    Variable.Map.map (fun f ->
+        { distributed = Value.mult value (VRat f); balanced = Value.zero })
+      sh
   | Flats fs ->
     let tsf = Variable.Map.map (compute_formula p s) fs.transfers in
     let blc =
@@ -345,9 +354,16 @@ let compute_redist (type a) (p : program) (s : state) (r : a Ir.RedistTree.redis
           Value.mult v_val (VRat f))
         fs.balances
     in
-    Variable.Map.union (fun _v r1 r2 -> Some (Value.add r1 r2)) tsf blc
+    Variable.Map.merge (fun _v t b ->
+        match t, b with
+        | None, None -> None
+        | Some t, Some b ->
+          Some { distributed = t; balanced = b }
+        | None, Some b -> Some { distributed = Value.zero; balanced = b }
+        | Some t, None -> Some { distributed = t; balanced = Value.zero })
+      tsf blc
 
-let rec compute_tree : type a. program -> state -> a Ir.RedistTree.tree -> value -> value Variable.Map.t =
+let rec compute_tree : type a. program -> state -> a Ir.RedistTree.tree -> value -> value_and_balance Variable.Map.t =
   fun p s tree value ->
   match tree with
   | NoAction -> Variable.Map.empty
@@ -358,7 +374,9 @@ let rec compute_tree : type a. program -> state -> a Ir.RedistTree.tree -> value
     else compute_tree p s before value
 
 let compute_trees (p : program) (s : state) (trees : Ir.RedistTree.t) (value : value) =
-  let res_union = Variable.Map.union (fun _v r1 r2 -> Some (Value.add r1 r2)) in
+  let res_union = Variable.Map.union (fun _v r1 r2 ->
+      Some { distributed = Value.add r1.distributed r2.distributed;
+             balanced = Value.add r1.balanced r2.balanced }) in
   match trees with
   | Flat fs ->
     List.fold_left (fun res tree ->
@@ -422,13 +440,19 @@ let update_state_values (p : program) (s : state) =
         if src_is_actor then
           (* providing actors are valuated on what they give *)
           let sum =
-            Variable.Map.fold (fun _dest v acc -> Value.add acc v) redist_res Value.zero
+            Variable.Map.fold (fun _dest v acc ->
+                Value.add acc v.distributed
+                |> Value.add v.balanced)
+              redist_res Value.zero
           in
           add_val_to_current s (Variable.Map.singleton var sum)
         else s
       in
-      let s = add_repartition s var redist_res in
-      add_val_to_current s redist_res)
+      let s =
+        add_repartition s var
+          (Variable.Map.map (fun v -> Value.add v.distributed v.balanced) redist_res)
+      in
+      add_val_to_current s (Variable.Map.map (fun v -> v.distributed) redist_res))
     s p.eval_order
 
 (* This function uses equations to compute flipped events.
