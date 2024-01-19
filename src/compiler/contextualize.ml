@@ -667,6 +667,7 @@ let redistribution acc (redist : source redistribution) ~(on_proj : Context.Grou
     let f = Surface.Ast.formula (Binop (Mult, left_operand, right_operand)) in
     let acc, f = formula acc f ~on_proj in
     acc, {redist with redistribution_desc = Flat f}
+  | Default -> acc, { redist with redistribution_desc = Default }
 
 let redist_with_dest acc (WithHolder (redist, dest) : source redistrib_with_dest)
     ~(on_proj : Context.Group.t) =

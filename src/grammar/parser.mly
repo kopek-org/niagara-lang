@@ -8,7 +8,7 @@ let pos (start, stop) = Pos.make ~start ~stop
 %token CONTEXTUALISEE PAR TYPE ENTIER RATIONNEL ARGENT TOTAL COURANT
 %token ACTEUR POUR EVENEMENT ET OU AVANT APRES QUAND CONTEXTE TOUT CONSTANTE
 %token LPAR RPAR VERS ATTEINT PLUS MINUS MULT DIV EQ COLON EOF DEFICIT
-%token AVANCE MONTANT COMMA RETROCESSION // OPPOSABLE SECTION FIN
+%token AVANCE MONTANT COMMA RETROCESSION RESTE // OPPOSABLE SECTION FIN
 %token<R.t> FLOAT
 %token<Z.t> INT MONEY
 %token<string> LIDENT UIDENT LABEL
@@ -56,6 +56,10 @@ advance:
 simple_expr:
 | QUOTEPART f = formula d = destinataire? {
   redistribution ~loc:f.formula_loc (Part f), d
+}
+| QUOTEPART RESTE d = destinataire? {
+  let start, stop = $startpos, $endpos in
+  redistribution ~loc:(Pos.make ~start ~stop) Default, d
 }
 | BONUS f = formula d = destinataire? {
   redistribution ~loc:f.formula_loc (Flat f), d

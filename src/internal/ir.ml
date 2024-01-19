@@ -33,9 +33,13 @@ module RedistTree = struct
   type flat = private FLAT
   type frac = private FRAC
 
+  type part_or_remain =
+    | Part of R.t
+    | Remain
+
   type 'a redist =
     | NoInfo
-    | Shares : R.t Variable.Map.t -> frac redist
+    | Shares : part_or_remain Variable.Map.t -> frac redist
     | Flats : { transfers : formula Variable.Map.t;
                 balances : R.t Variable.Map.t }
         -> flat redist
@@ -66,8 +70,11 @@ module RedistTree = struct
   let share (dest : Variable.t) (formula, _ft : formula * ValueType.t) =
     match formula with
     | Literal (LRational r) ->
-      FracRedist (Shares (Variable.Map.singleton dest r))
+      FracRedist (Shares (Variable.Map.singleton dest (Part r)))
     | _ -> Errors.raise_error "Expected formula to be a rational literal"
+
+  let remain (dest : Variable.t) =
+    FracRedist (Shares (Variable.Map.singleton dest Remain))
 
   let flat (dest : Variable.t) (formula, ftype : formula * ValueType.t) =
     if ftype <> TMoney then
@@ -87,7 +94,9 @@ module RedistTree = struct
       let s =
         Variable.Map.union (fun _dest s1 s2 ->
             (* TODO warning *)
-            Some R.(s1 + s2))
+            match s1, s2 with
+            | Remain, _ | _, Remain -> Some Remain
+            | Part s1, Part s2 -> Some (Part R.(s1 + s2)))
           s1 s2
       in
       Shares s

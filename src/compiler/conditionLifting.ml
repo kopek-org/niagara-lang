@@ -141,7 +141,14 @@ let redist_prov (type a) (src : Variable.t) (r : a RedistTree.redist) : prov_exp
   match r with
   | RedistTree.NoInfo -> Variable.Map.empty
   | RedistTree.Shares shares ->
-    Variable.Map.map (fun f ->
+    Variable.Map.map (function
+        | RedistTree.Remain -> (* handled elsewhere *)
+          { pinned_src = Variable.Map.empty;
+            other_src =
+              { factor = Zero;
+                const = Zero }
+          }
+        | Part f ->
         { pinned_src =
             Variable.Map.singleton src
               { factor = Const (LRational f);

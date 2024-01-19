@@ -64,9 +64,14 @@ let dot_of_redist (type a) p g (r : a Ir.RedistTree.redist) =
   match r with
   | NoInfo -> []
   | Shares sh ->
-    Variable.Map.fold (fun v f es ->
+    Variable.Map.fold (fun v por es ->
         let dest = add_var p g v in
-        let attr = [ label (Format.asprintf "%a%%" R.print_as_dec_repr R.(f * ~$100)) ] in
+        let l =
+          match (por : RedistTree.part_or_remain) with
+          | Part f -> Format.asprintf "%a%%" R.print_as_dec_repr R.(f * ~$100)
+          | Remain -> Format.sprintf "defaut"
+        in
+        let attr = [ label l ] in
         (dest, attr)::es)
       sh []
   | Flats fs ->

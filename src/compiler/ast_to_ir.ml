@@ -413,6 +413,7 @@ let translate_redist ~(ctx : Context.Group.t) acc ~(dest : Ast.contextualized_va
   | Flat f ->
     let acc, f = translate_formula ~ctx acc ~view:AtInstant f in
     acc, RedistTree.flat dest f
+  | Default -> acc, RedistTree.remain dest
 
 let translate_comp (comp : Ast.comp) =
   match comp with Eq -> Eq
@@ -566,32 +567,56 @@ let level_fractional_attribution (acc : Acc.t) (src : Variable.t) (t : RedistTre
   | Fractions { base_shares; balance; branches } ->
     let redist_part (r : RedistTree.frac RedistTree.redist) =
       match r with
-      | NoInfo -> R.zero
-      | Shares sh -> Variable.Map.fold (fun _v -> R.(+)) sh R.zero
+      | NoInfo -> R.zero, None
+      | Shares sh ->
+        Variable.Map.fold (fun v (por : RedistTree.part_or_remain) (sum, rem) ->
+            match por with
+            | Part r -> R.(r + sum), rem
+            | Remain ->
+              if Option.is_some rem then
+                Errors.raise_error "Multiple local default definitions";
+              sum, Some v)
+          sh (R.zero, None)
     in
     let branch_part default (tree : RedistTree.frac RedistTree.tree) =
       Variable.BDT.merge (fun _k d t ->
           match d, t with
           | None, None -> None
-          | None, Some r -> Some R.(- redist_part r)
+          | None, Some _r -> assert false (* Some R.(- redist_part r) *)
           | d, None -> d
-          | Some d, Some r -> Some R.(d - (redist_part r))
+          | Some (dp, dr), Some r ->
+            let rp, rr = redist_part r in
+            let rem =
+              match dr, rr with
+              | None, None -> None
+              | None, Some r | Some r, None -> Some r
+              | Some _, Some _ ->
+                Errors.raise_error "Overlapping tree default definitions"
+            in
+            Some (R.(dp - rp), rem)
         )
         default tree
+    in
+    let base_part, base_rem = redist_part base_shares in
+    let default_redist = Variable.BDT.Action (R.(one - base_part), base_rem) in
+    let branches_parts =
+      List.fold_left branch_part default_redist branches
     in
     match balance with
     | BalanceTree _ ->
       Errors.raise_error "(internal) Default tree already computed"
     | BalanceVars balance ->
-      let base_part = redist_part base_shares in
-      let default_redist = Variable.BDT.Action R.(one - base_part) in
-      let branches_parts =
-        List.fold_left branch_part default_redist branches
-      in
-      let make_default_redist part =
-        match balance.default with
-        | Some d -> Variable.BDT.Action (RedistTree.Shares (Variable.Map.singleton d part))
-        | None -> Errors.raise_error "Missing fractionnal part, may needs a default"
+      let make_default_redist (part, rem) =
+        let d =
+          match rem with
+          | Some d -> d
+          | None ->
+            match balance.default with
+            | Some d -> d
+            | None ->
+              Errors.raise_error "Missing fractionnal part, may needs a default"
+        in
+        Variable.BDT.Action RedistTree.(Shares (Variable.Map.singleton d (Part part)))
       in
       let make_deficit_redist part =
         Variable.BDT.Action
@@ -603,10 +628,10 @@ let level_fractional_attribution (acc : Acc.t) (src : Variable.t) (t : RedistTre
         Variable.BDT.fold branches_parts
           ~noaction:(fun _k -> Variable.BDT.(NoAction, NoAction))
           ~action:(fun _k part ->
-              if R.(part > zero)
+              if R.(fst part > zero)
               then make_default_redist part, NoAction
-              else if R.(part < zero)
-              then NoAction, make_deficit_redist R.(~- part)
+              else if R.(fst part < zero)
+              then NoAction, make_deficit_redist R.(~- (fst part))
               else NoAction, NoAction)
           ~decision:(fun _k evt (adft, adfc) (bdft, bdfc) ->
               let branch_or_nothing before after =
@@ -720,8 +745,8 @@ let compute_used_vars (acc : Acc.t) (g : Variable.Graph.t) =
       begin match Variable.Map.find_opt v acc.pinfos.Ast.actors with
       | None ->
         Errors.raise_error
-          "(internal) Variable %d don't flow in a receiving actor"
-          (Variable.uid v)
+          "Variable %a don't flow in a receiving actor"
+          (FormatIr.print_variable ~with_ctx:true acc.pinfos) v
       | Some Upstream -> used
       | Some Downstream -> Variable.Set.add v used
       end

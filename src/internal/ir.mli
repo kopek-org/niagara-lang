@@ -36,9 +36,13 @@ module RedistTree : sig
   type flat = private FLAT
   type frac = private FRAC
 
+  type part_or_remain =
+    | Part of R.t
+    | Remain
+
   type 'a redist =
       NoInfo
-    | Shares : R.t Variable.Map.t -> frac redist
+    | Shares : part_or_remain Variable.Map.t -> frac redist
     | Flats : { transfers : formula Variable.Map.t;
                 balances : R.t Variable.Map.t }
         -> flat redist
@@ -84,6 +88,7 @@ module RedistTree : sig
   (* Construction functions. Will raise errors on mismatching GADT types *)
 
   val share : Variable.t -> formula * ValueType.t -> kind_redist
+  val remain : Variable.t -> kind_redist
   val flat : Variable.t -> formula * ValueType.t -> kind_redist
   val tredist : kind_redist -> kind_tree
   val twhen : (Variable.t * kind_tree) list -> kind_tree

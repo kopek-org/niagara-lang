@@ -343,8 +343,11 @@ let compute_redist (type a) (p : program) (s : state)
   match r with
   | NoInfo -> Variable.Map.empty
   | Shares sh ->
-    Variable.Map.map (fun f ->
-        { distributed = Value.mult value (VRat f); balanced = Value.zero })
+    Variable.Map.map (function
+        | Ir.RedistTree.Remain -> (* handled elsewhere *)
+          { distributed = Value.zero; balanced = Value.zero }
+        | Part f ->
+          { distributed = Value.mult value (VRat f); balanced = Value.zero })
       sh
   | Flats fs ->
     let tsf = Variable.Map.map (compute_formula p s) fs.transfers in

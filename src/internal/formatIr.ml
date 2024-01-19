@@ -74,13 +74,18 @@ let rec print_event (infos : Ast.program_infos) fmt (ev : event) =
       (print_formula infos) f2
   | EvtDate f -> print_formula infos fmt f
 
+let print_part_or_remain fmt (por : RedistTree.part_or_remain) =
+  match por with
+  | Part r -> Format.fprintf fmt "%a%%" R.pp_print R.(r * ~$100)
+  | Remain -> Format.pp_print_string fmt "default"
+
 let print_redist (type a) (infos : Ast.program_infos) fmt (r : a RedistTree.redist) =
   match r with
   | NoInfo -> Format.fprintf fmt "[no info]"
   | Shares sh ->
     Format.fprintf fmt "@[<hv>";
     Variable.Map.iter (fun v s ->
-        Format.fprintf fmt "%a%% -> %a@ " R.pp_print R.(s * ~$100) (print_variable ~with_ctx:true infos) v)
+        Format.fprintf fmt "%a -> %a@ " print_part_or_remain s (print_variable ~with_ctx:true infos) v)
       sh;
     Format.fprintf fmt "@]"
   | Flats fs ->

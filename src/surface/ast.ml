@@ -87,6 +87,7 @@ and _ redistribution_desc =
   | Part : 'a formula -> 'a redistribution_desc
   | Flat : 'a formula -> 'a redistribution_desc
   | Retrocession : source formula * holder -> source redistribution_desc
+  | Default
 
 type _ redistrib_with_dest =
   | WithHolder : source redistribution * holder option

@@ -143,6 +143,7 @@ let print_redist (type a) infos fmt (redist : a redistribution) =
     Format.fprintf fmt "retrocession %a sur %a"
       (print_formula infos) f
       print_holder p
+  | Default -> Format.fprintf fmt "defaut"
 
 let print_redistrib_with_dest (type a) infos fmt (r : a redistrib_with_dest) =
   match r with
