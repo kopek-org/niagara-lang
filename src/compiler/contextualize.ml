@@ -652,11 +652,25 @@ let rec event_expr acc (e : source event_expr) ~(on_proj : Context.Group.t) =
     let acc, e2 = event_expr acc e2 ~on_proj in
     acc, {e with event_expr_desc = EventDisj (e1, e2)}
 
+let opposable acc ~(on_proj : Context.Group.t)
+    (HolderOpp { opp_value; opp_provider; opp_towards } : source opposable) =
+  let acc, opp_value = formula acc opp_value ~on_proj in
+  let acc, opp_provider =
+    find_holder_as_source acc
+      (holder ~loc:opp_provider.actor_loc (Actor opp_provider))
+  in
+  let acc, opp_towards =
+    find_holder acc
+      (holder ~loc:opp_towards.actor_loc (Actor opp_towards))
+  in
+  acc, VarOpp { opp_value; opp_provider; opp_towards }
+
 let redistribution acc (redist : source redistribution) ~(on_proj : Context.Group.t) =
   match redist.redistribution_desc with
-  | Part f ->
+  | Part (f, opposables) ->
     let acc, f = formula acc f ~on_proj in
-    acc, {redist with redistribution_desc = Part f}
+    let acc, opposables = List.fold_left_map (opposable ~on_proj) acc opposables in
+    acc, {redist with redistribution_desc = Part (f, opposables)}
   | Flat f ->
     let acc, f = formula acc f ~on_proj in
     acc, {redist with redistribution_desc = Flat f}
@@ -791,7 +805,7 @@ let advance acc (a : advance_decl) =
   let build_redist dest =
     Redists [ WithVar (Surface.Ast.redistribution
                         (Part (Surface.Ast.formula
-                           (Literal (LitRational R.one)))), Some dest)]
+                           (Literal (LitRational R.one)), [])), Some dest)]
   in
   (* operation with sources output and adv_pool will be swaped later *)
   let redirection = {

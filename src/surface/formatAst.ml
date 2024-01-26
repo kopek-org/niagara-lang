@@ -135,9 +135,25 @@ let rec print_event_expr : type a. program_infos -> Format.formatter -> a event_
       (print_event_expr infos) e1
       (print_event_expr infos) e2
 
+let print_opposable (type a )infos fmt (opposable : a opposable) =
+  match opposable with
+  | HolderOpp opposable ->
+    Format.fprintf fmt "opposable %a @[<hv>envers %a@ par %a@]"
+      (print_formula infos) opposable.opp_value
+      print_actor opposable.opp_towards
+      print_actor opposable.opp_provider
+  | VarOpp opposable ->
+    Format.fprintf fmt "opposable %a @[<hv>envers %a@ par %a@]"
+      (print_formula infos) opposable.opp_value
+      (print_ctx_variable infos) opposable.opp_towards
+      (print_ctx_variable infos) opposable.opp_provider
+
 let print_redist (type a) infos fmt (redist : a redistribution) =
   match redist.redistribution_desc with
-  | Part f -> Format.fprintf fmt "quotepart %a" (print_formula infos) f
+  | Part (f, opposables) ->
+    Format.fprintf fmt "quotepart %a @[<v>%a@]"
+      (print_formula infos) f
+      (Format.pp_print_list (print_opposable infos)) opposables
   | Flat f -> Format.fprintf fmt "bonus %a" (print_formula infos) f
   | Retrocession (f, p) ->
     Format.fprintf fmt "retrocession %a sur %a"

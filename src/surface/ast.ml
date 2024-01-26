@@ -78,13 +78,25 @@ and _ formula_desc =
   | Total : 'a formula -> 'a formula_desc
   | Instant : 'a formula -> 'a formula_desc
 
+type _ opposable =
+  | HolderOpp : {
+      opp_towards : actor;
+      opp_provider : actor;
+      opp_value : source formula;
+    } -> source opposable
+  | VarOpp : {
+      opp_towards : contextualized_variable;
+      opp_provider : contextualized_variable;
+      opp_value : contextualized formula;
+    } -> contextualized opposable
+
 type 'a redistribution = {
   redistribution_loc : Pos.t;
   redistribution_desc : 'a redistribution_desc;
 }
 
 and _ redistribution_desc =
-  | Part : 'a formula -> 'a redistribution_desc
+  | Part : 'a formula * 'a opposable list -> 'a redistribution_desc
   | Flat : 'a formula -> 'a redistribution_desc
   | Retrocession : source formula * holder -> source redistribution_desc
   | Default

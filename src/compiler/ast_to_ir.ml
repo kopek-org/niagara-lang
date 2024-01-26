@@ -407,7 +407,9 @@ let translate_redist ~(ctx : Context.Group.t) acc ~(dest : Ast.contextualized_va
     | _ -> Errors.raise_error "(internal) Destination context inapplicable"
   in
   match redist.redistribution_desc with
-  | Part f ->
+  | Part (f, opposables) ->
+    if opposables <> [] then
+      Errors.raise_error "Opposability not implemented yet";
     let acc, (f, ft) = translate_formula ~ctx acc ~view:AtInstant f in
     acc, RedistTree.share dest (reduce_formula f, ft)
   | Flat f ->
