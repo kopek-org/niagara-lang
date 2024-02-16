@@ -680,7 +680,11 @@ let dependancy_graph (acc : Acc.t) =
     match r with
     | RedistTree.NoInfo -> graph
     | RedistTree.Shares sh ->
-      Variable.Map.fold (fun dest _ graph -> Variable.Graph.add_edge_e graph (src, k, dest))
+      Variable.Map.fold (fun dest por graph ->
+          match (por : RedistTree.part_or_remain) with
+          | Remain -> graph (* hackish, rely on the fact we already computed
+                               defaults and have that branch elsewhere*)
+          | Part _ -> Variable.Graph.add_edge_e graph (src, k, dest))
         sh graph
     | RedistTree.Flats fs ->
       let graph =
