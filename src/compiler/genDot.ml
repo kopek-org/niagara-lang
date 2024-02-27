@@ -65,12 +65,11 @@ let dot_of_redist (type a) p g (r : a Ir.RedistTree.redist) =
   | NoInfo -> []
   | Shares sh ->
     Variable.Map.fold (fun v por es ->
+      match (por : RedistTree.part_or_remain) with
+      | Remain -> es
+      | Part f ->
         let dest = add_var p g v in
-        let l =
-          match (por : RedistTree.part_or_remain) with
-          | Part f -> Format.asprintf "%a%%" R.print_as_dec_repr R.(f * ~$100)
-          | Remain -> Format.sprintf "defaut"
-        in
+        let l = Format.asprintf "%a%%" R.print_as_dec_repr R.(f * ~$100) in
         let attr = [ label l ] in
         (dest, attr)::es)
       sh []
@@ -95,12 +94,16 @@ let rec dot_of_tree : type a. program -> graph -> a Ir.RedistTree.tree -> ((id *
   | Action r ->
     dot_of_redist p g r
   | Decision (evt, after, before) ->
-    let e = add_event p g evt in
-    let bf = dot_of_tree p g before in
-    let af = dot_of_tree p g after in
-    List.iter (fun (bn,l) -> add_edge g e bn ((tlabel "avant")::l)) bf;
-    List.iter (fun (an,l) -> add_edge g e an ((tlabel "apres")::l)) af;
-    [e, []]
+    begin 
+      match dot_of_tree p g before,
+            dot_of_tree p g after with
+      | [], [] -> []
+      | bf, af -> 
+        let e = add_event p g evt in
+        List.iter (fun (bn,l) -> add_edge g e bn ((tlabel "avant")::l)) bf;
+        List.iter (fun (an,l) -> add_edge g e an ((tlabel "apres")::l)) af;
+        [e, []]
+    end
 
 let dot_of_trees p g ts =
   List.map (dot_of_tree p g) ts
