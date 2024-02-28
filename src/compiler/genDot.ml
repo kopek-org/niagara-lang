@@ -65,12 +65,11 @@ let dot_of_redist (type a) p g (r : a Ir.RedistTree.redist) =
   | NoInfo -> []
   | Shares sh ->
     Variable.Map.fold (fun v por es ->
+      match (por : RedistTree.part_or_remain) with
+      | Remain -> es
+      | Part f ->
         let dest = add_var p g v in
-        let l =
-          match (por : RedistTree.part_or_remain) with
-          | Part f -> Format.asprintf "%a%%" R.print_as_dec_repr R.(f * ~$100)
-          | Remain -> Format.sprintf "defaut"
-        in
+        let l = Format.asprintf "%a%%" R.print_as_dec_repr R.(f * ~$100) in
         let attr = [ label l ] in
         (dest, attr)::es)
       sh []
@@ -95,12 +94,16 @@ let rec dot_of_tree : type a. program -> graph -> a Ir.RedistTree.tree -> ((id *
   | Action r ->
     dot_of_redist p g r
   | Decision (evt, after, before) ->
-    let e = add_event p g evt in
-    let bf = dot_of_tree p g before in
-    let af = dot_of_tree p g after in
-    List.iter (fun (bn,l) -> add_edge g e bn ((tlabel "avant")::l)) bf;
-    List.iter (fun (an,l) -> add_edge g e an ((tlabel "apres")::l)) af;
-    [e, []]
+    begin 
+      match dot_of_tree p g before,
+            dot_of_tree p g after with
+      | [], [] -> []
+      | bf, af -> 
+        let e = add_event p g evt in
+        List.iter (fun (bn,l) -> add_edge g e bn ((tlabel "avant")::l)) bf;
+        List.iter (fun (an,l) -> add_edge g e an ((tlabel "apres")::l)) af;
+        [e, []]
+    end
 
 let dot_of_trees p g ts =
   List.map (dot_of_tree p g) ts
@@ -187,24 +190,19 @@ let graph_filter p g ~(filter : filtering) (starts_v : Variable.Set.t) =
   in
   let rec aux v incl =
     let es = Variable.Graph.succ_e g v in
-    match es with [] -> Some incl | _ ->
-      List.fold_left (fun inclo (_s, k, e) ->
-          if Variable.Set.mem e incl then inclo else
-          if Variable.BDT.contradictory_knowledge filter.event_knowledge k
-          then inclo else
-          if match_context e then
-            match inclo, aux e (Variable.Set.add e incl) with
-            | inclo, None -> inclo
-            | None, Some i -> Some i
-            | Some io, Some i -> Some (Variable.Set.union i io)
-          else inclo)
-        None es
+    let incl = Variable.Set.add v incl in
+    match es with [] -> incl | _ ->
+      List.fold_left (fun incl (_,k,e) ->
+          if Variable.Set.mem e incl 
+          || Variable.BDT.contradictory_knowledge filter.event_knowledge k
+          || not (match_context e)
+          then incl
+          else aux e incl
+        ) incl es
   in
   let starts = Variable.Set.filter (Variable.Graph.mem_vertex g) starts_v in
   Variable.Set.fold (fun v incl ->
-      match aux v incl with
-      | None -> incl
-      | Some i -> Variable.Set.union i incl)
+      Variable.Set.union (aux v incl) incl)
     starts starts
 
 let graph_of_program p filter =
