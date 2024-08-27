@@ -31,7 +31,7 @@ let print_var_with_ctx (desc : program_desc) fmt (v : Variable.t) =
 let print_input_line (desc : program_desc) fmt (i, line : int * input_line) =
   Format.fprintf fmt "%d: %a += %a"
     i (print_var_with_ctx desc) line.input_variable
-    FormatIr.print_literal line.input_value
+    Literal.print line.input_value
 
 let print_intepreter_inputs (desc : program_desc) fmt
     (lines : computation_inputs) =

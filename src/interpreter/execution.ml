@@ -65,7 +65,7 @@ type output_line = (event_switch * count_changes) list
 
 type input_line = {
   input_variable : Variable.t;
-  input_value : Ir.literal;
+  input_value : Literal.t;
   input_date : Date.Date.t;
 }
 
@@ -200,13 +200,13 @@ let add_evt_to_current (s : state) (evts : event Variable.Map.t) =
    appearance.
 *)
 
-let literal_value (l : Ir.literal) : value =
+let literal_value (l : Literal.t) : value =
   match l with
-  | Ir.LInteger i
-  | Ir.LMoney i -> VRat R.(~$$i)
-  | Ir.LRational r -> VRat r
-  | Ir.LDate _
-  | Ir.LDuration _ -> assert false
+  | LInteger i
+  | LMoney i -> VRat R.(~$$i)
+  | LRational r -> VRat r
+  | LDate _
+  | LDuration _ -> assert false
 
 let rec evaluate_eqex (s : state) (src : value) (expr : eqex) : value =
   match expr with
@@ -493,7 +493,7 @@ let rec compute_queue (p : program) (s : state) =
     let s = compute_action p { s with queue } action in
     compute_queue p s
 
-let compute_input_value (p : program) (s : state) (i : Variable.t) (value : Ir.literal) =
+let compute_input_value (p : program) (s : state) (i : Variable.t) (value : Literal.t) =
   let s = flush_stage_trace s in
   let s = push_rep_action p s i (literal_value value) in
   compute_queue p s

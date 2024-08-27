@@ -78,18 +78,6 @@ let print_ctx_variable infos fmt ((v, proj) : contextualized_variable) =
   Format.fprintf fmt "@[<hv 2>%a@,%a@]" (print_variable infos) v
     (Context.print_projection infos.contexts) proj
 
-let print_literal fmt (lit : literal) =
-  match lit with
-  | LitInt i -> Format.fprintf fmt "%a" Z.pp_print i
-  | LitRational f -> R.pp_print fmt f
-  | LitMoney m ->
-    Format.fprintf fmt "%a.%02d$"
-      Z.pp_print Z.(m / ~$100) Z.(to_int (m mod ~$100))
-  | LitDuration d ->
-    let y,m,d = Date.Duration.ymd d in
-    Format.fprintf fmt "%d year, %d month, %d day" y m d
-  | LitDate d -> CalendarLib.Printer.Date.fprint "%Y/%m/%d" fmt d
-
 let print_named fmt (named : named) =
   match named.named_desc with
   | Name (name, ctx) -> Format.fprintf fmt "%s%a" name print_context_refinement ctx
@@ -106,7 +94,7 @@ let print_binop fmt (op : binop) =
 let rec print_formula : type a. program_infos -> Format.formatter -> a formula -> unit =
   fun infos fmt f ->
   match f.formula_desc with
-  | Literal l -> print_literal fmt l
+  | Literal l -> Literal.print fmt l
   | Named n -> print_named fmt n
   | Variable v -> print_ctx_variable infos fmt v
   | Binop (op, f1, f2) ->
@@ -229,7 +217,7 @@ let print_declaration (type a) infos fmt (decl : a declaration) =
       (print_variable infos) e.ctx_event_var
       (print_event_expr infos) e.ctx_event_expr
   | DConstant c ->
-    Format.fprintf fmt "constante %s : %a" c.const_name print_literal c.const_value
+    Format.fprintf fmt "constante %s : %a" c.const_name Literal.print c.const_value
   | DHolderAdvance a ->
     Format.fprintf fmt "@[<hov>avance '%s' sur %a par %a@ montant %a@]"
       a.adv_label print_holder a.adv_output
@@ -262,7 +250,7 @@ let print_constants infos fmt () =
   Variable.Map.iter (fun v value ->
       Format.fprintf fmt "%a = %a@;"
         (print_variable infos) v
-        print_literal value
+        Literal.print value
     )
     infos.constants
 

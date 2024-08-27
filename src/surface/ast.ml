@@ -10,13 +10,6 @@
 type source = private SRC
 type contextualized = private CTX
 
-type literal =
-  | LitInt of Z.t
-  | LitRational of R.t
-  | LitMoney of Z.t
-  | LitDate of Date.Date.t
-  | LitDuration of Date.Duration.t
-
 type binop =
   | Add
   | Sub
@@ -71,7 +64,7 @@ type 'a formula = {
 }
 
 and _ formula_desc =
-  | Literal of literal
+  | Literal of Literal.t
   | Named : named -> source formula_desc
   | Variable : contextualized_variable -> contextualized formula_desc
   | Binop : binop * 'a formula * 'a formula -> 'a formula_desc
@@ -177,7 +170,7 @@ type ctx_event_decl = {
 
 type const_decl = {
   const_name : string;
-  const_value : literal;
+  const_value : Literal.t;
 }
 
 type context_decl = {
@@ -245,7 +238,7 @@ type program_infos = {
   actors : stream_way Variable.Map.t;
   compounds : Variable.Set.t Variable.Map.t;
   types : ValueType.t Variable.Map.t;
-  constants : literal Variable.Map.t;
+  constants : Literal.t Variable.Map.t;
 }
 
 type _ program =

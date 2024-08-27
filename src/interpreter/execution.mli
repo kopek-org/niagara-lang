@@ -16,7 +16,7 @@ type output_line = (event_switch * count_changes) list
 
 type input_line = {
   input_variable : Variable.t;
-  input_value : Internal.Ir.literal;
+  input_value : Literal.t;
   input_date : Date.Date.t;
 }
 

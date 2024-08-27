@@ -184,11 +184,11 @@ context_refinement_item_desc:
 ;
 
 literal:
-| i = INT { LitInt i }
-| r = FLOAT { LitRational r }
-| m = MONEY { LitMoney m }
-| d = duration { LitDuration d }
-| d = DATE { LitDate d }
+| i = INT { Literal.LInteger i }
+| r = FLOAT { Literal.LRational r }
+| m = MONEY { Literal.LMoney m }
+| d = duration { Literal.LDuration d }
+| d = DATE { Literal.LDate d }
 
 duration:
 | d = duration_year { d }

@@ -1,12 +1,5 @@
 open Surface
 
-type literal =
-  | LInteger of Z.t
-  | LRational of R.t
-  | LMoney of Z.t
-  | LDate of Date.Date.t
-  | LDuration of Date.Duration.t
-
 type binop = Ast.binop
 
 type flow_view =
@@ -14,7 +7,7 @@ type flow_view =
   | Cumulated
 
 type formula =
-  | Literal of literal
+  | Literal of Literal.t
   | Variable of Variable.t * flow_view
   | Binop of binop * formula * formula
 
@@ -249,7 +242,7 @@ end
 
 type eqex =
   | EZero
-  | EConst of literal
+  | EConst of Literal.t
   | EMult of eqex * eqex
   | EAdd of eqex * eqex
   | EMinus of eqex
@@ -276,14 +269,6 @@ type program = {
   eval_order : Variable.t list;
   equations : event_eq Variable.Map.t;
 }
-
-let literal_is_zero (l : literal) =
-  match l with
-  | LInteger i
-  | LMoney i -> Z.(equal zero i)
-  | LRational r -> R.(equal zero r)
-  | LDate _
-  | LDuration _ -> assert false
 
 let get_source (src : Variable.t) (sourced : 'a sourced) =
   match Variable.Map.find_opt src sourced.pinned_src with

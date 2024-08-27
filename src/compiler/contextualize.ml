@@ -25,7 +25,7 @@ module Acc : sig
 
   val register_event : t -> string -> t * Variable.t
 
-  val register_const : t -> string -> ValueType.t -> literal -> t
+  val register_const : t -> string -> ValueType.t -> Literal.t -> t
 
   val register_context_domain : t -> string -> string list -> t
 
@@ -78,7 +78,7 @@ end = struct
     actors : stream_way Variable.Map.t;
     compounds : Variable.Set.t Variable.Map.t; (* Aggregations of actor labels *)
     types : ValueType.t Variable.Map.t;
-    constants : literal Variable.Map.t;
+    constants : Literal.t Variable.Map.t;
     advance_pools : Variable.t Variable.Map.t; (* substitution map *)
     constraints : context_constraint Variable.Map.t;
     deps : Variable.Set.t Variable.Map.t; (* maps src -> dests, for cycle detections *)
@@ -137,7 +137,7 @@ end = struct
           t.compounds
     }
 
-  let bind_const (v : Variable.t) (value : literal) t =
+  let bind_const (v : Variable.t) (value : Literal.t) t =
     { t with constants = Variable.Map.add v value t.constants }
 
   let register_pool t (name : string) =
@@ -188,7 +188,7 @@ end = struct
     in
     t, v
 
-  let register_const t (name : string) (typ : ValueType.t) (value : literal) =
+  let register_const t (name : string) (typ : ValueType.t) (value : Literal.t) =
     let v = Variable.create () in
     bind_var name (RefConst v) t
     |> bind_name v name
@@ -498,14 +498,6 @@ end = struct
     Contextualized (infos, List.rev t.program_decls)
 end
 
-let type_of_literal (lit : literal) =
-  match lit with
-  | LitInt _ -> ValueType.TInteger
-  | LitRational _ -> ValueType.TRational
-  | LitMoney _ -> ValueType.TMoney
-  | LitDuration _ -> ValueType.TDuration
-  | LitDate _ -> ValueType.TDate
-
 let projection_of_context_selector acc (ctx : context list) =
   let contexts = Acc.contexts acc in
   let proj =
@@ -767,7 +759,7 @@ let event_decl acc (e : event_decl) =
   }
 
 let constant acc (c : const_decl) =
-  let t = type_of_literal c.const_value in
+  let t = Literal.type_of c.const_value in
   Acc.register_const acc c.const_name t c.const_value
 
 let advance acc (a : advance_decl) =
@@ -805,7 +797,7 @@ let advance acc (a : advance_decl) =
   let build_redist dest =
     Redists [ WithVar (Surface.Ast.redistribution
                         (Part (Surface.Ast.formula
-                           (Literal (LitRational R.one)), [])), Some dest)]
+                           (Literal (LRational R.one)), [])), Some dest)]
   in
   (* operation with sources output and adv_pool will be swaped later *)
   let redirection = {

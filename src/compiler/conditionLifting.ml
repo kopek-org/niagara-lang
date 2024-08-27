@@ -6,7 +6,7 @@ open Ir
    places. *)
 type expr =
   | Zero
-  | Const of literal
+  | Const of Literal.t
   | Mult of expr * expr
   | Switch of {
       evt : Variable.t;
@@ -28,7 +28,7 @@ type prov_exprs = nf_expr Variable.Map.t
 let rec print_expr fmt (expr : expr) =
   match expr with
   | Zero -> Format.fprintf fmt "0"
-  | Const l -> FormatIr.print_literal fmt l
+  | Const l -> Literal.print fmt l
   | Mult (e1, e2) -> Format.fprintf fmt "%a*%a" print_expr e1 print_expr e2
   | Switch { evt; before; after } ->
     Format.fprintf fmt "@[<hv 2>(v%d ?@ %a@ : %a)@]"

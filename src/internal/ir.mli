@@ -1,10 +1,3 @@
-type literal =
-  | LInteger of Z.t
-  | LRational of R.t
-  | LMoney of Z.t (* cents *)
-  | LDate of Date.Date.t
-  | LDuration of Date.Duration.t
-
 (* Explicitly typed operators. It may be overkill, since the interpreter has no
    choice but to type check anyway. *)
 type binop = Surface.Ast.binop
@@ -14,7 +7,7 @@ type binop = Surface.Ast.binop
 type flow_view = AtInstant | Cumulated
 
 type formula =
-  | Literal of literal
+  | Literal of Literal.t
   | Variable of Variable.t * flow_view
   | Binop of binop * formula * formula
 
@@ -118,7 +111,7 @@ end
 
 type eqex =
   | EZero
-  | EConst of literal
+  | EConst of Literal.t
   | EMult of eqex * eqex
   | EAdd of eqex * eqex
   | EMinus of eqex
@@ -147,8 +140,6 @@ type program = {
   eval_order : Variable.t list;
   equations : event_eq Variable.Map.t;
 }
-
-val literal_is_zero : literal -> bool
 
 (* Fetch the payload associated to the given variable, defaults to
    [other_src]. *)

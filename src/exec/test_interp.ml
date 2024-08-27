@@ -10,16 +10,16 @@ let make_input v i = Execution.{
 let var : int -> Variable.t = (* carry on... *) Obj.magic
 
 let inputs =
-  IntMap.singleton 1 (make_input (var 43) Z.(Ir.LMoney ~$1000000))
-  |> IntMap.add 2 (make_input (var 46) Z.(Ir.LMoney ~$600000))
-  |> IntMap.add 3 (make_input (var 44) Z.(Ir.LMoney ~$2000000))
-  |> IntMap.add 4 (make_input (var 49) Z.(Ir.LMoney ~$8000000))
-  |> IntMap.add 5 (make_input (var 42) Z.(Ir.LInteger ~$150000))
-  |> IntMap.add 6 (make_input (var 61) Z.(Ir.LMoney ~$1000000))
-  |> IntMap.add 7 (make_input (var 54) Z.(Ir.LMoney ~$1200000))
-  |> IntMap.add 8 (make_input (var 57) Z.(Ir.LMoney ~$5783824))
-  |> IntMap.add 9 (make_input (var 43) Z.(Ir.LMoney ~$1000000))
-  |> IntMap.add 10 (make_input (var 44) Z.(Ir.LMoney ~$1000000))
+  IntMap.singleton 1 (make_input (var 43) Z.(Literal.LMoney ~$1000000))
+  |> IntMap.add 2 (make_input (var 46) Z.(Literal.LMoney ~$600000))
+  |> IntMap.add 3 (make_input (var 44) Z.(Literal.LMoney ~$2000000))
+  |> IntMap.add 4 (make_input (var 49) Z.(Literal.LMoney ~$8000000))
+  |> IntMap.add 5 (make_input (var 42) Z.(Literal.LInteger ~$150000))
+  |> IntMap.add 6 (make_input (var 61) Z.(Literal.LMoney ~$1000000))
+  |> IntMap.add 7 (make_input (var 54) Z.(Literal.LMoney ~$1200000))
+  |> IntMap.add 8 (make_input (var 57) Z.(Literal.LMoney ~$5783824))
+  |> IntMap.add 9 (make_input (var 43) Z.(Literal.LMoney ~$1000000))
+  |> IntMap.add 10 (make_input (var 44) Z.(Literal.LMoney ~$1000000))
 
 let test p =
   let desc = Interface.description_from_program p in

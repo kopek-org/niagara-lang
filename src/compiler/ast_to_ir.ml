@@ -26,7 +26,7 @@ module Acc : sig
   val make : Ast.program_infos -> t
   val var_shape : t -> Variable.t -> Context.shape
   val type_of : t -> Variable.t -> ValueType.t
-  val find_const_opt : t -> Variable.t -> Ast.literal option
+  val find_const_opt : t -> Variable.t -> Literal.t option
   val get_derivative_var :
     t -> Variable.t -> Context.Group.t -> t * Variable.t
 
@@ -293,14 +293,6 @@ let rec reduce_formula (f : formula) =
       | Some f1, Some f2 -> lit_of_op op f1 f2
       | _ -> f
 
-let translate_literal (l : Ast.literal) =
-  match l with
-  | LitInt i -> LInteger i, ValueType.TInteger
-  | LitRational r -> LRational r, ValueType.TRational
-  | LitMoney c -> LMoney c, ValueType.TMoney
-  | LitDate d -> LDate d, ValueType.TDate
-  | LitDuration d -> LDuration d, ValueType.TDuration
-
 let translate_binop (op : Ast.binop)
     (f1, t1 : formula * ValueType.t)
     (f2, t2 : formula * ValueType.t) =
@@ -371,13 +363,11 @@ let rec translate_formula ~(ctx : Context.Group.t) acc ~(view : flow_view)
     (f : Ast.contextualized Ast.formula) =
   match f.formula_desc with
   | Literal l ->
-    let l, t = translate_literal l in
-    acc, (Literal l, t)
+    acc, (Literal l, Literal.type_of l)
   | Variable (v, proj) ->
     begin match Acc.find_const_opt acc v with
     | Some l ->
-      let l, t = translate_literal l in
-      acc, (Literal l, t)
+      acc, (Literal l, Literal.type_of l)
     | None ->
       let t = Acc.type_of acc v in
       let proj = resolve_projection_context acc ~context:ctx ~refinement:proj in

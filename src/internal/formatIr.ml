@@ -22,20 +22,6 @@ let print_variable ~(with_ctx : bool) (infos : Ast.program_infos) fmt (v : Varia
   else
     Format.fprintf fmt "@[<hv 2>%s/%d@]" var_name (Variable.uid v)
 
-let print_money_value fmt (m : Z.t) =
-  Format.fprintf fmt "%a.%02d"
-    Z.pp_print Z.(m / ~$100) Z.(to_int (m mod ~$100))
-
-let print_literal fmt (l : literal) =
-  match l with
-  | LInteger i -> Z.pp_print fmt i
-  | LRational f ->  R.pp_print fmt f
-  | LMoney i -> Format.fprintf fmt "%a$" print_money_value i
-  | LDate d -> CalendarLib.Printer.Date.fprint "%Y/%m/%d" fmt d
-  | LDuration d ->
-    let y,m,d = Date.Duration.ymd d in
-    Format.fprintf fmt "%d year, %d month, %d day" y m d
-
 let print_view fmt (v : flow_view) =
   match v with
   | AtInstant -> Format.fprintf fmt "instant"
@@ -45,7 +31,7 @@ let print_binop = Surface.FormatAst.print_binop
 
 let rec print_formula (infos : Ast.program_infos) fmt (f : formula) =
   match f with
-  | Literal l -> print_literal fmt l
+  | Literal l -> Literal.print fmt l
   | Variable (v, view) ->
     Format.fprintf fmt "[%a]%a"
       print_view view
@@ -141,7 +127,7 @@ let print_t (infos : Ast.program_infos) fmt (t : RedistTree.t) =
 let rec print_eqex fmt (e : eqex) =
   match e with
   | EZero -> Format.fprintf fmt "0"
-  | EConst l -> print_literal fmt l
+  | EConst l -> Literal.print fmt l
   | EMult (e1, e2) -> Format.fprintf fmt "%a*%a" print_eqex e1 print_eqex e2
   | EAdd (e1, EMinus e2) ->
     Format.fprintf fmt "@[<hv>(%a@ - %a)@]"
