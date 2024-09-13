@@ -1,0 +1,10 @@
+
+(library
+  (name equations)
+  (public_name niagara-lang-lib.equations)
+  (libraries
+    zarith
+    calendar
+    commons
+  )
+)

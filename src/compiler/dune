@@ -6,6 +6,7 @@
     commons
     surface
     internal
+    equations
     ocamlgraph
     dot
   )
