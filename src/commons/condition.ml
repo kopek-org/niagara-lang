@@ -184,6 +184,10 @@ let never = []
 
 let always = [{ input = Absent Variable.Set.empty; events = Variable.Map.empty }]
 
+let is_never t = t == never
+
+let is_always t = let _,_,exa = disj_disj t always in is_never exa
+
 let of_input v = [{ input = Present v; events = Variable.Map.empty }]
 
 let of_event v p = [{ input = Absent Variable.Set.empty; events = Variable.Map.singleton v p }]
@@ -191,5 +195,7 @@ let of_event v p = [{ input = Absent Variable.Set.empty; events = Variable.Map.s
 let conj = conj_disj
 
 let disj t1 t2 = let a,b,c = disj_disj t1 t2 in a@b@c
+
+let excluded t1 t2 = let ex1,_,_ = disj_disj t1 t2 in ex1
 
 let print = print_disj

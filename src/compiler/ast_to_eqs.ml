@@ -6,15 +6,14 @@ type flow_view = AtInstant | Cumulated
 
 module Acc = struct
 
-type part = Part of R.t | Default | Deficit
-
 type t = {
   pinfos : Ast.program_infos;
   used_variables : Variable.Set.t;
   ctx_derivations : Variable.t Context.Group.Map.t Variable.Map.t;
   event_eqs : activation expr Variable.Map.t;
-  redist_eqs : (Variable.t * part * Condition.t) list Variable.Map.t; (* src key *)
+  repartitions : Repartition.t Variable.Map.t; (* src key *)
   flat_eqs : (Variable.t * value expr * Condition.t) list Variable.Map.t; (* dest key *)
+  value_eqs : (value expr * Condition.t) list Variable.Map.t; (* dest key *)
   cumulation_vars : Variable.t Variable.Map.t;
 }
 
@@ -23,8 +22,9 @@ let make (pinfos : Ast.program_infos) = {
   used_variables = Variable.Set.empty;
   ctx_derivations = Variable.Map.empty;
   event_eqs = Variable.Map.empty;
-  redist_eqs = Variable.Map.empty;
+  repartitions = Variable.Map.empty;
   flat_eqs = Variable.Map.empty;
+  value_eqs = Variable.Map.empty;
   cumulation_vars = Variable.Map.empty;
 }
 
@@ -85,14 +85,15 @@ let lift_event t (event : activation expr) =
     t, v
 
 let register_part t ~(act : Condition.t) ~(src : Variable.t)
-    ~(dest : Variable.t) (part : part) =
-  let redist_eqs =
+    ~(dest : Variable.t) (part : Repartition.part_kind) =
+  let share = Repartition.{ dest; part; condition = act } in
+  let repartitions =
     Variable.Map.update src (function
-        | None -> Some [ dest, part, act ]
-        | Some rs -> Some ((dest, part, act)::rs))
-      t.redist_eqs
+        | None -> Some [ share ]
+        | Some rs -> Some (share::rs))
+      t.repartitions
   in
-  { t with redist_eqs }
+  { t with repartitions }
 
 let register_redist t ~(act : Condition.t) ~(src : Variable.t)
     ~(dest : Variable.t) (part : R.t) =
@@ -115,6 +116,15 @@ let register_flat t ~(act : Condition.t) ~(src : Variable.t) ~(dest : Variable.t
       t.flat_eqs
   in
   { t with flat_eqs; }
+
+let register_value t ~(act : Condition.t) ~(dest : Variable.t) (expr : value expr) =
+  let value_eqs =
+    Variable.Map.update dest (function
+        | None -> Some [expr, act]
+        | Some rs -> Some ((expr, act)::rs))
+      t.value_eqs
+  in
+  { t with value_eqs; }
 
 let create_cumulation t v =
   (* TODO register infos *)
@@ -212,6 +222,23 @@ let derive_ctx_variables ~mode t (v : Variable.t) (ctx : Context.Group.t) =
     in
     t, ContextVar vars
 
+let convert_repartitions t =
+  let conv_shares t src shares =
+    List.fold_left (fun t ({ dest; condition; part } : Repartition.share) ->
+        match part with
+        | Default | Deficit -> assert false
+        | Part p ->
+          let expr = EMult (EConst (LRational p), EVar src) in
+          register_value t ~act:condition ~dest expr)
+      t shares
+  in
+  Variable.Map.fold (fun src rep t ->
+      let fullrep = Repartition.resolve_fullness rep in
+      let t = conv_shares t src fullrep.parts in
+      let t = conv_shares t src fullrep.defaults in
+      conv_shares t src fullrep.deficits)
+    t.repartitions t
+
 end
 
 let shape_of_ctx_var acc (v : Ast.contextualized_variable) =
@@ -240,7 +267,7 @@ let rec reduce_to_r (e : value expr) : R.t option =
   in
   match e with
   | EConst l -> to_rational l
-  | EVar _ | EPre -> None
+  | EVar _ | EPre | EMerge _ -> None
   | EAdd (e1, e2) -> r_of_binop R.add e1 e2
   | EMult (e1, e2) -> r_of_binop R.mul e1 e2
   | ENeg e -> Option.map R.neg (reduce_to_r e)
@@ -484,4 +511,5 @@ let translate_declaration acc (decl : Ast.contextualized Ast.declaration) =
 let translate_program (Contextualized (infos, prog) : Ast.contextualized Ast.program) =
   let acc = Acc.make infos in
   let acc = List.fold_left translate_declaration acc prog in
+  let acc = Acc.convert_repartitions acc in
   acc

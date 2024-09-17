@@ -13,6 +13,7 @@ type _ expr =
   | EMult : value expr * value expr -> value expr
   | ENeg : value expr -> value expr
   | EInv : value expr -> value expr
+  | EMerge of Variable.t list
 
 type guarded_eq = {
   eq_activation : activation expr;
