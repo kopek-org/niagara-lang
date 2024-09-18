@@ -11,7 +11,7 @@ type t = {
   used_variables : Variable.Set.t;
   ctx_derivations : Variable.t Context.Group.Map.t Variable.Map.t;
   event_eqs : activation expr Variable.Map.t;
-  repartitions : Repartition.t Variable.Map.t; (* src key *)
+  repartitions : Repartition.part_or_def Repartition.t Variable.Map.t; (* src key *)
   flat_eqs : (Variable.t * value expr * Condition.t) list Variable.Map.t; (* dest key *)
   value_eqs : (value expr * Condition.t) list Variable.Map.t; (* dest key *)
   cumulation_vars : Variable.t Variable.Map.t;
@@ -85,7 +85,7 @@ let lift_event t (event : activation expr) =
     t, v
 
 let register_part t ~(act : Condition.t) ~(src : Variable.t)
-    ~(dest : Variable.t) (part : Repartition.part_kind) =
+    ~(dest : Variable.t) (part : Repartition.part_or_def) =
   let share = Repartition.{ dest; part; condition = act } in
   let repartitions =
     Variable.Map.update src (function
@@ -224,12 +224,9 @@ let derive_ctx_variables ~mode t (v : Variable.t) (ctx : Context.Group.t) =
 
 let convert_repartitions t =
   let conv_shares t src shares =
-    List.fold_left (fun t ({ dest; condition; part } : Repartition.share) ->
-        match part with
-        | Default | Deficit -> assert false
-        | Part p ->
-          let expr = EMult (EConst (LRational p), EVar src) in
-          register_value t ~act:condition ~dest expr)
+    List.fold_left (fun t ({ dest; condition; part } : R.t Repartition.share) ->
+        let expr = EMult (EConst (LRational part), EVar src) in
+        register_value t ~act:condition ~dest expr)
       t shares
   in
   Variable.Map.fold (fun src rep t ->

@@ -1,17 +1,17 @@
-type part_kind = Part of R.t | Default | Deficit
+type part_or_def = Part of R.t | Default | Deficit
 
-type share = {
+type 'a share = {
   dest : Variable.t;
-  part : part_kind;
+  part : 'a;
   condition : Condition.t;
 }
 
-type t = share list
+type 'a t = 'a share list
 
 type fullness_result = {
-  parts : t;
-  defaults : t;
-  deficits : t;
+  parts : R.t t;
+  defaults : R.t t;
+  deficits : R.t t;
 }
 
-val resolve_fullness : t -> fullness_result
+val resolve_fullness : part_or_def t -> fullness_result

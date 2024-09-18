@@ -1,12 +1,12 @@
-type part_kind = Part of R.t | Default | Deficit
+type part_or_def = Part of R.t | Default | Deficit
 
-type share = {
+type 'a share = {
   dest : Variable.t;
-  part : part_kind;
+  part : 'a;
   condition : Condition.t;
 }
 
-type t = share list
+type 'a t = 'a share list
 
 let add_part (rep : (Condition.t * R.t) list) (cond : Condition.t) (part : R.t) =
   (* [rep] conditions are always exclusive *)
@@ -59,12 +59,12 @@ let deficit_parts (rep : (Condition.t * R.t) list) (def_cond : Condition.t) =
     ([], []) rep
 
 type def_star = {
-  global_default : share option;
-  local_defaults : share list;
-  deficit : share option;
+  global_default : part_or_def share option;
+  local_defaults : part_or_def share list;
+  deficit : part_or_def share option;
 }
 
-let sort_shares (rep : t) =
+let sort_shares (rep : part_or_def t) =
   let empty_defs = {
     global_default = None;
     local_defaults = [];
@@ -122,19 +122,19 @@ let check_fullness (rep : (Condition.t * R.t) list) =
     Errors.raise_error "Pool needs default"
 
 type fullness_result = {
-  parts : t;
-  defaults : t;
-  deficits : t;
+  parts : R.t t;
+  defaults : R.t t;
+  deficits : R.t t;
 }
 
-let resolve_fullness (rep : t) =
+let resolve_fullness (rep : part_or_def t) =
   let parts, defs = sort_shares rep in
   let parts, local_defaults =
     List.fold_left (fun (parts, defs) def_share ->
         let ds, parts = default_parts parts def_share.condition in
         let defs =
           (List.map (fun (condition, p) ->
-              { dest = def_share.dest; condition; part = Part p })
+              { dest = def_share.dest; condition; part = p })
             ds)
           @ defs
         in
@@ -149,7 +149,7 @@ let resolve_fullness (rep : t) =
       let ds, parts = default_parts parts share.condition in
       let defs =
         List.map (fun (condition, p) ->
-            { dest = share.dest; condition; part = Part p })
+            { dest = share.dest; condition; part = p })
           ds
       in
       parts, defs
@@ -161,15 +161,17 @@ let resolve_fullness (rep : t) =
       let ds, parts = deficit_parts parts share.condition in
       let defs =
         List.map (fun (condition, p) ->
-            { dest = share.dest; condition; part = Part p })
+            { dest = share.dest; condition; part = p })
           ds
       in
       parts, defs
   in
   check_fullness parts;
   { parts =
-      List.filter (fun sh -> match sh.part with
-          | Part _ -> true | _ -> false)
+      List.filter_map (fun { part; dest; condition } ->
+          match part with
+          | Part part -> Some { part; dest; condition }
+          | _ -> None)
         rep;
     defaults = global_default @ local_defaults;
     deficits = deficit;
