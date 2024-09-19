@@ -8,6 +8,8 @@ type 'a share = {
 
 type 'a t = 'a share list
 
+type eqs = part_or_def t Variable.Map.t
+
 type fullness_result = {
   parts : R.t t;
   defaults : R.t t;

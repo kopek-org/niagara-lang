@@ -8,6 +8,8 @@ type 'a share = {
 
 type 'a t = 'a share list
 
+type eqs = part_or_def t Variable.Map.t
+
 let add_part (rep : (Condition.t * R.t) list) (cond : Condition.t) (part : R.t) =
   (* [rep] conditions are always exclusive *)
   let rem_cond, rep =

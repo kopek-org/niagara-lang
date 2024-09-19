@@ -10,10 +10,10 @@ type t = {
   pinfos : Ast.program_infos;
   used_variables : Variable.Set.t;
   ctx_derivations : Variable.t Context.Group.Map.t Variable.Map.t;
-  event_eqs : activation expr Variable.Map.t;
-  repartitions : Repartition.part_or_def Repartition.t Variable.Map.t; (* src key *)
+  event_eqs : event_eqs;
+  repartitions : Repartition.eqs; (* src key *)
   flat_eqs : (Variable.t * value expr * Condition.t) list Variable.Map.t; (* dest key *)
-  value_eqs : (value expr * Condition.t) list Variable.Map.t; (* dest key *)
+  value_eqs : aggregate_eqs; (* dest key *)
   cumulation_vars : Variable.t Variable.Map.t;
 }
 
@@ -40,6 +40,22 @@ let is_actor t (v : Variable.t) =
 
 let find_const_opt t (v : Variable.t) =
   Variable.Map.find_opt v t.pinfos.Ast.constants
+
+let create_cumulation t v =
+  (* TODO register infos *)
+  let cv = Variable.create () in
+  let cumulation_vars =
+    Variable.Map.add v cv t.cumulation_vars
+  in
+  { t with cumulation_vars }, cv
+
+let get_cumulation_var t (v : Variable.t) =
+  match Variable.Map.find_opt v t.cumulation_vars with
+  | Some v -> t, v
+  | None -> create_cumulation t v
+
+let ensure_cumulation t (v : Variable.t) =
+  fst @@ get_cumulation_var t v
 
 let find_compound_vars t (v : Variable.t) =
   match Variable.Map.find_opt v t.pinfos.compounds with
@@ -118,26 +134,14 @@ let register_flat t ~(act : Condition.t) ~(src : Variable.t) ~(dest : Variable.t
   { t with flat_eqs; }
 
 let register_value t ~(act : Condition.t) ~(dest : Variable.t) (expr : value expr) =
+  let ge = { eq_act = act; eq_expr = expr } in
   let value_eqs =
     Variable.Map.update dest (function
-        | None -> Some [expr, act]
-        | Some rs -> Some ((expr, act)::rs))
+        | None -> Some [ge]
+        | Some rs -> Some (ge::rs))
       t.value_eqs
   in
   { t with value_eqs; }
-
-let create_cumulation t v =
-  (* TODO register infos *)
-  let cv = Variable.create () in
-  let cumulation_vars =
-    Variable.Map.add v cv t.cumulation_vars
-  in
-  { t with cumulation_vars }, cv
-
-let get_cumulation_var t (v : Variable.t) =
-  match Variable.Map.find_opt v t.cumulation_vars with
-  | Some v -> t, v
-  | None -> create_cumulation t v
 
 let find_derivation_opt t (v : Variable.t) (ctx : Context.Group.t) =
   match Variable.Map.find_opt v t.ctx_derivations with
@@ -158,6 +162,7 @@ let get_derivative_var t (v : Variable.t) (ctx : Context.Group.t) =
     let { Variable.var_name } = Variable.Map.find v t.pinfos.var_info in
     let typ = type_of t v in
     let t = flag_variable_usage t dv in
+    let t = ensure_cumulation t dv in
     let t = {
       t with
       pinfos = {
@@ -205,7 +210,11 @@ type compound_derivation =
 let derive_ctx_variables ~mode t (v : Variable.t) (ctx : Context.Group.t) =
   if is_actor t v then
     let compound = find_compound_vars t v in
-    let t = List.fold_left flag_variable_usage t compound in
+    let t =
+      List.fold_left (fun t v ->
+          flag_variable_usage (ensure_cumulation t v) v)
+        t compound
+    in
     t, ActorComp { base = v; compound; }
   else
     let shape = var_shape t v in
@@ -236,6 +245,45 @@ let convert_repartitions t =
       conv_shares t src fullrep.deficits)
     t.repartitions t
 
+let convert_flats t =
+  Variable.Map.fold (fun dest flats t ->
+      List.fold_left (fun t (src, expr, act) ->
+          let ldest = Variable.create () in
+          let t = register_value t ~act ~dest:ldest expr in
+          let t = register_value t ~act ~dest (EVar ldest) in
+          register_value t ~act ~dest:src (EVar ldest))
+        t flats)
+    t.flat_eqs t
+
+let aggregate_derivations t =
+  Variable.Map.fold (fun dest ctxv t ->
+      Context.Group.Map.fold (fun _ctx deriv t ->
+          register_value t ~act:Condition.always ~dest (EVar deriv))
+        ctxv t)
+    t.ctx_derivations t
+
+let aggregate_compounds t =
+  Variable.Map.fold (fun dest ctxv t ->
+      Variable.Set.fold (fun c t ->
+          if Variable.equal dest c then t else
+            register_value t ~act:Condition.always ~dest (EVar c))
+        ctxv t)
+    t.pinfos.Ast.compounds t
+
+let convert_cumulations t =
+  Variable.Map.fold (fun instant cumul t ->
+      let expr = EAdd (EPre, EOrZero instant) in
+      register_value t ~act:Condition.always ~dest:cumul expr)
+    t.cumulation_vars t
+
+let produce_aggregated_eqs t =
+  let t = convert_repartitions t in
+  let t = convert_flats t in
+  let t = aggregate_derivations t in
+  let t = aggregate_compounds t in
+  let t = convert_cumulations t in
+  t.value_eqs, t.event_eqs
+
 end
 
 let shape_of_ctx_var acc (v : Ast.contextualized_variable) =
@@ -264,7 +312,7 @@ let rec reduce_to_r (e : value expr) : R.t option =
   in
   match e with
   | EConst l -> to_rational l
-  | EVar _ | EPre | EMerge _ -> None
+  | EVar _ | EPre | EMerge _ | EOrZero _ -> None
   | EAdd (e1, e2) -> r_of_binop R.add e1 e2
   | EMult (e1, e2) -> r_of_binop R.mul e1 e2
   | ENeg e -> Option.map R.neg (reduce_to_r e)
@@ -508,5 +556,4 @@ let translate_declaration acc (decl : Ast.contextualized Ast.declaration) =
 let translate_program (Contextualized (infos, prog) : Ast.contextualized Ast.program) =
   let acc = Acc.make infos in
   let acc = List.fold_left translate_declaration acc prog in
-  let acc = Acc.convert_repartitions acc in
-  acc
+  Acc.produce_aggregated_eqs acc
