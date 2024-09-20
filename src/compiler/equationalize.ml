@@ -72,10 +72,10 @@ let var_shape t (v : Variable.t) =
   | Some shape -> shape
   | None -> Errors.raise_error "No shape for var %d" (Variable.uid v)
 
-let register_event t (v : Variable.t) (e : activation expr) =
+let register_event t (v : Variable.t) (e : activation aff) =
   { t with event_eqs = Variable.Map.add v e t.event_eqs }
 
-let lift_event t (event : activation expr) =
+let lift_event t (event : activation aff) =
   let has_equal =
     Variable.Map.fold (fun v evt -> function
         | Some v -> Some v
@@ -133,8 +133,8 @@ let register_flat t ~(act : Condition.t) ~(src : Variable.t) ~(dest : Variable.t
   in
   { t with flat_eqs; }
 
-let register_value t ~(act : Condition.t) ~(dest : Variable.t) (expr : value expr) =
-  let ge = { eq_act = act; eq_expr = expr } in
+let register_value t ~(act : Condition.t) ~(dest : Variable.t) (expr : value aff) =
+  let ge = { eq_act = act; eq_aff = expr } in
   let value_eqs =
     Variable.Map.update dest (function
         | None -> Some [ge]
@@ -234,7 +234,7 @@ let derive_ctx_variables ~mode t (v : Variable.t) (ctx : Context.Group.t) =
 let convert_repartitions t =
   let conv_shares t src shares =
     List.fold_left (fun t ({ dest; condition; part } : R.t Repartition.share) ->
-        let expr = EMult (EConst (LRational part), EVar src) in
+        let expr = EExpr (EMult (EConst (LRational part), EVar src)) in
         register_value t ~act:condition ~dest expr)
       t shares
   in
@@ -249,16 +249,16 @@ let convert_flats t =
   Variable.Map.fold (fun dest flats t ->
       List.fold_left (fun t (src, expr, act) ->
           let ldest = Variable.create () in
-          let t = register_value t ~act ~dest:ldest expr in
-          let t = register_value t ~act ~dest (EVar ldest) in
-          register_value t ~act ~dest:src (EVar ldest))
+          let t = register_value t ~act ~dest:ldest (EExpr expr) in
+          let t = register_value t ~act ~dest (EExpr (EVar ldest)) in
+          register_value t ~act ~dest:src (EExpr (EVar ldest)))
         t flats)
     t.flat_eqs t
 
 let aggregate_derivations t =
   Variable.Map.fold (fun dest ctxv t ->
       Context.Group.Map.fold (fun _ctx deriv t ->
-          register_value t ~act:Condition.always ~dest (EVar deriv))
+          register_value t ~act:Condition.always ~dest (EExpr (EVar deriv)))
         ctxv t)
     t.ctx_derivations t
 
@@ -266,14 +266,14 @@ let aggregate_compounds t =
   Variable.Map.fold (fun dest ctxv t ->
       Variable.Set.fold (fun c t ->
           if Variable.equal dest c then t else
-            register_value t ~act:Condition.always ~dest (EVar c))
+            register_value t ~act:Condition.always ~dest (EExpr (EVar c)))
         ctxv t)
     t.pinfos.Ast.compounds t
 
 let convert_cumulations t =
   Variable.Map.fold (fun instant cumul t ->
-      let expr = EAdd (EPre, EOrZero instant) in
-      register_value t ~act:Condition.always ~dest:cumul expr)
+      let expr = EAdd (ESelf, EVar instant) in
+      register_value t ~act:Condition.always ~dest:cumul (EExpr expr))
     t.cumulation_vars t
 
 let produce_aggregated_eqs t =
@@ -312,7 +312,7 @@ let rec reduce_to_r (e : value expr) : R.t option =
   in
   match e with
   | EConst l -> to_rational l
-  | EVar _ | EPre | EMerge _ | EOrZero _ -> None
+  | EVar _ | ESelf -> None
   | EAdd (e1, e2) -> r_of_binop R.add e1 e2
   | EMult (e1, e2) -> r_of_binop R.mul e1 e2
   | ENeg e -> Option.map R.neg (reduce_to_r e)
@@ -501,8 +501,14 @@ let rec translate_guarded_redist acc ~(ctx : Context.Group.t) ~(act : Condition.
 and translate_condition acc ~on_raise ~act
     (cond : Ast.contextualized Ast.event_expr) =
   let acc, eexpr = translate_event acc cond in
-  let eexpr = if on_raise then EAnd (ENot EPre, eexpr) else eexpr in
-  let acc, evt = Acc.lift_event acc eexpr in
+  let acc, evt =
+    if on_raise then
+      let acc, base_evt = Acc.lift_event acc (EExpr eexpr) in
+      let acc, prev_evt = Acc.lift_event acc (ELast base_evt) in
+      Acc.lift_event acc (EExpr (EAnd (ENot (EVar prev_evt), EVar base_evt)))
+    else
+      Acc.lift_event acc (EExpr eexpr)
+  in
   let condt = Condition.(conj (of_event evt true) act) in
   let condf = Condition.(conj (of_event evt false) act) in
   acc, condt, condf
@@ -549,7 +555,7 @@ let translate_declaration acc (decl : Ast.contextualized Ast.declaration) =
   | DVarOperation o -> translate_operation acc o
   | DVarEvent e ->
     let acc, evt_expr = translate_event acc e.ctx_event_expr in
-    Acc.register_event acc e.ctx_event_var evt_expr
+    Acc.register_event acc e.ctx_event_var (EExpr evt_expr)
   | DVarDefault d -> translate_default acc d
   | DVarDeficit d -> translate_deficit acc d
 

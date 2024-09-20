@@ -3,7 +3,7 @@ type value = VAL
 
 type _ expr =
   | EVar of Variable.t
-  | EPre
+  | ESelf
   | EAlways : activation expr
   | ENot : activation expr -> activation expr
   | EAnd : activation expr * activation expr -> activation expr
@@ -13,15 +13,18 @@ type _ expr =
   | EMult : value expr * value expr -> value expr
   | ENeg : value expr -> value expr
   | EInv : value expr -> value expr
+
+type 'a aff =
+  | ELast of Variable.t
   | EMerge of Variable.t list
-  | EOrZero of Variable.t
+  | EExpr of 'a expr
 
 type guarded_eq = {
   eq_act : Condition.t;
-  eq_expr : value expr;
+  eq_aff : value aff;
 }
 
-type event_eqs = activation expr Variable.Map.t
+type event_eqs = activation aff Variable.Map.t
 
 type aggregate_eqs = guarded_eq list Variable.Map.t
 
