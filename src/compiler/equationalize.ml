@@ -282,7 +282,7 @@ let produce_aggregated_eqs t =
   let t = aggregate_derivations t in
   let t = aggregate_compounds t in
   let t = convert_cumulations t in
-  t.value_eqs, t.event_eqs
+  t.pinfos, t.value_eqs, t.event_eqs
 
 end
 
