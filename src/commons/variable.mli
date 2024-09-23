@@ -25,7 +25,16 @@ module Set : Set.S with type elt = t
 module BDT : BinaryDecisionTree.S with type condition = t and module KnowledgeMap = Map
 
 (** Directed graph whose nodes are variables and edges event conditions *)
-module Graph : Graph.Sig.P
+module Graph : sig
+  include Graph.Sig.P
   with type V.t = t
    and type E.label = bool Map.t
    and type E.t = t * bool Map.t * t
+
+  module Topology : sig
+    val scc : t -> int * (vertex -> int)
+    val scc_array : t -> vertex list array
+    val scc_list : t -> vertex list list
+  end
+
+end

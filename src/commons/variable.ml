@@ -3,7 +3,8 @@ type t = int
 module Map = Map.Make(Int)
 module Set = Set.Make(Int)
 module BDT = BinaryDecisionTree.Make(Int)(Map)
-module Graph = Graph.Persistent.Digraph.ConcreteBidirectionalLabeled(struct
+
+module G = Graph.Persistent.Digraph.ConcreteBidirectionalLabeled(struct
     include Int
     let hash v = v
   end)
@@ -12,6 +13,11 @@ module Graph = Graph.Persistent.Digraph.ConcreteBidirectionalLabeled(struct
       let compare = Map.compare (Stdlib.compare)
       let default = Map.empty
     end)
+
+module Graph = struct
+  include G
+  module Topology = Graph.Components.Make(G)
+end
 
 type info = {
   var_name : string;
