@@ -26,7 +26,11 @@ type guarded_eq = {
 
 type event_eqs = activation aff Variable.Map.t
 
-type aggregate_eqs = guarded_eq list Variable.Map.t
+type aggregation =
+  | One of guarded_eq
+  | More of (Variable.t * Condition.t) list
+
+type aggregate_eqs = aggregation Variable.Map.t
 
 type program = {
   val_eqs : guarded_eq Variable.Map.t;

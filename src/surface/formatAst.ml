@@ -260,6 +260,7 @@ let print_program (type a) fmt (p : a program) =
     | Source decls ->
       let dummy_infos = {
         var_info = Variable.Map.empty;
+        nvar_info = Variable.Map.empty;
         var_shapes = Variable.Map.empty;
         contexts = Context.empty_world;
         inputs = Variable.Map.empty;

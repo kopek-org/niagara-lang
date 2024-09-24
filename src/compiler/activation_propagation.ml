@@ -2,6 +2,8 @@ open Surface
 open Equations
 open Equ
 
+let no_existence v = { eq_act = Condition.never; eq_aff = EExpr (EVar v) }
+
 let rec add_var_to_groups (groups : (Variable.t list * Condition.t) list)
     (var : Variable.t) (cond : Condition.t) =
   match groups with
@@ -30,25 +32,6 @@ let generate_addition (vars : Variable.t list) =
     List.fold_left (fun e v -> Equ.(EAdd (e, EVar v)))
       (Equ.EVar h) t
 
-let aggregate_vars (target : Variable.t) (vars : (Variable.t * Condition.t) list) =
-  let ex_groups, target_cond =
-    List.fold_left (fun (groups, glob_cond) (v, cond) ->
-        let glob_cond = Condition.disj glob_cond cond in
-        let groups = add_var_to_groups groups v cond in
-        groups, glob_cond)
-      ([], Condition.never) vars
-  in
-  let fresh_vars, eqs =
-    List.fold_left_map (fun fvars (gvars, gcond) ->
-        let fv = Variable.create () in
-        let expr = generate_addition gvars in
-        fv::fvars, (fv, gcond, expr))
-      [] ex_groups
-  in
-  (target, target_cond, Equ.EMerge fresh_vars),
-  eqs
-
-
 type acc = {
   pinfos : Ast.program_infos;
   aggr : aggregate_eqs;
@@ -63,11 +46,69 @@ let make_acc (pinfos : Ast.program_infos) (aggr : aggregate_eqs) = {
   dep_graph = Variable.Graph.empty;
 }
 
+let find_vinfo t (v : Variable.t) =
+  match Variable.Map.find_opt v t.pinfos.nvar_info with
+  | None -> Errors.raise_error "(internal) variable %d info not found" (Variable.uid v)
+  | Some i -> i
+
+let bind_vinfo t (v : Variable.t) (info : Variable.Info.t) =
+  { t with
+    pinfos = {
+      t.pinfos with
+      nvar_info = Variable.Map.add v info t.pinfos.nvar_info
+    }
+  }
+
+let create_var_from t (ov : Variable.t) (build : Variable.Info.t -> Variable.Info.t) =
+  let v = Variable.create () in
+  let oi = find_vinfo t ov in
+  let i = build oi in
+  let t = bind_vinfo t v i in
+  t, v
+
 let add_dep acc from to_ =
   { acc with dep_graph = Variable.Graph.add_edge acc.dep_graph from to_ }
 
 let add_eq acc dest eq =
   { acc with memo = Variable.Map.add dest eq acc.memo }
+
+let aggregate_vars acc (target : Variable.t)
+    (vars : (Variable.t * Condition.t) list) =
+  let ex_groups, target_cond =
+    List.fold_left (fun (groups, glob_cond) (v, cond) ->
+        let glob_cond = Condition.disj glob_cond cond in
+        let groups = add_var_to_groups groups v cond in
+        groups, glob_cond)
+      ([], Condition.never) vars
+  in
+  match ex_groups with
+  | [] -> acc, no_existence target
+  | [vs, target_cond] ->
+    acc, { eq_act = target_cond; eq_aff = EExpr (generate_addition vs) }
+  | _ ->
+    let acc, fresh_vars =
+      List.fold_left (fun (acc, fvars) (gvars, gcond) ->
+          let acc, fv =
+            create_var_from acc target (fun i ->
+                { i with
+                  origin = ExistentialAggreg gvars
+                })
+          in
+          let eq_aff = EExpr (generate_addition gvars) in
+          let acc = add_eq acc fv { eq_aff; eq_act = gcond } in
+          let acc =
+            List.fold_left (fun acc v -> add_dep acc v fv)
+              acc gvars
+          in
+          acc, fv::fvars)
+        (acc, []) ex_groups
+    in
+    let eq = { eq_act = target_cond; eq_aff = EMerge fresh_vars } in
+    let acc =
+      List.fold_left (fun acc v -> add_dep acc v target)
+        acc fresh_vars
+    in
+    add_eq acc target eq, eq
 
 let rec propagate_expr acc (dest : Variable.t) (act : Condition.t)
     (expr : value expr) =
@@ -103,37 +144,13 @@ and affect_eq acc (dest : Variable.t) (eq : guarded_eq) =
     let acc, e, eq_act = propagate_expr acc dest eq.eq_act e in
     acc, { eq_act; eq_aff = EExpr e }
 
-and dispatch_eqs acc (dest : Variable.t) (eqs : guarded_eq list) =
-  let no_existence = { eq_act = Condition.never; eq_aff = EExpr (EVar dest) } in
-  match eqs with
-  | [] -> assert false
-  | [eq] ->
+and dispatch_eqs acc (dest : Variable.t) (aggr : aggregation) =
+  match aggr with
+  | One eq ->
     let acc, eq = affect_eq acc dest eq in
-    if Condition.is_never eq.eq_act then acc, no_existence else
+    if Condition.is_never eq.eq_act then acc, no_existence dest else
       add_eq acc dest eq, eq
-  | _ ->
-    let acc, lvars =
-      List.fold_left (fun (acc, lvars) eq ->
-          let lv = Variable.create () in
-          let acc, ge = affect_eq acc lv eq in
-          if Condition.is_never ge.eq_act then
-            acc, lvars
-          else
-            add_eq acc lv ge, (lv, ge.eq_act)::lvars)
-        (acc, []) eqs
-    in
-    let (dest, eq_act, eq_aff), lexprs = aggregate_vars dest lvars in
-    let acc =
-      List.fold_left (fun acc (ldest, eq_act, expr) ->
-          let acc = add_dep acc ldest dest in
-          add_eq acc ldest { eq_act; eq_aff = EExpr expr })
-        acc lexprs
-    in
-    if lexprs = []
-    then acc, no_existence
-    else
-      let eq = { eq_act; eq_aff } in
-      add_eq acc dest eq, eq
+  | More vars -> aggregate_vars acc dest vars
 
 and compute_one acc (v : Variable.t) =
   match Variable.Map.find_opt v acc.memo with

@@ -38,3 +38,37 @@ module Graph : sig
   end
 
 end
+
+module Info : sig
+
+  type origin =
+    | Named of string
+    | LabelOfPartner of { partner : t; label : string }
+    | Cumulative of t
+    | AnonEvent
+    | Peeking of t
+    | RisingEvent of t
+    | ContextSpecialized of { origin : t; context : Context.Group.t }
+    | OperationDetail of { source : t; target : t }
+    | ExistentialAggreg of t list
+
+  type kind =
+    | ReceivingPartner
+    | ProvidingPartner
+    | ParameterInput
+    | PoolInput
+    | Intermediary
+    | Event
+    | Constant
+
+  type t = {
+    origin : origin;
+    typ : ValueType.t;
+    kind : kind;
+  }
+
+  type collection = t Map.t
+
+  val print : Format.formatter -> t -> unit
+
+end

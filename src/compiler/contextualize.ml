@@ -72,6 +72,7 @@ end = struct
   type t = {
     program_decls : contextualized declaration list; (* the program in reverse order *)
     var_info : Variable.info Variable.Map.t;
+    nvar_info : Variable.Info.collection;
     var_table : name_ref StrMap.t;
     contexts : Context.world;
     inputs : input_kind Variable.Map.t;
@@ -87,6 +88,7 @@ end = struct
   let empty = {
     program_decls = [];
     var_info = Variable.Map.empty;
+    nvar_info = Variable.Map.empty;
     var_table = StrMap.empty;
     contexts = Context.empty_world;
     inputs = Variable.Map.empty;
@@ -140,8 +142,18 @@ end = struct
   let bind_const (v : Variable.t) (value : Literal.t) t =
     { t with constants = Variable.Map.add v value t.constants }
 
+  let bind_vinfo (v : Variable.t) (info : Variable.Info.t) t =
+    { t with nvar_info = Variable.Map.add v info t.nvar_info }
+
   let register_pool t (name : string) =
     let v = Variable.create () in
+    let info = Variable.Info.{
+        origin = Named name;
+        typ = TMoney;
+        kind = Intermediary;
+      }
+    in
+    let t = bind_vinfo v info t in
     let t =
       bind_var name (RefPool v) t
       |> bind_name v name
@@ -153,22 +165,50 @@ end = struct
     match kind with
     | Attributable ->
       if typ <> ValueType.TMoney then Errors.raise_error "(internal) Wrong type for pool";
+      let info = Variable.Info.{
+        origin = Named name;
+        typ;
+        kind = PoolInput;
+      }
+      in
       let t, v = register_pool t name in
       let t = bind_input v Attributable t in
+      let t = bind_vinfo v info t in
       t, v
     | ReadOnly ->
       let v = Variable.create () in
+      let info = Variable.Info.{
+        origin = Named name;
+        typ;
+        kind = ParameterInput;
+      }
+      in
       let t =
         bind_var name (RefROInput v) t
         |> bind_name v name
         |> bind_type v typ
         |> bind_input v ReadOnly
       in
+      let t = bind_vinfo v info t in
       t, v
 
   let register_actor t (name : string) =
     let uv = Variable.create () in
     let dv = Variable.create () in
+    let uinfo = Variable.Info.{
+        origin = Named name;
+        typ = TMoney;
+        kind = ProvidingPartner;
+      }
+    in
+    let dinfo = Variable.Info.{
+        origin = Named name;
+        typ = TMoney;
+        kind = ReceivingPartner;
+      }
+    in
+    let t = bind_vinfo uv uinfo t in
+    let t = bind_vinfo dv dinfo t in
     bind_var name (RefActor (BaseActor {upstream = uv; downstream = dv})) t
     |> bind_name uv name
     |> bind_type uv ValueType.TMoney
@@ -181,6 +221,13 @@ end = struct
 
   let register_event t (name : string) =
     let v = Variable.create () in
+    let info = Variable.Info.{
+        origin = Named name;
+        typ = ValueType.TEvent;
+        kind = Event;
+      }
+    in
+    let t = bind_vinfo v info t in
     let t =
       bind_var name (RefEvent v) t
       |> bind_name v name
@@ -190,6 +237,13 @@ end = struct
 
   let register_const t (name : string) (typ : ValueType.t) (value : Literal.t) =
     let v = Variable.create () in
+    let info = Variable.Info.{
+        origin = Named name;
+        typ;
+        kind = Constant;
+      }
+    in
+    let t = bind_vinfo v info t in
     bind_var name (RefConst v) t
     |> bind_name v name
     |> bind_type v typ
@@ -250,6 +304,16 @@ end = struct
     match StrMap.find_opt lname t.var_table with
     | None ->
       let vl = Variable.create () in
+      let info = Variable.Info.{
+          origin = LabelOfPartner { partner = base_actor; label };
+          typ = ValueType.TMoney;
+          kind =
+            match way with
+            | Upstream -> ProvidingPartner
+            | Downstream -> ReceivingPartner;
+        }
+      in
+      let t = bind_vinfo vl info t in
       let t =
         bind_var lname (RefActor (Label (vl, way))) t
         |> bind_name vl lname
@@ -486,6 +550,7 @@ end = struct
     let t = advance_substitution t in
     let infos = {
       var_info = t.var_info;
+      nvar_info = t.nvar_info;
       var_shapes = resolve_constraints t;
       contexts = t.contexts;
       inputs = t.inputs;

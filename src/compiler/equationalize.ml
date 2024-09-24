@@ -4,6 +4,11 @@ open Equ
 
 type flow_view = AtInstant | Cumulated
 
+type artefact_event =
+  | Generic
+  | PreviousState of Variable.t
+  | RaiseTest of Variable.t
+
 module Acc = struct
 
 type t = {
@@ -28,6 +33,26 @@ let make (pinfos : Ast.program_infos) = {
   cumulation_vars = Variable.Map.empty;
 }
 
+let find_vinfo t (v : Variable.t) =
+  match Variable.Map.find_opt v t.pinfos.nvar_info with
+  | None -> Errors.raise_error "(internal) variable %d info not found" (Variable.uid v)
+  | Some i -> i
+
+let bind_vinfo t (v : Variable.t) (info : Variable.Info.t) =
+  { t with
+    pinfos = {
+      t.pinfos with
+      nvar_info = Variable.Map.add v info t.pinfos.nvar_info
+    }
+  }
+
+let create_var_from t (ov : Variable.t) (build : Variable.Info.t -> Variable.Info.t) =
+  let v = Variable.create () in
+  let oi = find_vinfo t ov in
+  let i = build oi in
+  let t = bind_vinfo t v i in
+  t, v
+
 let contexts t = t.pinfos.contexts
 
 let type_of t v =
@@ -42,8 +67,10 @@ let find_const_opt t (v : Variable.t) =
   Variable.Map.find_opt v t.pinfos.Ast.constants
 
 let create_cumulation t v =
-  (* TODO register infos *)
-  let cv = Variable.create () in
+  let t, cv =
+    create_var_from t v (fun i ->
+      { i with origin = Cumulative v })
+  in
   let cumulation_vars =
     Variable.Map.add v cv t.cumulation_vars
   in
@@ -75,7 +102,7 @@ let var_shape t (v : Variable.t) =
 let register_event t (v : Variable.t) (e : activation aff) =
   { t with event_eqs = Variable.Map.add v e t.event_eqs }
 
-let lift_event t (event : activation aff) =
+let lift_event t (event : activation aff) (kind : artefact_event) =
   let has_equal =
     Variable.Map.fold (fun v evt -> function
         | Some v -> Some v
@@ -85,18 +112,19 @@ let lift_event t (event : activation aff) =
   match has_equal with
   | Some evt -> t, evt
   | None ->
-    let var_name = Variable.unique_anon_name "anon_event" in
     let v = Variable.create () in
-    let t = flag_variable_usage t v in
-    let t =
-      { t with
-        pinfos =
-          { t.pinfos with
-            var_info = Variable.Map.add v { Variable.var_name } t.pinfos.var_info;
-            types = Variable.Map.add v ValueType.TEvent t.pinfos.types;
-          };
+    let info = Variable.Info.{
+        origin =
+          (match kind with
+          | Generic -> AnonEvent
+          | PreviousState v -> Peeking v
+          | RaiseTest v -> RisingEvent v);
+        typ = ValueType.TEvent;
+        kind = Event;
       }
     in
+    let t = bind_vinfo t v info in
+    let t = flag_variable_usage t v in
     let t = register_event t v event in
     t, v
 
@@ -133,12 +161,24 @@ let register_flat t ~(act : Condition.t) ~(src : Variable.t) ~(dest : Variable.t
   in
   { t with flat_eqs; }
 
+let register_aggregation t ~(act : Condition.t) ~(dest : Variable.t) (v : Variable.t) =
+  let value_eqs =
+    Variable.Map.update dest (function
+        | None -> Some (More [v, act])
+        | Some (More vars) -> Some (More ((v, act)::vars))
+        | Some (One _) ->
+          Errors.raise_error "(internal) Cannot aggregate on valuation expression")
+      t.value_eqs
+  in
+  { t with value_eqs }
+
 let register_value t ~(act : Condition.t) ~(dest : Variable.t) (expr : value aff) =
   let ge = { eq_act = act; eq_aff = expr } in
   let value_eqs =
     Variable.Map.update dest (function
-        | None -> Some [ge]
-        | Some rs -> Some (ge::rs))
+        | None -> Some (One ge)
+        | Some _ ->
+          Errors.raise_error "(internal) Cannot register valuation on aggregation")
       t.value_eqs
   in
   { t with value_eqs; }
@@ -158,7 +198,10 @@ let get_derivative_var t (v : Variable.t) (ctx : Context.Group.t) =
        whever there is already one whose group overlap. This should not be an
        issue as the analysis should not produce such cases, but vulnerable
        nonetheless. *)
-    let dv = Variable.create () in
+    let t, dv =
+      create_var_from t v
+        (fun i -> { i with origin = ContextSpecialized { origin = v; context = ctx } })
+    in
     let { Variable.var_name } = Variable.Map.find v t.pinfos.var_info in
     let typ = type_of t v in
     let t = flag_variable_usage t dv in
@@ -234,8 +277,14 @@ let derive_ctx_variables ~mode t (v : Variable.t) (ctx : Context.Group.t) =
 let convert_repartitions t =
   let conv_shares t src shares =
     List.fold_left (fun t ({ dest; condition; part } : R.t Repartition.share) ->
+        let t, ov = create_var_from t dest (fun i ->
+            { i with
+              origin = OperationDetail { source = src; target = dest }
+            })
+        in
         let expr = EExpr (EMult (EConst (LRational part), EVar src)) in
-        register_value t ~act:condition ~dest expr)
+        let t = register_value t ~act:condition ~dest:ov expr in
+        register_aggregation t ~act:condition ~dest ov)
       t shares
   in
   Variable.Map.fold (fun src rep t ->
@@ -248,9 +297,15 @@ let convert_repartitions t =
 let convert_flats t =
   Variable.Map.fold (fun dest flats t ->
       List.fold_left (fun t (src, expr, act) ->
-          let ldest = Variable.create () in
+          let t, ldest =
+            create_var_from t dest (fun i ->
+                { i with
+                  origin = OperationDetail { source = src; target = dest };
+                  kind = Intermediary
+                })
+          in
           let t = register_value t ~act ~dest:ldest (EExpr expr) in
-          let t = register_value t ~act ~dest (EExpr (EVar ldest)) in
+          let t = register_aggregation t ~act ~dest ldest in
           register_value t ~act ~dest:src (EExpr (EVar ldest)))
         t flats)
     t.flat_eqs t
@@ -258,7 +313,7 @@ let convert_flats t =
 let aggregate_derivations t =
   Variable.Map.fold (fun dest ctxv t ->
       Context.Group.Map.fold (fun _ctx deriv t ->
-          register_value t ~act:Condition.always ~dest (EExpr (EVar deriv)))
+          register_aggregation t ~act:Condition.always ~dest deriv)
         ctxv t)
     t.ctx_derivations t
 
@@ -266,7 +321,7 @@ let aggregate_compounds t =
   Variable.Map.fold (fun dest ctxv t ->
       Variable.Set.fold (fun c t ->
           if Variable.equal dest c then t else
-            register_value t ~act:Condition.always ~dest (EExpr (EVar c)))
+            register_aggregation t ~act:Condition.always ~dest c)
         ctxv t)
     t.pinfos.Ast.compounds t
 
@@ -503,11 +558,14 @@ and translate_condition acc ~on_raise ~act
   let acc, eexpr = translate_event acc cond in
   let acc, evt =
     if on_raise then
-      let acc, base_evt = Acc.lift_event acc (EExpr eexpr) in
-      let acc, prev_evt = Acc.lift_event acc (ELast base_evt) in
+      let acc, base_evt = Acc.lift_event acc (EExpr eexpr) Generic in
+      let acc, prev_evt =
+        Acc.lift_event acc (ELast base_evt) (PreviousState base_evt)
+      in
       Acc.lift_event acc (EExpr (EAnd (ENot (EVar prev_evt), EVar base_evt)))
+        (RaiseTest base_evt)
     else
-      Acc.lift_event acc (EExpr eexpr)
+      Acc.lift_event acc (EExpr eexpr) Generic
   in
   let condt = Condition.(conj (of_event evt true) act) in
   let condf = Condition.(conj (of_event evt false) act) in
