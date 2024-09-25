@@ -24,7 +24,7 @@ let inputs =
 let test p =
   let desc = Interface.description_from_program p in
   let fmt = Format.formatter_of_out_channel stdout in
-  Interface.print_program_desc fmt desc;
+  (* Interface.print_program_desc fmt desc; *)
   Format.fprintf fmt "@.@.";
   Printer.print_intepreter_inputs desc fmt inputs;
   Format.fprintf fmt "@.@.";

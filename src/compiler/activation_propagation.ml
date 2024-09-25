@@ -167,21 +167,25 @@ and compute_one acc (v : Variable.t) =
 
 let order_eqs acc =
   let scc = Variable.Graph.Topology.scc_list acc.dep_graph in
-  List.filter_map (function
+  List.rev @@ List.filter_map (function
       | [] -> assert false
-      | _::_::_ as _scc -> Errors.raise_error "(internal) Cyclic equations"
       | [v] ->
-        match Variable.Map.find_opt v acc.memo with
-        | None -> None
-        | Some eq -> Some (v,eq))
+        (match (Variable.Map.find v acc.pinfos.nvar_info).kind with
+         | ParameterInput | PoolInput -> None
+         | _ -> Some v)
+      | _scc -> Errors.raise_error "(internal) Cyclic equations")
     scc
 
-let compute (pinfos : Ast.program_infos) (ag_eqs : aggregate_eqs) =
+let compute (pinfos : Ast.program_infos) (ag_eqs : aggregate_eqs) (act_eqs : event_eqs) =
   let acc = make_acc pinfos ag_eqs in
   let acc =
     Variable.Map.fold (fun dest _eqs acc ->
         fst @@ compute_one acc dest)
       ag_eqs acc
   in
-  let ordered = order_eqs acc in
-  ordered (* TODO *)
+  let order = order_eqs acc in
+  { infos = acc.pinfos;
+    val_eqs = acc.memo;
+    eqs_order = order;
+    act_eqs;
+  }

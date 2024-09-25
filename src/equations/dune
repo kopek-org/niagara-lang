@@ -6,5 +6,6 @@
     zarith
     calendar
     commons
+    surface
   )
 )
