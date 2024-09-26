@@ -50,13 +50,13 @@ module Info : sig
     | RisingEvent of t
     | ContextSpecialized of { origin : t; context : Context.Group.t }
     | OperationDetail of { source : t; target : t }
-    | ExistentialAggreg of t list
+    | ConditionExistential
 
   type kind =
     | ReceivingPartner
     | ProvidingPartner
-    | ParameterInput
-    | PoolInput
+    | ParameterInput of { shadow : bool }
+    | PoolInput of { shadow : bool }
     | Intermediary
     | Event
     | Constant

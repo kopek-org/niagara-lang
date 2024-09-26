@@ -69,7 +69,10 @@ let find_const_opt t (v : Variable.t) =
 let create_cumulation t v =
   let t, cv =
     create_var_from t v (fun i ->
-      { i with origin = Cumulative v })
+      { i with
+        origin = Cumulative v;
+        kind = Intermediary;
+      })
   in
   let cumulation_vars =
     Variable.Map.add v cv t.cumulation_vars
@@ -189,53 +192,69 @@ let find_derivation_opt t (v : Variable.t) (ctx : Context.Group.t) =
   | Some cgm ->
     Context.Group.Map.find_opt ctx cgm
 
+let shadow_input t (v : Variable.t) =
+  let i = Variable.Map.find v t.pinfos.nvar_info in
+  bind_vinfo t v
+    { i with
+      kind =
+        match i.kind with
+        | ParameterInput _ -> ParameterInput { shadow = true }
+        | PoolInput _ -> PoolInput { shadow = true }
+        | k -> k
+    }
+
 (* Fetch for the one variable to this exact context group *)
 let get_derivative_var t (v : Variable.t) (ctx : Context.Group.t) =
   match find_derivation_opt t v ctx with
   | Some v -> t, v
   | None ->
-    (* Fragile: Generating new variable for the given group without checking
-       whever there is already one whose group overlap. This should not be an
-       issue as the analysis should not produce such cases, but vulnerable
-       nonetheless. *)
-    let t, dv =
-      create_var_from t v
-        (fun i -> { i with origin = ContextSpecialized { origin = v; context = ctx } })
-    in
-    let { Variable.var_name } = Variable.Map.find v t.pinfos.var_info in
-    let typ = type_of t v in
-    let t = flag_variable_usage t dv in
-    let t = ensure_cumulation t dv in
-    let t = {
-      t with
-      pinfos = {
-        t.pinfos with
-        var_info = Variable.Map.add dv { Variable.var_name } t.pinfos.var_info;
-        types =  Variable.Map.add dv typ t.pinfos.types;
-        var_shapes = Variable.Map.add dv
-            (Context.shape_of_groups [ctx]) t.pinfos.var_shapes;
-      };
-      ctx_derivations =
-        Variable.Map.update v (function
-            | None -> Some (Context.Group.Map.singleton ctx dv)
-            | Some groups -> Some (Context.Group.Map.add ctx dv groups)
-          )
-          t.ctx_derivations;
-    }
-    in
-    let t =
-      match Variable.Map.find_opt v t.pinfos.inputs with
-      | None -> t
-      | Some kind ->
-        { t with pinfos = { t.pinfos with inputs = Variable.Map.add dv kind t.pinfos.inputs }}
-    in
-    let t =
-      match Variable.Map.find_opt v t.pinfos.actors with
-      | None -> t
-      | Some way ->
-        { t with pinfos = { t.pinfos with actors = Variable.Map.add dv way t.pinfos.actors }}
-    in
-    t, dv
+    match Variable.Map.find_opt v t.pinfos.var_shapes with
+    | None -> ensure_cumulation t v, v
+    | Some s ->
+      if Context.is_whole_shape s then ensure_cumulation t v, v else
+        (* Fragile: Generating new variable for the given group without checking
+           whever there is already one whose group overlap. This should not be an
+           issue as the analysis should not produce such cases, but vulnerable
+           nonetheless. *)
+        let t, dv =
+          create_var_from t v
+            (fun i -> { i with origin = ContextSpecialized { origin = v; context = ctx } })
+        in
+        let t = shadow_input t v in
+        let { Variable.var_name } = Variable.Map.find v t.pinfos.var_info in
+        let typ = type_of t v in
+        let t = flag_variable_usage t dv in
+        let t = ensure_cumulation t dv in
+        let t = {
+          t with
+          pinfos = {
+            t.pinfos with
+            var_info = Variable.Map.add dv { Variable.var_name } t.pinfos.var_info;
+            types =  Variable.Map.add dv typ t.pinfos.types;
+            var_shapes = Variable.Map.add dv
+                (Context.shape_of_groups [ctx]) t.pinfos.var_shapes;
+          };
+          ctx_derivations =
+            Variable.Map.update v (function
+                | None -> Some (Context.Group.Map.singleton ctx dv)
+                | Some groups -> Some (Context.Group.Map.add ctx dv groups)
+              )
+              t.ctx_derivations;
+        }
+        in
+        let t =
+          match Variable.Map.find_opt v t.pinfos.inputs with
+          | None -> t
+          | Some kind ->
+            { t with pinfos = { t.pinfos with inputs = Variable.Map.add dv kind t.pinfos.inputs }}
+        in
+        let t =
+          match Variable.Map.find_opt v t.pinfos.actors with
+          | None -> t
+          | Some way ->
+            { t with pinfos = { t.pinfos with actors = Variable.Map.add dv way t.pinfos.actors }}
+        in
+        t, dv
 
 (** When fetching variables in a specific context, we need the groups to
       either be completely included in the given context, to simply overlap with
@@ -327,7 +346,7 @@ let aggregate_compounds t =
 
 let convert_cumulations t =
   Variable.Map.fold (fun instant cumul t ->
-      let expr = EAdd (ESelf, EVar instant) in
+      let expr = EAdd (EPre cumul, EVar instant) in
       register_value t ~act:Condition.always ~dest:cumul (EExpr expr))
     t.cumulation_vars t
 
@@ -367,7 +386,7 @@ let rec reduce_to_r (e : value expr) : R.t option =
   in
   match e with
   | EConst l -> to_rational l
-  | EVar _ | ESelf -> None
+  | EVar _ | EPre _ -> None
   | EAdd (e1, e2) -> r_of_binop R.add e1 e2
   | EMult (e1, e2) -> r_of_binop R.mul e1 e2
   | ENeg e -> Option.map R.neg (reduce_to_r e)

@@ -168,7 +168,7 @@ end = struct
       let info = Variable.Info.{
         origin = Named name;
         typ;
-        kind = PoolInput;
+        kind = PoolInput { shadow = false };
       }
       in
       let t, v = register_pool t name in
@@ -180,7 +180,7 @@ end = struct
       let info = Variable.Info.{
         origin = Named name;
         typ;
-        kind = ParameterInput;
+        kind = ParameterInput { shadow = false };
       }
       in
       let t =

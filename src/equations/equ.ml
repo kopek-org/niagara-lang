@@ -3,7 +3,7 @@ type value = VAL
 
 type _ expr =
   | EVar of Variable.t
-  | ESelf
+  | EPre of Variable.t
   | EAlways : activation expr
   | ENot : activation expr -> activation expr
   | EAnd : activation expr * activation expr -> activation expr

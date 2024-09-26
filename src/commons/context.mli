@@ -80,6 +80,9 @@ val empty_shape : shape
 (** Checks a shape for existence of groups *)
 val is_empty_shape : shape -> bool
 
+(** Checks if a shape makes no distinctions *)
+val is_whole_shape : shape -> bool
+
 (** The shape where every points of the space is contained in the same group. *)
 val shape_of_everything : world -> shape
 

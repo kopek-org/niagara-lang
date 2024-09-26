@@ -145,41 +145,6 @@ let disj_disj d1 d2 =
   in
   iter_d2 [] [] d1 d2
 
-let print_conj fmt { input; events } =
-  begin match input with
-    | Present v -> Format.fprintf fmt "%d@ /\\ " (Variable.uid v)
-    | Absent a ->
-      if Variable.Set.is_empty a then Format.fprintf fmt "T@ /\\ " else
-      Format.fprintf fmt "@[<hov 2>!(%a@,@])@ /\\ "
-        (Format.pp_print_list
-           ~pp_sep:(fun fmt () -> Format.fprintf fmt "@ \\/ ")
-           (fun fmt v -> Format.pp_print_int fmt (Variable.uid v)))
-        (Variable.Set.elements a)
-  end;
-  if Variable.Map.is_empty events then Format.fprintf fmt "T" else
-    Format.pp_print_list
-      ~pp_sep:(fun fmt () -> Format.fprintf fmt "@ /\\ ")
-      (fun fmt (v, p) ->
-         if p then Format.pp_print_int fmt (Variable.uid v) else
-           Format.fprintf fmt "!%d" (Variable.uid v))
-      fmt
-      (Variable.Map.bindings events)
-
-let print_disj fmt t =
-  match t with
-  | [] -> Format.fprintf fmt "never"
-  | [{ input = Absent a; events = e }]
-    when Variable.Set.is_empty a && Variable.Map.is_empty e ->
-    Format.fprintf fmt "always"
-  | l ->
-    Format.pp_print_list
-      ~pp_sep:(fun fmt () -> Format.fprintf fmt "@ \\/ ")
-      (fun fmt conj -> Format.fprintf fmt "@[<hov 2>(%a@,@])" print_conj conj)
-      fmt
-      l
-
-type t = disj
-
 let never = []
 
 let always = [{ input = Absent Variable.Set.empty; events = Variable.Map.empty }]
@@ -187,6 +152,41 @@ let always = [{ input = Absent Variable.Set.empty; events = Variable.Map.empty }
 let is_never t = t == never
 
 let is_always t = let _,_,exa = disj_disj t always in is_never exa
+
+let print_conj fmt { input; events } =
+  let open Format in
+  begin match input with
+    | Present v -> fprintf fmt "i%d@ /\\ " (Variable.uid v)
+    | Absent a ->
+      if Variable.Set.is_empty a then fprintf fmt "T@ /\\ " else
+      fprintf fmt "@[<hov 2>!(%a@,@])@ /\\ "
+        (pp_print_list
+           ~pp_sep:(fun fmt () -> fprintf fmt "@ \\/ ")
+           (fun fmt v -> fprintf fmt "i%d" (Variable.uid v)))
+        (Variable.Set.elements a)
+  end;
+  if Variable.Map.is_empty events then fprintf fmt "T" else
+    pp_print_list
+      ~pp_sep:(fun fmt () -> fprintf fmt "@ /\\ ")
+      (fun fmt (v, p) ->
+         if p then pp_print_char fmt '!';
+         fprintf fmt "e%d" (Variable.uid v))
+      fmt
+      (Variable.Map.bindings events)
+
+let print_disj fmt t =
+  let open Format in
+  match t with
+  | [] -> fprintf fmt "never"
+  | l ->
+    if is_always l then fprintf fmt "always" else
+      pp_print_list
+        ~pp_sep:(fun fmt () -> fprintf fmt "@ \\/ ")
+        (fun fmt conj -> fprintf fmt "@[<hov 2>(%a@,@])" print_conj conj)
+        fmt
+        l
+
+type t = disj
 
 let of_input v = [{ input = Present v; events = Variable.Map.empty }]
 

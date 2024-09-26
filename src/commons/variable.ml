@@ -30,13 +30,13 @@ module Info = struct
     | RisingEvent of t
     | ContextSpecialized of { origin : t; context : Context.Group.t }
     | OperationDetail of { source : t; target : t }
-    | ExistentialAggreg of t list
+    | ConditionExistential
 
   type kind =
     | ReceivingPartner
     | ProvidingPartner
-    | ParameterInput
-    | PoolInput
+    | ParameterInput of { shadow : bool }
+    | PoolInput of { shadow : bool }
     | Intermediary
     | Event
     | Constant
@@ -50,21 +50,22 @@ module Info = struct
   type collection = t Map.t
 
   let print fmt t =
+    let open Format in
     match t.origin with
-    | Named name -> Format.pp_print_string fmt name
+    | Named name -> pp_print_string fmt name
     | LabelOfPartner { partner; label } ->
-      Format.fprintf fmt "%d$%s" partner label
+      fprintf fmt "%d$%s" partner label
     | Cumulative v ->
-      Format.fprintf fmt "#%d" v
-    | AnonEvent -> Format.pp_print_string fmt "anon_event"
-    | Peeking v -> Format.fprintf fmt "@%d" v
-    | RisingEvent v -> Format.fprintf fmt "^%d" v
+      fprintf fmt "#%d" v
+    | AnonEvent -> pp_print_string fmt "anon_event"
+    | Peeking v -> fprintf fmt "@%d" v
+    | RisingEvent v -> fprintf fmt "^%d" v
     | ContextSpecialized { origin; context } ->
-      Format.fprintf fmt "%d(%a)" origin Context.Group.print context
+      fprintf fmt "%d(%a)" origin Context.Group.print context
     | OperationDetail { source; target } ->
-      Format.fprintf fmt "[%d->%d]" source target
-    | ExistentialAggreg vs ->
-      Format.(fprintf fmt "[%a]" (pp_print_list pp_print_int) vs)
+      fprintf fmt "[%d->%d]" source target
+    | ConditionExistential ->
+      fprintf fmt "`E"
 
 end
 

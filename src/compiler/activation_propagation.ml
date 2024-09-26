@@ -2,35 +2,39 @@ open Surface
 open Equations
 open Equ
 
-let no_existence v = { eq_act = Condition.never; eq_aff = EExpr (EVar v) }
+let no_existence = {
+  eq_act = Condition.never;
+  eq_aff = EExpr (EConst (LRational R.zero))
+}
 
-let rec add_var_to_groups (groups : (Variable.t list * Condition.t) list)
-    (var : Variable.t) (cond : Condition.t) =
+let rec add_to_groups (groups : ('a list * Condition.t) list)
+    (obj : 'a) (cond : Condition.t) =
   match groups with
   | [] ->
     if Condition.is_never cond then [] else
-      [[var], cond]
-  | (gvars, gcond)::groups ->
+      [[obj], cond]
+  | (gobjs, gcond)::groups ->
+    (* needs to preserve list order *)
     let com = Condition.conj cond gcond in
     if Condition.is_never com then
-      let groups = add_var_to_groups groups var cond in
-      (gvars, gcond)::groups
+      let groups = add_to_groups groups obj cond in
+      (gobjs, gcond)::groups
     else
       let cond = Condition.excluded cond com in
-      let groups = add_var_to_groups groups var cond in
+      let groups = add_to_groups groups obj cond in
       let ex_gcond = Condition.excluded gcond com in
       let groups =
         if Condition.is_never ex_gcond then groups else
-          (gvars, ex_gcond)::groups
+          (gobjs, ex_gcond)::groups
       in
-      (var::gvars, com)::groups
+      (obj::gobjs, com)::groups
 
-let generate_addition (vars : Variable.t list) =
-  match vars with
+let generate_addition (exprs : _ expr list) =
+  match exprs with
   | [] -> Errors.raise_error "(internal) Cannot generate addition on empty set"
   | h::t ->
-    List.fold_left (fun e v -> Equ.(EAdd (e, EVar v)))
-      (Equ.EVar h) t
+    List.fold_left (fun a e -> Equ.(EAdd (a, e)))
+      h t
 
 type acc = {
   pinfos : Ast.program_infos;
@@ -69,69 +73,174 @@ let create_var_from t (ov : Variable.t) (build : Variable.Info.t -> Variable.Inf
 let add_dep acc from to_ =
   { acc with dep_graph = Variable.Graph.add_edge acc.dep_graph from to_ }
 
+let add_deps acc from to_ =
+  List.fold_left (fun acc from -> add_dep acc from to_) acc from
+
 let add_eq acc dest eq =
   { acc with memo = Variable.Map.add dest eq acc.memo }
 
-let aggregate_vars acc (target : Variable.t)
-    (vars : (Variable.t * Condition.t) list) =
+let create_existential acc =
+  let v = Variable.create () in
+  let acc =
+    bind_vinfo acc v
+      {
+        origin = ConditionExistential;
+        typ = ValueType.TRational;
+        (* At this point the only type that makes sense *)
+        kind = Intermediary;
+      }
+  in
+  acc, v
+
+type expr_form =
+  | Direct of value expr
+  | Merge of Variable.t list
+
+type expr_result = {
+  acc : acc;
+  cond : Condition.t;
+  deps : Variable.Set.t;
+  form : expr_form;
+}
+
+let result_to_var { acc; form; cond; deps } (target : Variable.t) =
+  let eq =
+    {
+      eq_act = cond;
+      eq_aff =
+        match form with
+        | Direct e -> EExpr e
+        | Merge vars -> EMerge vars
+    }
+  in
+  let acc = add_eq acc target eq in
+  let acc = add_deps acc (Variable.Set.elements deps) target in
+  acc, eq
+
+let aggregate_exprs acc (exprs : (_ expr * Condition.t * Variable.Set.t) list) =
   let ex_groups, target_cond =
-    List.fold_left (fun (groups, glob_cond) (v, cond) ->
+    List.fold_left (fun (groups, glob_cond) (e, cond, deps) ->
         let glob_cond = Condition.disj glob_cond cond in
-        let groups = add_var_to_groups groups v cond in
+        let groups = add_to_groups groups (e, deps) cond in
         groups, glob_cond)
-      ([], Condition.never) vars
+      ([], Condition.never) exprs
+  in
+  let ex_groups =
+    List.map (fun (gexprs, gcond) ->
+        let gexprs, depsl = List.split gexprs in
+        let gdeps =
+          List.fold_left (fun s vs -> Variable.Set.union vs s)
+            Variable.Set.empty depsl
+        in
+        gexprs, gdeps, gcond)
+      ex_groups
   in
   match ex_groups with
-  | [] -> acc, no_existence target
-  | [vs, target_cond] ->
-    acc, { eq_act = target_cond; eq_aff = EExpr (generate_addition vs) }
+  | [] -> {
+      acc;
+      form = Direct (EConst (LRational R.zero));
+      cond = Condition.never;
+      deps = Variable.Set.empty;
+    }
+  | [es, deps, cond] -> {
+      acc; cond; deps;
+      form = Direct (generate_addition es);
+    }
   | _ ->
     let acc, fresh_vars =
-      List.fold_left (fun (acc, fvars) (gvars, gcond) ->
+      List.fold_left (fun (acc, fvars) (gexprs, gdeps, gcond) ->
+          let e = generate_addition gexprs in
           let acc, fv =
-            create_var_from acc target (fun i ->
-                { i with
-                  origin = ExistentialAggreg gvars
-                })
+            match e with
+            | EVar v -> acc, v
+            | _ ->
+              let acc, fv = create_existential acc in
+              let eq_aff = EExpr e in
+              let acc = add_eq acc fv { eq_aff; eq_act = gcond } in
+              let acc = add_deps acc (Variable.Set.elements gdeps) fv in
+              acc, fv
           in
-          let eq_aff = EExpr (generate_addition gvars) in
-          let acc = add_eq acc fv { eq_aff; eq_act = gcond } in
-          let acc =
-            List.fold_left (fun acc v -> add_dep acc v fv)
-              acc gvars
-          in
-          acc, fv::fvars)
-        (acc, []) ex_groups
+          acc, Variable.Set.add fv fvars)
+        (acc, Variable.Set.empty) ex_groups
     in
-    let eq = { eq_act = target_cond; eq_aff = EMerge fresh_vars } in
-    let acc =
-      List.fold_left (fun acc v -> add_dep acc v target)
-        acc fresh_vars
-    in
-    add_eq acc target eq, eq
+    {
+      acc;
+      cond = target_cond;
+      deps = fresh_vars;
+      form = Merge (Variable.Set.elements fresh_vars);
+    }
+
+let aggregate_vars acc (target : Variable.t)
+    (vars : (Variable.t * Condition.t) list) =
+  let res =
+    aggregate_exprs acc
+      (List.map (fun (v,c) ->
+           (EVar v, c, Variable.Set.singleton v))
+          vars)
+  in
+  result_to_var res target
+
+let result_to_expr ({ acc; form; cond; deps } : expr_result) =
+  match form with
+  | Direct e -> acc, e, cond, deps
+  | Merge vars ->
+    let eq = { eq_aff = EMerge vars; eq_act = cond } in
+    let acc, v = create_existential acc in
+    let acc = add_eq acc v eq in
+    let acc = add_deps acc (Variable.Set.elements deps) v in
+    acc, EVar v, cond,Variable.Set.singleton v
 
 let rec propagate_expr acc (dest : Variable.t) (act : Condition.t)
     (expr : value expr) =
   match expr with
   | EVar v ->
     let acc, { eq_act = vact; _ } = compute_one acc v in
-    let acc = add_dep acc v dest in
-    acc, expr, Condition.conj act vact
-  | ESelf | EConst _-> acc, expr, act
+    { acc; form = Direct expr;
+      cond = Condition.conj act vact;
+      deps = Variable.Set.singleton v
+    }
+  | EPre _ | EConst _ ->
+    (* for now assumes [EPre] is always available *)
+    { acc; form = Direct expr;
+      cond = act;
+      deps = Variable.Set.empty
+    }
   | ENeg e ->
-    let acc, e, act = propagate_expr acc dest act e in
-    acc, ENeg e, act
+    let acc, e, act, deps =
+      result_to_expr @@ propagate_expr acc dest act e
+    in
+    { acc; deps;
+      form = Direct (ENeg e);
+      cond = act;
+    }
   | EInv e ->
-    let acc, e, act = propagate_expr acc dest act e in
-    acc, EInv e, act
+    let acc, e, act, deps =
+      result_to_expr @@ propagate_expr acc dest act e
+    in
+    { acc; deps;
+      form = Direct (EInv e);
+      cond = act;
+    }
   | EAdd (e1, e2) ->
-    let acc, e1, act1 = propagate_expr acc dest act e1 in
-    let acc, e2, act2 = propagate_expr acc dest act e2 in
-    acc, EAdd (e1, e2), Condition.conj act1 act2
+    let acc, e1, act1, deps1 =
+      result_to_expr @@ propagate_expr acc dest act e1
+    in
+    let acc, e2, act2, deps2 =
+      result_to_expr @@ propagate_expr acc dest act e2
+    in
+    aggregate_exprs acc [e1, act1, deps1; e2, act2, deps2]
   | EMult (e1, e2) ->
-    let acc, e1, act1 = propagate_expr acc dest act e1 in
-    let acc, e2, act2 = propagate_expr acc dest act e2 in
-    acc, EMult (e1, e2), Condition.conj act1 act2
+    let acc, e1, act1, deps1 =
+      result_to_expr @@ propagate_expr acc dest act e1
+    in
+    let acc, e2, act2, deps2 =
+      result_to_expr @@ propagate_expr acc dest act e2
+    in
+    { acc;
+      form = Direct (EMult (e1, e2));
+      cond = Condition.conj act1 act2;
+      deps = Variable.Set.union deps1 deps2;
+    }
 
 and affect_eq acc (dest : Variable.t) (eq : guarded_eq) =
   match eq.eq_aff with
@@ -141,16 +250,23 @@ and affect_eq acc (dest : Variable.t) (eq : guarded_eq) =
   | EMerge _ ->
     Errors.raise_error "(internal) Merge affectation produced before it should"
   | EExpr e ->
-    let acc, e, eq_act = propagate_expr acc dest eq.eq_act e in
-    acc, { eq_act; eq_aff = EExpr e }
+    let res = propagate_expr acc dest eq.eq_act e in
+    result_to_var res dest
 
 and dispatch_eqs acc (dest : Variable.t) (aggr : aggregation) =
   match aggr with
   | One eq ->
     let acc, eq = affect_eq acc dest eq in
-    if Condition.is_never eq.eq_act then acc, no_existence dest else
+    if Condition.is_never eq.eq_act then acc, no_existence else
       add_eq acc dest eq, eq
-  | More vars -> aggregate_vars acc dest vars
+  | More vars ->
+    let acc, vars =
+      List.fold_left_map (fun acc (v, cond) ->
+          let acc, ge = compute_one acc v in
+          acc, (v, Condition.conj ge.eq_act cond))
+        acc vars
+    in
+    aggregate_vars acc dest vars
 
 and compute_one acc (v : Variable.t) =
   match Variable.Map.find_opt v acc.memo with
@@ -171,7 +287,8 @@ let order_eqs acc =
       | [] -> assert false
       | [v] ->
         (match (Variable.Map.find v acc.pinfos.nvar_info).kind with
-         | ParameterInput | PoolInput -> None
+         | ParameterInput { shadow = false }
+         | PoolInput { shadow = false } -> None
          | _ -> Some v)
       | _scc -> Errors.raise_error "(internal) Cyclic equations")
     scc
