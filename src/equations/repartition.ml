@@ -44,8 +44,9 @@ let default_parts (rep : (Condition.t * R.t) list) (def_cond : Condition.t) =
             (com, R.(one - p))::defs, cond_ex, (pc, R.one)::rep)
       ([], def_cond, []) rep
   in
-  let rem_def = rem_cond, R.one in
-  rem_def::defaults, rem_def::rep
+  if Condition.is_never rem_cond then defaults, rep else
+    let rem_def = rem_cond, R.one in
+    rem_def::defaults, rem_def::rep
 
 let deficit_parts (rep : (Condition.t * R.t) list) (def_cond : Condition.t) =
   List.fold_left (fun (defs, rep) (pc, p) ->
