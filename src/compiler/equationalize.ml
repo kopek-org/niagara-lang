@@ -46,12 +46,28 @@ let bind_vinfo t (v : Variable.t) (info : Variable.Info.t) =
     }
   }
 
-let create_var_from t (ov : Variable.t) (build : Variable.Info.t -> Variable.Info.t) =
+let create_var_from t ?(shadowing=false) (ov : Variable.t)
+    (build : Variable.Info.t -> Variable.Info.t) =
+  let set_shadowing i shadow =
+    Variable.Info.{ i with
+      kind =
+        match i.kind with
+        | ParameterInput _ -> ParameterInput { shadow }
+        | PoolInput _ -> PoolInput { shadow }
+        | k -> k
+    }
+  in
   let v = Variable.create () in
   let oi = find_vinfo t ov in
+  let oi =
+    if shadowing then set_shadowing oi false else oi
+  in
   let i = build oi in
   let t = bind_vinfo t v i in
-  t, v
+  if shadowing then
+    bind_vinfo t ov (set_shadowing oi true), v
+  else
+    t, v
 
 let contexts t = t.pinfos.contexts
 
@@ -192,17 +208,6 @@ let find_derivation_opt t (v : Variable.t) (ctx : Context.Group.t) =
   | Some cgm ->
     Context.Group.Map.find_opt ctx cgm
 
-let shadow_input t (v : Variable.t) =
-  let i = Variable.Map.find v t.pinfos.nvar_info in
-  bind_vinfo t v
-    { i with
-      kind =
-        match i.kind with
-        | ParameterInput _ -> ParameterInput { shadow = true }
-        | PoolInput _ -> PoolInput { shadow = true }
-        | k -> k
-    }
-
 (* Fetch for the one variable to this exact context group *)
 let get_derivative_var t (v : Variable.t) (ctx : Context.Group.t) =
   match find_derivation_opt t v ctx with
@@ -217,10 +222,9 @@ let get_derivative_var t (v : Variable.t) (ctx : Context.Group.t) =
            issue as the analysis should not produce such cases, but vulnerable
            nonetheless. *)
         let t, dv =
-          create_var_from t v
+          create_var_from ~shadowing:true t v
             (fun i -> { i with origin = ContextSpecialized { origin = v; context = ctx } })
         in
-        let t = shadow_input t v in
         let { Variable.var_name } = Variable.Map.find v t.pinfos.var_info in
         let typ = type_of t v in
         let t = flag_variable_usage t dv in
