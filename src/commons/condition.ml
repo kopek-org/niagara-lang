@@ -169,7 +169,7 @@ let print_conj fmt { input; events } =
     pp_print_list
       ~pp_sep:(fun fmt () -> fprintf fmt "@ /\\ ")
       (fun fmt (v, p) ->
-         if p then pp_print_char fmt '!';
+         if not p then pp_print_char fmt '!';
          fprintf fmt "e%d" (Variable.uid v))
       fmt
       (Variable.Map.bindings events)

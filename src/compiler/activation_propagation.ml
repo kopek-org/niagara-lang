@@ -4,7 +4,7 @@ open Equ
 
 let no_existence = {
   eq_act = Condition.never;
-  eq_aff = EExpr (EConst (LRational R.zero))
+  eq_expr = EConst (LRational R.zero)
 }
 
 let rec add_to_groups (groups : ('a list * Condition.t) list)
@@ -29,7 +29,7 @@ let rec add_to_groups (groups : ('a list * Condition.t) list)
       in
       (obj::gobjs, com)::groups
 
-let generate_addition (exprs : _ expr list) =
+let generate_addition (exprs : expr list) =
   match exprs with
   | [] -> Errors.raise_error "(internal) Cannot generate addition on empty set"
   | h::t ->
@@ -39,13 +39,16 @@ let generate_addition (exprs : _ expr list) =
 type acc = {
   pinfos : Ast.program_infos;
   aggr : aggregate_eqs;
+  events : expr Variable.Map.t;
   memo : guarded_eq Variable.Map.t;
   dep_graph : Variable.Graph.t;
  }
 
-let make_acc (pinfos : Ast.program_infos) (aggr : aggregate_eqs) = {
+let make_acc (pinfos : Ast.program_infos) (aggr : aggregate_eqs)
+    (events : expr Variable.Map.t) = {
   pinfos;
   aggr;
+  events;
   memo = Variable.Map.empty;
   dep_graph = Variable.Graph.empty;
 }
@@ -93,7 +96,7 @@ let create_existential acc =
   acc, v
 
 type expr_form =
-  | Direct of value expr
+  | Direct of expr
   | Merge of Variable.t list
 
 type expr_result = {
@@ -107,9 +110,9 @@ let result_to_var { acc; form; cond; deps } (target : Variable.t) =
   let eq =
     {
       eq_act = cond;
-      eq_aff =
+      eq_expr =
         match form with
-        | Direct e -> EExpr e
+        | Direct e -> e
         | Merge vars -> EMerge vars
     }
   in
@@ -117,7 +120,7 @@ let result_to_var { acc; form; cond; deps } (target : Variable.t) =
   let acc = add_deps acc (Variable.Set.elements deps) target in
   acc, eq
 
-let aggregate_exprs acc (exprs : (_ expr * Condition.t * Variable.Set.t) list) =
+let aggregate_exprs acc (exprs : (expr * Condition.t * Variable.Set.t) list) =
   let ex_groups, target_cond =
     List.fold_left (fun (groups, glob_cond) (e, cond, deps) ->
         let glob_cond = Condition.disj glob_cond cond in
@@ -155,8 +158,8 @@ let aggregate_exprs acc (exprs : (_ expr * Condition.t * Variable.Set.t) list) =
             | EVar v -> acc, v
             | _ ->
               let acc, fv = create_existential acc in
-              let eq_aff = EExpr e in
-              let acc = add_eq acc fv { eq_aff; eq_act = gcond } in
+              let ge = { eq_expr = e; eq_act = gcond } in
+              let acc = add_eq acc fv ge in
               let acc = add_deps acc (Variable.Set.elements gdeps) fv in
               acc, fv
           in
@@ -184,14 +187,13 @@ let result_to_expr ({ acc; form; cond; deps } : expr_result) =
   match form with
   | Direct e -> acc, e, cond, deps
   | Merge vars ->
-    let eq = { eq_aff = EMerge vars; eq_act = cond } in
+    let eq = { eq_expr = EMerge vars; eq_act = cond } in
     let acc, v = create_existential acc in
     let acc = add_eq acc v eq in
     let acc = add_deps acc (Variable.Set.elements deps) v in
     acc, EVar v, cond,Variable.Set.singleton v
 
-let rec propagate_expr acc (dest : Variable.t) (act : Condition.t)
-    (expr : value expr) =
+let rec propagate_expr acc (dest : Variable.t) (act : Condition.t) (expr : expr) =
   match expr with
   | EVar v ->
     let acc, { eq_act = vact; _ } = compute_one acc v in
@@ -211,6 +213,14 @@ let rec propagate_expr acc (dest : Variable.t) (act : Condition.t)
     in
     { acc; deps;
       form = Direct (ENeg e);
+      cond = act;
+    }
+  | ENot e ->
+    let acc, e, act, deps =
+      result_to_expr @@ propagate_expr acc dest act e
+    in
+    { acc; deps;
+      form = Direct (ENot e);
       cond = act;
     }
   | EInv e ->
@@ -241,17 +251,36 @@ let rec propagate_expr acc (dest : Variable.t) (act : Condition.t)
       cond = Condition.conj act1 act2;
       deps = Variable.Set.union deps1 deps2;
     }
+  | EAnd (e1, e2) ->
+    let acc, e1, act1, deps1 =
+      result_to_expr @@ propagate_expr acc dest act e1
+    in
+    let acc, e2, act2, deps2 =
+      result_to_expr @@ propagate_expr acc dest act e2
+    in
+    { acc;
+      form = Direct (EAnd (e1, e2));
+      cond = Condition.conj act1 act2;
+      deps = Variable.Set.union deps1 deps2;
+    }
+  | EGe (e1, e2) ->
+    let acc, e1, act1, deps1 =
+      result_to_expr @@ propagate_expr acc dest act e1
+    in
+    let acc, e2, act2, deps2 =
+      result_to_expr @@ propagate_expr acc dest act e2
+    in
+    { acc;
+      form = Direct (EGe (e1, e2));
+      cond = Condition.conj act1 act2;
+      deps = Variable.Set.union deps1 deps2;
+    }
+  | EMerge _ ->
+    Errors.raise_error "(internal) Merge expression produced before it should"
 
 and affect_eq acc (dest : Variable.t) (eq : guarded_eq) =
-  match eq.eq_aff with
-  | ELast v ->
-    let acc = add_dep acc dest v in
-    acc, eq
-  | EMerge _ ->
-    Errors.raise_error "(internal) Merge affectation produced before it should"
-  | EExpr e ->
-    let res = propagate_expr acc dest eq.eq_act e in
-    result_to_var res dest
+  let res = propagate_expr acc dest eq.eq_act eq.eq_expr in
+  result_to_var res dest
 
 and dispatch_eqs acc (dest : Variable.t) (aggr : aggregation) =
   match aggr with
@@ -272,37 +301,61 @@ and compute_one acc (v : Variable.t) =
   match Variable.Map.find_opt v acc.memo with
   | Some eq -> acc, eq
   | None ->
-    match Variable.Map.find_opt v acc.aggr with
+    match Variable.Map.find_opt v acc.events with
+    | Some eq_expr ->
+      affect_eq acc v { eq_expr; eq_act = Condition.always }
     | None ->
-      let eq_act =
-        if Variable.Map.mem v acc.pinfos.Ast.inputs
-        then Condition.of_input v else Condition.never
-      in
-      acc, { eq_act; eq_aff = EExpr (EVar v) }
-    | Some eqs -> dispatch_eqs acc v eqs
+      match Variable.Map.find_opt v acc.aggr with
+      | None ->
+        let eq_act =
+          if Variable.Map.mem v acc.pinfos.Ast.inputs
+          then Condition.of_input v else Condition.never
+        in
+        acc, { eq_act; eq_expr = EVar v }
+      | Some eqs -> dispatch_eqs acc v eqs
 
-let order_eqs acc =
+let order_eqs ~filter acc =
   let scc = Variable.Graph.Topology.scc_list acc.dep_graph in
-  List.rev @@ List.filter_map (function
-      | [] -> assert false
-      | [v] ->
-        (match (Variable.Map.find v acc.pinfos.nvar_info).kind with
-         | ParameterInput { shadow = false }
-         | PoolInput { shadow = false } -> None
-         | _ -> Some v)
+  List.rev @@ List.filter_map (fun vs ->
+      match List.filter filter vs with
+      | [] -> None
+      | [v] -> Some v
       | _scc -> Errors.raise_error "(internal) Cyclic equations")
     scc
 
-let compute (pinfos : Ast.program_infos) (ag_eqs : aggregate_eqs) (act_eqs : event_eqs) =
-  let acc = make_acc pinfos ag_eqs in
+let compute (pinfos : Ast.program_infos) (ag_eqs : aggregate_eqs)
+    (act_eqs : expr Variable.Map.t) =
+  let acc = make_acc pinfos ag_eqs act_eqs in
   let acc =
     Variable.Map.fold (fun dest _eqs acc ->
         fst @@ compute_one acc dest)
       ag_eqs acc
   in
-  let order = order_eqs acc in
+  let acc =
+    Variable.Map.fold (fun dest _eqs acc ->
+        fst @@ compute_one acc dest)
+      act_eqs acc
+  in
+  let val_order =
+    order_eqs acc
+      ~filter:(fun v ->
+          match (Variable.Map.find v acc.pinfos.nvar_info).kind with
+          | ParameterInput { shadow = false }
+          | PoolInput { shadow = false }
+          | Event -> false
+          | _ -> true)
+  in
+  let is_event v =
+    match (Variable.Map.find v acc.pinfos.nvar_info).kind with
+    | Event -> true
+    | _ -> false
+  in
+  let act_order = order_eqs acc ~filter:is_event in
+  let act_eqs, val_eqs =
+    Variable.Map.partition (fun v _ -> is_event v)
+      acc.memo
+  in
   { infos = acc.pinfos;
-    val_eqs = acc.memo;
-    eqs_order = order;
-    act_eqs;
+    act_eqs; val_eqs;
+    val_order; act_order;
   }

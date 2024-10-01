@@ -15,9 +15,9 @@ type t = {
   pinfos : Ast.program_infos;
   used_variables : Variable.Set.t;
   ctx_derivations : Variable.t Context.Group.Map.t Variable.Map.t;
-  event_eqs : event_eqs;
+  event_eqs : expr Variable.Map.t;
   repartitions : Repartition.eqs; (* src key *)
-  flat_eqs : (Variable.t * value expr * Condition.t) list Variable.Map.t; (* dest key *)
+  flat_eqs : (Variable.t * expr * Condition.t) list Variable.Map.t; (* dest key *)
   value_eqs : aggregate_eqs; (* dest key *)
   cumulation_vars : Variable.t Variable.Map.t;
 }
@@ -118,10 +118,10 @@ let var_shape t (v : Variable.t) =
   | Some shape -> shape
   | None -> Errors.raise_error "No shape for var %d" (Variable.uid v)
 
-let register_event t (v : Variable.t) (e : activation aff) =
+let register_event t (v : Variable.t) (e : expr) =
   { t with event_eqs = Variable.Map.add v e t.event_eqs }
 
-let lift_event t (event : activation aff) (kind : artefact_event) =
+let lift_event t (event : expr) (kind : artefact_event) =
   let has_equal =
     Variable.Map.fold (fun v evt -> function
         | Some v -> Some v
@@ -171,7 +171,7 @@ let register_deficit t ~(act : Condition.t) ~(provider : Variable.t)
   register_part t ~act ~src:pool ~dest:provider Deficit
 
 let register_flat t ~(act : Condition.t) ~(src : Variable.t) ~(dest : Variable.t)
-    (expr : value expr) =
+    (expr : expr) =
   let flat_eqs =
     Variable.Map.update dest (function
         | None -> Some [src, expr, act]
@@ -191,8 +191,8 @@ let register_aggregation t ~(act : Condition.t) ~(dest : Variable.t) (v : Variab
   in
   { t with value_eqs }
 
-let register_value t ~(act : Condition.t) ~(dest : Variable.t) (expr : value aff) =
-  let ge = { eq_act = act; eq_aff = expr } in
+let register_value t ~(act : Condition.t) ~(dest : Variable.t) (expr : expr) =
+  let ge = { eq_act = act; eq_expr = expr } in
   let value_eqs =
     Variable.Map.update dest (function
         | None -> Some (One ge)
@@ -308,7 +308,7 @@ let convert_repartitions t =
                 else OperationDetail { source = src; target = dest }
             })
         in
-        let expr = EExpr (EMult (EConst (LRational part), EVar src)) in
+        let expr = EMult (EConst (LRational part), EVar src) in
         let t = register_value t ~act:condition ~dest:ov expr in
         register_aggregation t ~act:condition ~dest ov)
       t shares
@@ -330,9 +330,9 @@ let convert_flats t =
                   kind = Intermediary
                 })
           in
-          let t = register_value t ~act ~dest:ldest (EExpr expr) in
+          let t = register_value t ~act ~dest:ldest expr in
           let t = register_aggregation t ~act ~dest ldest in
-          register_value t ~act ~dest:src (EExpr (EVar ldest)))
+          register_value t ~act ~dest:src (EVar ldest))
         t flats)
     t.flat_eqs t
 
@@ -354,7 +354,7 @@ let aggregate_compounds t =
 let convert_cumulations t =
   Variable.Map.fold (fun instant cumul t ->
       let expr = EAdd (EPre cumul, EVar instant) in
-      register_value t ~act:Condition.always ~dest:cumul (EExpr expr))
+      register_value t ~act:Condition.always ~dest:cumul expr)
     t.cumulation_vars t
 
 let produce_aggregated_eqs t =
@@ -378,7 +378,7 @@ let resolve_projection_context acc ~context ~refinement =
 
 
 (* Used only to compute constant quoteparts *)
-let rec reduce_to_r (e : value expr) : R.t option =
+let rec reduce_to_r (e : expr) : R.t option =
   let to_rational = function
     | Literal.LInteger f -> Some R.(~$$f)
     | LRational f -> Some f
@@ -393,7 +393,7 @@ let rec reduce_to_r (e : value expr) : R.t option =
   in
   match e with
   | EConst l -> to_rational l
-  | EVar _ | EPre _ -> None
+  | EVar _ | EPre _ | EMerge _ | ENot _ | EAnd _ | EGe _ -> None
   | EAdd (e1, e2) -> r_of_binop R.add e1 e2
   | EMult (e1, e2) -> r_of_binop R.mul e1 e2
   | ENeg e -> Option.map R.neg (reduce_to_r e)
@@ -417,8 +417,8 @@ let aggregate_vars acc ~view (vars : Variable.t list) =
       (acc, EVar v) vs
 
 let translate_binop (op : Ast.binop)
-    (e1, t1 : _ expr * ValueType.t)
-    (e2, t2 : _ expr * ValueType.t) =
+    (e1, t1 : expr * ValueType.t)
+    (e2, t2 : expr * ValueType.t) =
   let typ =
     match op, t1, t2 with
     | Add, TInteger, TInteger
@@ -584,14 +584,14 @@ and translate_condition acc ~on_raise ~act
   let acc, eexpr = translate_event acc cond in
   let acc, evt =
     if on_raise then
-      let acc, base_evt = Acc.lift_event acc (EExpr eexpr) Generic in
+      let acc, base_evt = Acc.lift_event acc eexpr Generic in
       let acc, prev_evt =
-        Acc.lift_event acc (ELast base_evt) (PreviousState base_evt)
+        Acc.lift_event acc (EPre base_evt) (PreviousState base_evt)
       in
-      Acc.lift_event acc (EExpr (EAnd (ENot (EVar prev_evt), EVar base_evt)))
+      Acc.lift_event acc (EAnd (ENot (EVar prev_evt), EVar base_evt))
         (RaiseTest base_evt)
     else
-      Acc.lift_event acc (EExpr eexpr) Generic
+      Acc.lift_event acc eexpr Generic
   in
   let condt = Condition.(conj (of_event evt true) act) in
   let condf = Condition.(conj (of_event evt false) act) in
@@ -639,7 +639,7 @@ let translate_declaration acc (decl : Ast.contextualized Ast.declaration) =
   | DVarOperation o -> translate_operation acc o
   | DVarEvent e ->
     let acc, evt_expr = translate_event acc e.ctx_event_expr in
-    Acc.register_event acc e.ctx_event_var (EExpr evt_expr)
+    Acc.register_event acc e.ctx_event_var evt_expr
   | DVarDefault d -> translate_default acc d
   | DVarDeficit d -> translate_deficit acc d
 

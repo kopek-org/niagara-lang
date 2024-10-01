@@ -1,30 +1,21 @@
-type activation = ACT
-type value = VAL
 
-type _ expr =
+type expr =
   | EVar of Variable.t
   | EPre of Variable.t
-  | EAlways : activation expr
-  | ENot : activation expr -> activation expr
-  | EAnd : activation expr * activation expr -> activation expr
-  | EGe : value expr * value expr -> activation expr
-  | EConst : Literal.t -> value expr
-  | EAdd : value expr * value expr -> value expr
-  | EMult : value expr * value expr -> value expr
-  | ENeg : value expr -> value expr
-  | EInv : value expr -> value expr
-
-type 'a aff =
-  | ELast of Variable.t
+  | ENot of expr
+  | EAnd of expr * expr
+  | EGe of expr * expr
+  | EConst of Literal.t
+  | EAdd of expr * expr
+  | EMult of expr * expr
+  | ENeg of expr
+  | EInv of expr
   | EMerge of Variable.t list
-  | EExpr of 'a expr
 
 type guarded_eq = {
   eq_act : Condition.t;
-  eq_aff : value aff;
+  eq_expr : expr;
 }
-
-type event_eqs = activation aff Variable.Map.t
 
 type aggregation =
   | One of guarded_eq
@@ -35,6 +26,7 @@ type aggregate_eqs = aggregation Variable.Map.t
 type program = {
   infos : Surface.Ast.program_infos;
   val_eqs : guarded_eq Variable.Map.t;
-  eqs_order : Variable.t list;
-  act_eqs : event_eqs;
+  val_order : Variable.t list;
+  act_eqs : guarded_eq Variable.Map.t;
+  act_order : Variable.t list;
 }
