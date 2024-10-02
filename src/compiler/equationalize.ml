@@ -123,10 +123,13 @@ let register_event t (v : Variable.t) (e : expr) =
 
 let lift_event t (event : expr) (kind : artefact_event) =
   let has_equal =
-    Variable.Map.fold (fun v evt -> function
-        | Some v -> Some v
-        | None -> if event = evt then Some v else None)
-      t.event_eqs None
+    match event with
+    | EVar v -> Some v
+    | _ ->
+      Variable.Map.fold (fun v evt -> function
+          | Some v -> Some v
+          | None -> if event = evt then Some v else None)
+        t.event_eqs None
   in
   match has_equal with
   | Some evt -> t, evt

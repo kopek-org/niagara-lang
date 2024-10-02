@@ -43,10 +43,11 @@ let rec print_expr fmt (e : expr) =
       vs
 
 let print_eq infos fmt (var : Variable.t) (ge : guarded_eq option) =
+  fprintf fmt "@[<hov 2>%a"
+    (print_var_with_info infos) var;
   match ge with
   | Some ge ->
-    fprintf fmt "@[<hov 2>%a =%a@ %a@]"
-      (print_var_with_info infos) var
+    fprintf fmt " =%a@ %a@]"
       Condition.print ge.eq_act
       print_expr ge.eq_expr
   | None -> fprintf fmt " : no equation@]"
@@ -65,7 +66,8 @@ let print_inputs fmt (p : program) =
        match i.Variable.Info.kind with
        | ParameterInput { shadow = false }
        | PoolInput { shadow = false } ->
-         print_eq p.infos fmt v (Variable.Map.find_opt v p.val_eqs)
+         print_eq p.infos fmt v (Variable.Map.find_opt v p.val_eqs);
+         pp_print_cut fmt ()
        | _ -> ())
     p.infos.Surface.Ast.nvar_info;
   fprintf fmt "@]@."
