@@ -211,6 +211,29 @@ let result_to_expr ({ acc; form; cond; deps; rev_deps } : expr_result) =
     acc, EVar v, cond,Variable.Set.singleton v, Variable.Set.empty
 
 let rec propagate_expr acc (dest : Variable.t) (act : Condition.t) (expr : expr) =
+  let sub_expr_1 e constr =
+    let acc, e, act, deps, rev_deps =
+      result_to_expr @@ propagate_expr acc dest act e
+    in
+    { acc; deps; rev_deps;
+      form = Direct (constr e);
+      cond = act;
+    }
+  in
+  let sub_expr_2 e1 e2 constr =
+    let acc, e1, act1, deps1, rev_deps1 =
+      result_to_expr @@ propagate_expr acc dest act e1
+    in
+    let acc, e2, act2, deps2, rev_deps2 =
+      result_to_expr @@ propagate_expr acc dest act e2
+    in
+    { acc;
+      form = Direct (constr e1 e2);
+      cond = Condition.conj act1 act2;
+      deps = Variable.Set.union deps1 deps2;
+      rev_deps = Variable.Set.union rev_deps1 rev_deps2;
+    }
+  in
   match expr with
   | EVar v ->
     let acc, { eq_act = vact; _ } = compute_one acc v in
@@ -231,30 +254,9 @@ let rec propagate_expr acc (dest : Variable.t) (act : Condition.t) (expr : expr)
       deps = Variable.Set.empty;
       rev_deps = Variable.Set.singleton v;
     }
-  | ENeg e ->
-    let acc, e, act, deps, rev_deps =
-      result_to_expr @@ propagate_expr acc dest act e
-    in
-    { acc; deps; rev_deps;
-      form = Direct (ENeg e);
-      cond = act;
-    }
-  | ENot e ->
-    let acc, e, act, deps, rev_deps =
-      result_to_expr @@ propagate_expr acc dest act e
-    in
-    { acc; deps; rev_deps;
-      form = Direct (ENot e);
-      cond = act;
-    }
-  | EInv e ->
-    let acc, e, act, deps, rev_deps =
-      result_to_expr @@ propagate_expr acc dest act e
-    in
-    { acc; deps; rev_deps;
-      form = Direct (EInv e);
-      cond = act;
-    }
+  | ENeg e -> sub_expr_1 e (fun e -> ENeg e)
+  | ENot e -> sub_expr_1 e (fun e -> ENot e)
+  | EInv e -> sub_expr_1 e (fun e -> EInv e)
   | EAdd (e1, e2) ->
     let acc, e1, act1, deps1, rev_deps1 =
       result_to_expr @@ propagate_expr acc dest act e1
@@ -263,45 +265,9 @@ let rec propagate_expr acc (dest : Variable.t) (act : Condition.t) (expr : expr)
       result_to_expr @@ propagate_expr acc dest act e2
     in
     aggregate_exprs acc [e1, act1, deps1, rev_deps1; e2, act2, deps2, rev_deps2]
-  | EMult (e1, e2) ->
-    let acc, e1, act1, deps1, rev_deps1 =
-      result_to_expr @@ propagate_expr acc dest act e1
-    in
-    let acc, e2, act2, deps2, rev_deps2 =
-      result_to_expr @@ propagate_expr acc dest act e2
-    in
-    { acc;
-      form = Direct (EMult (e1, e2));
-      cond = Condition.conj act1 act2;
-      deps = Variable.Set.union deps1 deps2;
-      rev_deps = Variable.Set.union rev_deps1 rev_deps2;
-    }
-  | EAnd (e1, e2) ->
-    let acc, e1, act1, deps1, rev_deps1 =
-      result_to_expr @@ propagate_expr acc dest act e1
-    in
-    let acc, e2, act2, deps2, rev_deps2 =
-      result_to_expr @@ propagate_expr acc dest act e2
-    in
-    { acc;
-      form = Direct (EAnd (e1, e2));
-      cond = Condition.conj act1 act2;
-      deps = Variable.Set.union deps1 deps2;
-      rev_deps = Variable.Set.union rev_deps1 rev_deps2;
-    }
-  | EGe (e1, e2) ->
-    let acc, e1, act1, deps1, rev_deps1 =
-      result_to_expr @@ propagate_expr acc dest act e1
-    in
-    let acc, e2, act2, deps2, rev_deps2 =
-      result_to_expr @@ propagate_expr acc dest act e2
-    in
-    { acc;
-      form = Direct (EGe (e1, e2));
-      cond = Condition.conj act1 act2;
-      deps = Variable.Set.union deps1 deps2;
-      rev_deps = Variable.Set.union rev_deps1 rev_deps2;
-    }
+  | EMult (e1, e2) -> sub_expr_2 e1 e2 (fun e1 e2 -> EMult (e1, e2))
+  | EAnd (e1, e2) -> sub_expr_2 e1 e2 (fun e1 e2 -> EAnd (e1, e2))
+  | EGe (e1, e2) -> sub_expr_2 e1 e2 (fun e1 e2 -> EGe (e1, e2))
   | EMerge _ ->
     Errors.raise_error "(internal) Merge expression produced before it should"
 
