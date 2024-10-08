@@ -51,3 +51,5 @@ let ceil r =
   if remain = zero then r else
     let rr = r - remain in
     if r < zero then rr else rr + one
+
+module Map = Map.Make(Q)

@@ -10,56 +10,64 @@ type 'a t = 'a share list
 
 type eqs = part_or_def t Variable.Map.t
 
-let add_part (rep : (Condition.t * R.t) list) (cond : Condition.t) (part : R.t) =
+type unified_parts = Condition.t R.Map.t
+
+let add_upart (uni : unified_parts) (cond : Condition.t) (part : R.t) =
+  R.Map.update part (function
+      | None -> Some cond
+      | Some ucond -> Some (Condition.disj ucond cond))
+    uni
+
+let add_part (rep : unified_parts) (cond : Condition.t) (part : R.t) =
   (* [rep] conditions are always exclusive *)
   let rem_cond, rep =
-    List.fold_left (fun (cond, rep) (pc, p) ->
+    R.Map.fold (fun p pc (cond, rep) ->
         let com = Condition.conj cond pc in
-        if Condition.is_never com then cond, (pc, p)::rep else
+        if Condition.is_never com then cond, add_upart rep pc p else
           let rep_ex = Condition.excluded pc com in
           let cond_ex = Condition.excluded cond com in
-          let rep = (com, R.(p+part))::rep in
+          let rep = add_upart rep com R.(p+part) in
           let rep =
             if Condition.is_never rep_ex then rep else
-              (rep_ex, p)::rep
+              add_upart rep rep_ex p
           in
           cond_ex, rep)
-      (cond, []) rep
+      rep (cond, R.Map.empty)
   in
   if Condition.is_never rem_cond then rep else
-    (rem_cond, part)::rep
+    add_upart rep rem_cond part
 
-let default_parts (rep : (Condition.t * R.t) list) (def_cond : Condition.t) =
+let default_parts (rep : unified_parts) (def_cond : Condition.t) =
   let defaults, rem_cond, rep =
-    List.fold_left (fun (defs, cond, rep) (pc, p) ->
+    R.Map.fold (fun p pc (defs, cond, rep) ->
         let com = Condition.conj cond pc in
-        if Condition.is_never com then defs, cond, (pc, p)::rep else
+        if Condition.is_never com then defs, cond, add_upart rep pc p else
           let cond_ex = Condition.excluded cond com in
-          if R.(p >= one) then defs, cond_ex, (pc, p)::rep else
+          if R.(p >= one) then defs, cond_ex, add_upart rep pc p else
             let rep_ex = Condition.excluded pc com in
             let rep =
               if Condition.is_never rep_ex then rep else
-                (rep_ex, p)::rep
+                add_upart rep rep_ex p
             in
-            (com, R.(one - p))::defs, cond_ex, (pc, R.one)::rep)
-      ([], def_cond, []) rep
+            add_upart defs com R.(one - p), cond_ex, add_upart rep pc R.one)
+      rep (R.Map.empty, def_cond, R.Map.empty)
   in
   if Condition.is_never rem_cond then defaults, rep else
-    let rem_def = rem_cond, R.one in
-    rem_def::defaults, rem_def::rep
+    add_upart defaults rem_cond R.one,
+    add_upart rep rem_cond R.one
 
-let deficit_parts (rep : (Condition.t * R.t) list) (def_cond : Condition.t) =
-  List.fold_left (fun (defs, rep) (pc, p) ->
+let deficit_parts (rep : unified_parts) (def_cond : Condition.t) =
+  R.Map.fold (fun p pc (defs, rep) ->
       let com = Condition.conj def_cond pc in
-      if Condition.is_never com then defs, (pc, p)::rep else
-      if R.(p <= one) then defs, (pc, p)::rep else
+      if Condition.is_never com then defs, add_upart rep pc p else
+      if R.(p <= one) then defs, add_upart rep pc p else
         let rep_ex = Condition.excluded pc com in
         let rep =
           if Condition.is_never rep_ex then rep else
-            (rep_ex, p)::rep
+            add_upart rep rep_ex p
         in
-        (com, R.(p - one))::defs, (pc, R.one)::rep)
-    ([], []) rep
+        add_upart defs com R.(p - one), add_upart rep pc R.one)
+    rep (R.Map.empty, R.Map.empty)
 
 type def_star = {
   global_default : part_or_def share option;
@@ -109,16 +117,16 @@ let sort_shares (rep : part_or_def t) =
       | Part p ->
         let parts = add_part parts share.condition p in
         parts, defs)
-    ([], empty_defs) rep
+    (R.Map.empty, empty_defs) rep
 
-let check_fullness (rep : (Condition.t * R.t) list) =
+let check_fullness (rep : unified_parts) =
   let parts_cond =
-    List.fold_left (fun cond (pc, p) ->
+    R.Map.fold (fun p pc cond ->
         let cond = Condition.disj pc cond in
         if R.(p < one) then Errors.raise_error "Pool needs default"
         else if R.(p > one) then Errors.raise_error "Pool needs deficit"
         else cond)
-      Condition.never rep
+      rep Condition.never
   in
   let rem_cond = Condition.(excluded always parts_cond) in
   if not @@ Condition.is_never rem_cond then
@@ -136,9 +144,9 @@ let resolve_fullness (rep : part_or_def t) =
     List.fold_left (fun (parts, defs) def_share ->
         let ds, parts = default_parts parts def_share.condition in
         let defs =
-          (List.map (fun (condition, p) ->
-              { dest = def_share.dest; condition; part = p })
-            ds)
+          (R.Map.fold (fun p condition l ->
+              { dest = def_share.dest; condition; part = p }::l)
+            ds [])
           @ defs
         in
         parts, defs
@@ -151,9 +159,9 @@ let resolve_fullness (rep : part_or_def t) =
     | Some share ->
       let ds, parts = default_parts parts share.condition in
       let defs =
-        List.map (fun (condition, p) ->
-            { dest = share.dest; condition; part = p })
-          ds
+        R.Map.fold (fun p condition l ->
+            { dest = share.dest; condition; part = p }::l)
+          ds []
       in
       parts, defs
   in
@@ -163,9 +171,9 @@ let resolve_fullness (rep : part_or_def t) =
     | Some share ->
       let ds, parts = deficit_parts parts share.condition in
       let defs =
-        List.map (fun (condition, p) ->
-            { dest = share.dest; condition; part = p })
-          ds
+        R.Map.fold (fun p condition l ->
+            { dest = share.dest; condition; part = p }::l)
+          ds []
       in
       parts, defs
   in
