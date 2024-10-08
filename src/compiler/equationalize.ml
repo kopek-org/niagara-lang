@@ -199,7 +199,14 @@ let register_value t ~(act : Condition.t) ~(dest : Variable.t) (expr : expr) =
   let value_eqs =
     Variable.Map.update dest (function
         | None -> Some (One ge)
-        | Some _ ->
+        | Some ag ->
+          Variable.Map.iter (fun v _ ->
+              Format.eprintf "%a@\n" (FormatEqu.print_var_with_info t.pinfos) v)
+            t.pinfos.nvar_info;
+          Format.eprintf "var %d: %a (%s)@."
+                    (Variable.uid dest)
+                    FormatEqu.print_expr expr
+                    (match ag with One _ -> "one" | More _ -> "more");
           Errors.raise_error "(internal) Cannot register valuation on aggregation")
       t.value_eqs
   in
@@ -335,7 +342,7 @@ let convert_flats t =
           in
           let t = register_value t ~act ~dest:ldest expr in
           let t = register_aggregation t ~act ~dest ldest in
-          register_value t ~act ~dest:src (EVar ldest))
+          register_aggregation t ~act ~dest:src ldest)
         t flats)
     t.flat_eqs t
 
