@@ -30,3 +30,15 @@ type program = {
   act_eqs : guarded_eq Variable.Map.t;
   act_order : Variable.t list;
 }
+
+type edge_way =
+  | Raising
+  | Falling
+
+type threshold = {
+  var : Variable.t;
+  edge : edge_way;
+  value : guarded_eq;
+}
+
+type limits = threshold list Variable.Map.t

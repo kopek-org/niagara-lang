@@ -47,7 +47,7 @@ let print_eq infos fmt (var : Variable.t) (ge : guarded_eq option) =
     (print_var_with_info infos) var;
   match ge with
   | Some ge ->
-    fprintf fmt " =%a@ %a@]"
+    fprintf fmt " ={%a}@ %a@]"
       Condition.print ge.eq_act
       print_expr ge.eq_expr
   | None -> fprintf fmt " : no equation@]"
@@ -86,3 +86,28 @@ let print_program fmt (p : program) =
   print_events fmt p;
   print_eqs p.infos fmt p;
   pp_print_flush fmt ()
+
+let print_edge fmt (e : edge_way) =
+  match e with
+  | Raising -> pp_print_string fmt "raising"
+  | Falling -> pp_print_string fmt "falling"
+
+let print_threshold fmt (thres : threshold) =
+  fprintf fmt "@[<hov 2>%a on i%d {%a}@ %a@]"
+    print_edge thres.edge
+    (Variable.uid thres.var)
+    Condition.print thres.value.eq_act
+    print_expr thres.value.eq_expr
+
+let print_evt_limits fmt evt (ls : threshold list) =
+  fprintf fmt "@[<hov 2>event %d:@ %a@,@]"
+    (Variable.uid evt)
+    (pp_print_list ~pp_sep:pp_print_cut print_threshold) ls
+
+let print_limits fmt (limits : limits) =
+  fprintf fmt "@[<v 2>Limits:@;";
+  Variable.Map.iter (fun e ls ->
+      print_evt_limits fmt e ls;
+      pp_print_cut fmt ())
+    limits;
+  fprintf fmt "@]@."
