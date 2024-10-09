@@ -308,26 +308,78 @@ let derive_ctx_variables ~mode t (v : Variable.t) (ctx : Context.Group.t) =
     t, ContextVar vars
 
 let convert_repartitions t =
-  let conv_shares ?(deficit=false) t src shares =
-    List.fold_left (fun t ({ dest; condition; part } : R.t Repartition.share) ->
+  let conv_shares t src shares =
+    let t, op_vars =
+      List.fold_left_map (fun t ({ dest; condition; part } : R.t Repartition.share) ->
+          let t, ov = create_var_from t dest (fun i ->
+              { i with
+                origin = OperationDetail { op_kind = Quotepart; source = src; target = dest }
+              })
+          in
+          let expr = EMult (EConst (LRational part), EVar src) in
+          let t = register_value t ~act:condition ~dest:ov expr in
+          let t = register_aggregation t ~act:condition ~dest ov in
+          t, (ov, condition))
+        t shares
+    in
+    match op_vars with
+    | [] -> assert false
+    | [v, _c] -> t, v
+    | _ ->
+      let agv = Variable.create () in
+      let t =
+        bind_vinfo t agv {
+          origin = RepartitionSum src;
+          typ = TMoney;
+          kind = Intermediary;
+        }
+      in
+      let t =
+        List.fold_left (fun t (v, act) ->
+            register_aggregation t ~act ~dest:agv v)
+          t op_vars
+      in
+      t, agv
+  in
+  let conv_defaults t src reps_var def_shares =
+    List.fold_left
+      (fun t ({ dest; condition; part }
+              : Repartition.unified_parts Repartition.share) ->
         let t, ov = create_var_from t dest (fun i ->
             { i with
-              origin =
-                if deficit
-                then OperationDetail { op_kind = Quotepart; source = dest; target = src }
-                else OperationDetail { op_kind = Quotepart; source = src; target = dest }
+              origin = OperationDetail {
+                  op_kind = Default part;
+                  source = src;
+                  target = dest }
             })
         in
-        let expr = EMult (EConst (LRational part), EVar src) in
+        let expr = EAdd (EVar src, ENeg (EVar reps_var)) in
         let t = register_value t ~act:condition ~dest:ov expr in
         register_aggregation t ~act:condition ~dest ov)
-      t shares
+      t def_shares
+  in
+  let conv_deficit t src reps_var
+      (def_share : Repartition.unified_parts Repartition.share option) =
+    match def_share with
+    | None -> t
+    | Some { dest; condition; part } ->
+      let t, ov = create_var_from t dest (fun i ->
+          { i with
+            origin = OperationDetail {
+                op_kind = Deficit part;
+                source = dest;
+                target = src }
+          })
+      in
+      let expr = EAdd (EVar reps_var, ENeg (EVar src)) in
+      let t = register_value t ~act:condition ~dest:ov expr in
+      register_aggregation t ~act:condition ~dest ov
   in
   Variable.Map.fold (fun src rep t ->
       let fullrep = Repartition.resolve_fullness rep in
-      let t = conv_shares t src fullrep.parts in
-      let t = conv_shares t src fullrep.defaults in
-      conv_shares ~deficit:true t src fullrep.deficits)
+      let t, direct_rep = conv_shares t src fullrep.parts in
+      let t = conv_defaults t src direct_rep fullrep.defaults in
+      conv_deficit t src direct_rep fullrep.deficits)
     t.repartitions t
 
 let convert_flats t =

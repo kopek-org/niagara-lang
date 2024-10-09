@@ -134,8 +134,8 @@ let check_fullness (rep : unified_parts) =
 
 type fullness_result = {
   parts : R.t t;
-  defaults : R.t t;
-  deficits : R.t t;
+  defaults : unified_parts t;
+  deficits : unified_parts share option;
 }
 
 let resolve_fullness (rep : part_or_def t) =
@@ -143,39 +143,35 @@ let resolve_fullness (rep : part_or_def t) =
   let parts, local_defaults =
     List.fold_left (fun (parts, defs) def_share ->
         let ds, parts = default_parts parts def_share.condition in
-        let defs =
-          (R.Map.fold (fun p condition l ->
-              { dest = def_share.dest; condition; part = p }::l)
-            ds [])
-          @ defs
+        let condition =
+          R.Map.fold (fun _p -> Condition.disj) ds Condition.never
         in
-        parts, defs
+        let share = { dest = def_share.dest; condition; part = ds } in
+        parts, share::defs
       )
       (parts, []) defs.local_defaults
   in
   let parts, global_default =
     match defs.global_default with
-    | None -> parts, []
+    | None -> parts, None
     | Some share ->
       let ds, parts = default_parts parts share.condition in
-      let defs =
-        R.Map.fold (fun p condition l ->
-            { dest = share.dest; condition; part = p }::l)
-          ds []
+      let condition =
+        R.Map.fold (fun _p -> Condition.disj) ds Condition.never
       in
-      parts, defs
+      let gd_share = { dest = share.dest; condition; part = ds } in
+      parts, Some gd_share
   in
   let parts, deficit =
     match defs.deficit with
-    | None -> parts, []
+    | None -> parts, None
     | Some share ->
       let ds, parts = deficit_parts parts share.condition in
-      let defs =
-        R.Map.fold (fun p condition l ->
-            { dest = share.dest; condition; part = p }::l)
-          ds []
+      let condition =
+        R.Map.fold (fun _p -> Condition.disj) ds Condition.never
       in
-      parts, defs
+      let deficit_share = { dest = share.dest; condition; part = ds } in
+      parts, Some deficit_share
   in
   check_fullness parts;
   { parts =
@@ -184,6 +180,6 @@ let resolve_fullness (rep : part_or_def t) =
           | Part part -> Some { part; dest; condition }
           | _ -> None)
         rep;
-    defaults = global_default @ local_defaults;
+    defaults = (Option.to_list global_default) @ local_defaults;
     deficits = deficit;
   }
