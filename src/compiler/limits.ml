@@ -6,7 +6,7 @@ type val_exprs =
   | Exprs of guarded_eq list
 
 type acc = {
-  info : Variable.Info.collection;
+  info : VarInfo.collection;
   act_eqs : guarded_eq Variable.Map.t;
   val_eqs : guarded_eq Variable.Map.t;
   lim_memo : threshold list Variable.Map.t;
@@ -17,7 +17,7 @@ let is_input acc (v : Variable.t) =
   match Variable.Map.find_opt v acc.info with
   | None -> Errors.raise_error "(internal) No info for var %d" (Variable.uid v)
   | Some i ->
-    match i.Variable.Info.kind with
+    match i.VarInfo.kind with
     | ParameterInput { shadow  = false }
     | PoolInput { shadow  = false } -> true
     | _ -> false

@@ -72,7 +72,7 @@ end = struct
   type t = {
     program_decls : contextualized declaration list; (* the program in reverse order *)
     var_info : Variable.info Variable.Map.t;
-    nvar_info : Variable.Info.collection;
+    nvar_info : VarInfo.collection;
     var_table : name_ref StrMap.t;
     contexts : Context.world;
     inputs : input_kind Variable.Map.t;
@@ -142,12 +142,12 @@ end = struct
   let bind_const (v : Variable.t) (value : Literal.t) t =
     { t with constants = Variable.Map.add v value t.constants }
 
-  let bind_vinfo (v : Variable.t) (info : Variable.Info.t) t =
+  let bind_vinfo (v : Variable.t) (info : VarInfo.t) t =
     { t with nvar_info = Variable.Map.add v info t.nvar_info }
 
   let register_pool t (name : string) =
     let v = Variable.create () in
-    let info = Variable.Info.{
+    let info = VarInfo.{
         origin = Named name;
         typ = TMoney;
         kind = Intermediary;
@@ -165,7 +165,7 @@ end = struct
     match kind with
     | Attributable ->
       if typ <> ValueType.TMoney then Errors.raise_error "(internal) Wrong type for pool";
-      let info = Variable.Info.{
+      let info = VarInfo.{
         origin = Named name;
         typ;
         kind = PoolInput { shadow = false };
@@ -177,7 +177,7 @@ end = struct
       t, v
     | ReadOnly ->
       let v = Variable.create () in
-      let info = Variable.Info.{
+      let info = VarInfo.{
         origin = Named name;
         typ;
         kind = ParameterInput { shadow = false };
@@ -195,13 +195,13 @@ end = struct
   let register_actor t (name : string) =
     let uv = Variable.create () in
     let dv = Variable.create () in
-    let uinfo = Variable.Info.{
+    let uinfo = VarInfo.{
         origin = Named name;
         typ = TMoney;
         kind = ProvidingPartner;
       }
     in
-    let dinfo = Variable.Info.{
+    let dinfo = VarInfo.{
         origin = Named name;
         typ = TMoney;
         kind = ReceivingPartner;
@@ -221,7 +221,7 @@ end = struct
 
   let register_event t (name : string) =
     let v = Variable.create () in
-    let info = Variable.Info.{
+    let info = VarInfo.{
         origin = Named name;
         typ = ValueType.TEvent;
         kind = Event;
@@ -237,7 +237,7 @@ end = struct
 
   let register_const t (name : string) (typ : ValueType.t) (value : Literal.t) =
     let v = Variable.create () in
-    let info = Variable.Info.{
+    let info = VarInfo.{
         origin = Named name;
         typ;
         kind = Constant;
@@ -304,7 +304,7 @@ end = struct
     match StrMap.find_opt lname t.var_table with
     | None ->
       let vl = Variable.create () in
-      let info = Variable.Info.{
+      let info = VarInfo.{
           origin = LabelOfPartner { partner = base_actor; label };
           typ = ValueType.TMoney;
           kind =

@@ -232,7 +232,7 @@ type _ declaration =
 
 type program_infos = {
   var_info : Variable.info Variable.Map.t;
-  nvar_info : Variable.Info.collection;
+  nvar_info : VarInfo.collection;
   var_shapes : Context.shape Variable.Map.t;
   contexts : Context.world;
   inputs : input_kind Variable.Map.t;

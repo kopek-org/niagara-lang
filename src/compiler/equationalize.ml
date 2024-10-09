@@ -38,7 +38,7 @@ let find_vinfo t (v : Variable.t) =
   | None -> Errors.raise_error "(internal) variable %d info not found" (Variable.uid v)
   | Some i -> i
 
-let bind_vinfo t (v : Variable.t) (info : Variable.Info.t) =
+let bind_vinfo t (v : Variable.t) (info : VarInfo.t) =
   { t with
     pinfos = {
       t.pinfos with
@@ -47,9 +47,9 @@ let bind_vinfo t (v : Variable.t) (info : Variable.Info.t) =
   }
 
 let create_var_from t ?(shadowing=false) (ov : Variable.t)
-    (build : Variable.Info.t -> Variable.Info.t) =
+    (build : VarInfo.t -> VarInfo.t) =
   let set_shadowing i shadow =
-    Variable.Info.{ i with
+    VarInfo.{ i with
       kind =
         match i.kind with
         | ParameterInput _ -> ParameterInput { shadow }
@@ -135,7 +135,7 @@ let lift_event t (event : expr) (kind : artefact_event) =
   | Some evt -> t, evt
   | None ->
     let v = Variable.create () in
-    let info = Variable.Info.{
+    let info = VarInfo.{
         origin =
           (match kind with
           | Generic -> AnonEvent
@@ -314,8 +314,8 @@ let convert_repartitions t =
             { i with
               origin =
                 if deficit
-                then OperationDetail { source = dest; target = src }
-                else OperationDetail { source = src; target = dest }
+                then OperationDetail { op_kind = Quotepart; source = dest; target = src }
+                else OperationDetail { op_kind = Quotepart; source = src; target = dest }
             })
         in
         let expr = EMult (EConst (LRational part), EVar src) in
@@ -336,7 +336,7 @@ let convert_flats t =
           let t, ldest =
             create_var_from t dest (fun i ->
                 { i with
-                  origin = OperationDetail { source = src; target = dest };
+                  origin = OperationDetail { op_kind = Bonus; source = src; target = dest };
                   kind = Intermediary
                 })
           in

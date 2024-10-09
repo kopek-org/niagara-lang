@@ -3,7 +3,7 @@ open Format
 
 let print_var_info infos fmt (v : Variable.t) =
   let i = Variable.Map.find v infos.Surface.Ast.nvar_info in
-  Variable.Info.print fmt i
+  VarInfo.print fmt i
 
 let print_var_with_info infos fmt (v : Variable.t) =
   Format.fprintf fmt "%d/%a"
@@ -63,7 +63,7 @@ let print_inputs fmt (p : program) =
   fprintf fmt "@[<v 2>Inputs:@;";
   Variable.Map.iter
     (fun v i ->
-       match i.Variable.Info.kind with
+       match i.VarInfo.kind with
        | ParameterInput { shadow = false }
        | PoolInput { shadow = false } ->
          print_eq p.infos fmt v (Variable.Map.find_opt v p.val_eqs);

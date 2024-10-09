@@ -58,7 +58,7 @@ let find_vinfo t (v : Variable.t) =
   | None -> Errors.raise_error "(internal) variable %d info not found" (Variable.uid v)
   | Some i -> i
 
-let bind_vinfo t (v : Variable.t) (info : Variable.Info.t) =
+let bind_vinfo t (v : Variable.t) (info : VarInfo.t) =
   { t with
     pinfos = {
       t.pinfos with
@@ -66,7 +66,7 @@ let bind_vinfo t (v : Variable.t) (info : Variable.Info.t) =
     }
   }
 
-let create_var_from t (ov : Variable.t) (build : Variable.Info.t -> Variable.Info.t) =
+let create_var_from t (ov : Variable.t) (build : VarInfo.t -> VarInfo.t) =
   let v = Variable.create () in
   let oi = find_vinfo t ov in
   let i = build oi in
