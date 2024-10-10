@@ -14,7 +14,9 @@ type origin =
   | RisingEvent of Variable.t
   | ContextSpecialized of { origin : Variable.t; context : Context.Group.t }
   | OperationDetail of { op_kind : op_kind; source : Variable.t; target : Variable.t }
+  | OperationSum of { source : Variable.t; target : Variable.t }
   | RepartitionSum of Variable.t
+  | DeficitSum of Variable.t
   | ConditionExistential
 
 type kind =
@@ -54,6 +56,9 @@ let print fmt t =
        | Bonus -> "$"
        | Default _ -> "?"
        | Deficit _ -> "!")
-  | RepartitionSum v -> fprintf fmt "*%d" (Variable.uid v)
+  | OperationSum { source; target } ->
+    fprintf fmt "[%d->%d]*" (Variable.uid source) (Variable.uid target)
+  | RepartitionSum v -> fprintf fmt "%d->*" (Variable.uid v)
+  | DeficitSum v -> fprintf fmt "%d->!" (Variable.uid v)
   | ConditionExistential ->
     fprintf fmt "`E"

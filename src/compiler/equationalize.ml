@@ -20,6 +20,7 @@ type t = {
   flat_eqs : (Variable.t * expr * Condition.t) list Variable.Map.t; (* dest key *)
   value_eqs : aggregate_eqs; (* dest key *)
   cumulation_vars : Variable.t Variable.Map.t;
+  deficits_vars : (Variable.t * Condition.t) list Variable.Map.t;
 }
 
 let make (pinfos : Ast.program_infos) = {
@@ -31,6 +32,7 @@ let make (pinfos : Ast.program_infos) = {
   flat_eqs = Variable.Map.empty;
   value_eqs = Variable.Map.empty;
   cumulation_vars = Variable.Map.empty;
+  deficits_vars = Variable.Map.empty;
 }
 
 let find_vinfo t (v : Variable.t) =
@@ -212,6 +214,15 @@ let register_value t ~(act : Condition.t) ~(dest : Variable.t) (expr : expr) =
   in
   { t with value_eqs; }
 
+let add_deficit_var t ~(act : Condition.t) ~(provider : Variable.t) (def : Variable.t) =
+  { t with
+    deficits_vars =
+      Variable.Map.update provider (function
+          | None -> Some [def,act]
+          | Some vs -> Some ((def, act)::vs))
+        t.deficits_vars
+  }
+
 let find_derivation_opt t (v : Variable.t) (ctx : Context.Group.t) =
   match Variable.Map.find_opt v t.ctx_derivations with
   | None -> None
@@ -307,39 +318,68 @@ let derive_ctx_variables ~mode t (v : Variable.t) (ctx : Context.Group.t) =
     in
     t, ContextVar vars
 
+let group_productions ~produce ~aggr_var t ops =
+  let t, pvars = produce t ops in
+  match pvars with
+  | [v] -> t, v
+  | _ ->
+    let t, agv = aggr_var t in
+    let t, cond =
+      List.fold_left (fun (t, cond) (v, act) ->
+          register_aggregation t ~act ~dest:agv v,
+          Condition.disj cond act
+        )
+        (t, Condition.never) pvars
+    in
+    t, (agv, cond)
+
 let convert_repartitions t =
   let conv_shares t src shares =
-    let t, op_vars =
-      List.fold_left_map (fun t ({ dest; condition; part } : R.t Repartition.share) ->
-          let t, ov = create_var_from t dest (fun i ->
-              { i with
-                origin = OperationDetail { op_kind = Quotepart; source = src; target = dest }
-              })
-          in
-          let expr = EMult (EConst (LRational part), EVar src) in
-          let t = register_value t ~act:condition ~dest:ov expr in
-          let t = register_aggregation t ~act:condition ~dest ov in
-          t, (ov, condition))
-        t shares
+    let grouped_shares =
+      List.fold_left (fun gs (share : R.t Repartition.share) ->
+          Variable.Map.update share.dest (function
+              | None -> Some [share]
+              | Some sh -> Some (share::sh))
+            gs)
+        Variable.Map.empty shares
     in
-    match op_vars with
-    | [] -> assert false
-    | [v, _c] -> t, v
-    | _ ->
-      let agv = Variable.create () in
-      let t =
-        bind_vinfo t agv {
-          origin = RepartitionSum src;
-          typ = TMoney;
-          kind = Intermediary;
-        }
-      in
-      let t =
-        List.fold_left (fun t (v, act) ->
-            register_aggregation t ~act ~dest:agv v)
-          t op_vars
-      in
-      t, agv
+    let t, (pvar, _pcond) =
+      group_productions
+        ~produce:(fun t ops ->
+            Variable.Map.fold (fun dest shares (t, vars) ->
+                let t, (pvar, pcond) =
+                  group_productions
+                    ~produce:(List.fold_left_map (fun t ({ condition; part; _ } : R.t Repartition.share) ->
+                        let t, ov = create_var_from t dest (fun i ->
+                            { i with
+                              origin = OperationDetail { op_kind = Quotepart; source = src; target = dest }
+                            })
+                        in
+                        let expr = EMult (EConst (LRational part), EVar src) in
+                        let t = register_value t ~act:condition ~dest:ov expr in
+                        t, (ov, condition)))
+                    ~aggr_var:(fun t -> create_var_from t dest (fun i ->
+                        { i with
+                          origin = OperationSum { source = src; target = dest }
+                        }))
+                    t shares
+                in
+                let t = register_aggregation t ~act:pcond ~dest pvar in
+                t, (pvar, pcond)::vars)
+              ops (t,[]))
+        ~aggr_var:(fun t ->
+            let agv = Variable.create () in
+            let t =
+              bind_vinfo t agv {
+                origin = RepartitionSum src;
+                typ = TMoney;
+                kind = Intermediary;
+              }
+            in
+            t, agv)
+        t grouped_shares
+    in
+    t, pvar
   in
   let conv_defaults t src reps_var def_shares =
     List.fold_left
@@ -373,7 +413,7 @@ let convert_repartitions t =
       in
       let expr = EAdd (EVar reps_var, ENeg (EVar src)) in
       let t = register_value t ~act:condition ~dest:ov expr in
-      register_aggregation t ~act:condition ~dest ov
+      add_deficit_var t ~act:condition ~provider:dest ov
   in
   Variable.Map.fold (fun src rep t ->
       let fullrep = Repartition.resolve_fullness rep in
@@ -384,18 +424,40 @@ let convert_repartitions t =
 
 let convert_flats t =
   Variable.Map.fold (fun dest flats t ->
-      List.fold_left (fun t (src, expr, act) ->
-          let t, ldest =
-            create_var_from t dest (fun i ->
-                { i with
-                  origin = OperationDetail { op_kind = Bonus; source = src; target = dest };
-                  kind = Intermediary
-                })
+      let grouped_flats =
+        List.fold_left (fun gs (src, e, c) ->
+            Variable.Map.update src (function
+                | None -> Some [e,c]
+                | Some fs -> Some ((e,c)::fs))
+              gs)
+          Variable.Map.empty flats
+      in
+      Variable.Map.fold (fun src flats t ->
+          let t, (pvar, pcond) =
+            group_productions
+              ~produce:(List.fold_left_map (fun t (expr, act) ->
+                  let t, ldest =
+                    create_var_from t dest (fun i ->
+                        { i with
+                          origin = OperationDetail {
+                              op_kind = Bonus;
+                              source = src;
+                              target = dest };
+                          kind = Intermediary
+                        })
+                  in
+                  let t = register_value t ~act ~dest:ldest expr in
+                  t, (ldest, act)))
+              ~aggr_var:(fun t -> create_var_from t dest (fun i ->
+                  { i with
+                    origin = OperationSum { source = src; target = dest }
+                  }))
+              t flats
           in
-          let t = register_value t ~act ~dest:ldest expr in
-          let t = register_aggregation t ~act ~dest ldest in
-          register_aggregation t ~act ~dest:src ldest)
-        t flats)
+          let t = register_aggregation t ~act:pcond ~dest pvar in
+          let t = register_aggregation t ~act:pcond ~dest:src pvar in
+          t)
+        grouped_flats t)
     t.flat_eqs t
 
 let aggregate_derivations t =
@@ -419,12 +481,31 @@ let convert_cumulations t =
       register_value t ~act:Condition.always ~dest:cumul expr)
     t.cumulation_vars t
 
+let convert_deficits t =
+  Variable.Map.fold (fun provider dvars t ->
+      let t, (sumdef, act) =
+        match dvars with
+      | [v] -> t, v
+      | _ ->
+        group_productions
+          ~produce:(fun t defs -> t, defs)
+          ~aggr_var:(fun t ->
+              create_var_from t provider (fun i ->
+              { i with
+                origin = DeficitSum provider
+              }))
+          t dvars
+      in
+      register_aggregation t ~act ~dest:provider sumdef)
+    t.deficits_vars t
+
 let produce_aggregated_eqs t =
   let t = convert_repartitions t in
   let t = convert_flats t in
   let t = aggregate_derivations t in
   let t = aggregate_compounds t in
   let t = convert_cumulations t in
+  let t = convert_deficits t in
   t.pinfos, t.value_eqs, t.event_eqs
 
 end
