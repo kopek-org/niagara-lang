@@ -7,7 +7,7 @@ let time =
   let t = ref (Sys.time ()) in
   fun msg ->
   let t' = Sys.time () in
-  Format.eprintf ".4%fs %s\n%!" (t' -. !t) msg;
+  Format.eprintf "%.3fs %s\n%!" (t' -. !t) msg;
   t := t'
 
 (** Compilation pipeline from a source AST. *)
@@ -18,6 +18,9 @@ let compile : Ast.source Ast.program -> Ir.program = fun program ->
   let () =
     let fmt = Format.formatter_of_out_channel stdout in
     let infos, aggr, evts = Equationalize.translate_program ctx_program in
+    Variable.Map.iter (fun v _ ->
+        Format.eprintf "%a@." (FormatEqu.print_var_with_info infos) v)
+      infos.nvar_info;
     time "equationalized";
     let equ_prog = Activation_propagation.compute infos aggr evts in
     FormatEqu.print_program fmt equ_prog;

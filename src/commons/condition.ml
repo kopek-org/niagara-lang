@@ -1,201 +1,146 @@
 
-type input_presence =
-  | Present of Variable.t
-  | Absent of Variable.Set.t
+type conj = { input : Variable.t option; events : Variable.Set.t }
 
-type event_presence = bool Variable.Map.t
-
-type conj = {
-  input : input_presence;
-  events : event_presence;
-}
-
-type disj = conj list
-
-exception Contradiction
-
-let canon_conj_input i1 i2 =
-  match i1, i2 with
-  | Present v1, Present v2 ->
-    if Variable.equal v1 v2 then i1 else raise Contradiction
-  | Absent s1, Absent s2 -> Absent (Variable.Set.union s1 s2)
-  | Present v, Absent s
-  | Absent s, Present v ->
-    if Variable.Set.mem v s
-    then raise Contradiction
-    else Present v
-
-let disj_input i1 i2 =
-  match i1, i2 with
-  | Present v1, Present v2 ->
-    if Variable.equal v1 v2 then [], Some i1, []
-    else [i1], None, [i2]
-  | Present v, Absent s ->
-    if Variable.Set.mem v s then [i1],None,[i2] else
-      [], Some (Present v), [Absent (Variable.Set.add v s)]
-  | Absent s, Present v ->
-    if Variable.Set.mem v s then [i1], None, [i2] else
-      [Absent (Variable.Set.add v s)], Some (Present v), []
-  | Absent s1, Absent s2 ->
-    let us = Variable.Set.union s1 s2 in
-    let ex_present s =
-      Variable.Set.fold (fun v l-> Present v::l)
-        (Variable.Set.diff us s) []
-    in
-    ex_present s1, Some (Absent us), ex_present s2
-
-let conj_event e1 e2 : event_presence =
-  Variable.Map.union
-    (fun _v p1 p2 ->
-       if p1 = p2 then Some p1 else raise Contradiction)
-    e1 e2
-
-let disj_event e1 e2 =
-  match conj_event e1 e2 with
-  | exception Contradiction -> [e1], None, [e2]
-  | conj ->
-    let conjc = Variable.Map.cardinal conj in
-    let conj_excl e =
-      if Variable.Map.cardinal e = conjc then [] else
-        let lm =
-          Variable.Map.fold (fun v pc lm ->
-              match Variable.Map.find_opt v e with
-              | Some _ ->
-                List.map (Variable.Map.add v pc) lm
-              | None ->
-                (List.map (Variable.Map.add v pc) lm)
-                @(List.map (Variable.Map.add v (not pc)) lm)
-            )
-            conj [Variable.Map.empty]
-        in
-        match lm with
-        | [] -> assert false
-        | _conj_case::others -> others
-    in
-    conj_excl e1, Some conj, conj_excl e2
+let compare_conj c1 c2 =
+  match c1.input, c2.input with
+  | None, Some _ -> -1
+  | Some _, None -> 1
+  | Some i1, Some i2 ->
+    let cmp = Variable.compare i1 i2 in
+    if cmp = 0 then Variable.Set.compare c1.events c2.events
+    else cmp
+  | None, None -> Variable.Set.compare c1.events c2.events
 
 let conj_conj c1 c2 =
-  let input = canon_conj_input c1.input c2.input in
-  let events = conj_event c1.events c2.events in
-  { input; events }
+  match c1.input, c2.input with
+  | Some i1, Some i2 when not (Variable.equal i1 i2) -> None
+  | None, input | input, _ ->
+    Some { input; events = Variable.Set.union c1.events c2.events }
 
-let disj_conj c1 c2 =
-  let ex_i1, com_i, ex_i2 = disj_input c1.input c2.input in
-  match com_i with
-  | None -> [c1],[],[c2]
-  | Some com_i ->
-    let ex_e1, com_e, ex_e2 = disj_event c1.events c2.events in
-    match com_e with
-    | None -> [c1],[],[c2]
-    | Some com_e ->
-      let conj input events =
-        match input with
-        | Absent s ->
-          if Variable.Set.is_empty s && Variable.Map.is_empty events
-          then None else Some { input; events }
-        | _ -> Some { input; events }
-      in
-      let disj_ex1 =
-        List.map (fun input -> {c1 with input}) ex_i1
-        @ List.filter_map (conj com_i) ex_e1
-      in
-      let disj_com =
-        Option.to_list (conj com_i com_e)
-      in
-      let disj_ex2 =
-        List.map (fun input -> {c2 with input}) ex_i2
-        @ List.filter_map (conj com_i) ex_e2
-      in
-      (disj_ex1, disj_com, disj_ex2)
 
-let conj_disj d1 d2 =
-  List.fold_left (fun conj c2 ->
-      let cd1 =
-        List.filter_map (fun c1 ->
-            match conj_conj c1 c2 with
-            | exception Contradiction -> None
-            | conj -> Some conj)
-          d1
-      in
-      cd1@conj)
-    [] d2
+module ConjSet = struct
+  module Impl = Map.Make(struct type t = conj let compare = compare_conj end)
 
-let disj_disj d1 d2 =
-  let rec iter_d1 exd1 com exd2 rd1 rd2 =
-    match rd2 with
-    | [] -> (rd1@exd1), com, exd2, rd2
-    | c2::rd2 ->
-      match rd1 with
-      | [] ->
-        exd1, com, (c2::exd2), rd2
-      | c1::rd1 ->
-        let exc1, ccom, exc2 = disj_conj c1 c2 in
-        match ccom with
-        | [] ->
-          iter_d1 (exc1@exd1) com exd2 rd1 (exc2@rd2)
-        | _ ->
-          (exc1@exd1@rd1), (ccom@com), exd2, (exc2@rd2)
+  type t = unit Impl.t
+
+  let empty : t = Impl.empty
+
+  let is_empty = Impl.is_empty
+
+  let singleton c = Impl.singleton c ()
+
+  let xor c cs =
+    if Impl.mem c cs then Impl.remove c cs else Impl.add c () cs
+
+  let fold f cs acc =
+    Impl.fold (fun c () acc -> f c acc) cs acc
+
+  let merge f =
+    Impl.merge (fun c u1 u2 ->
+        if f c (Option.is_some u1) (Option.is_some u2)
+        then Some ()
+        else None)
+
+  let elements f = Impl.bindings f |> List.map fst
+
+end
+
+type anf = {
+  neg : bool;
+  clauses : ConjSet.t;
+}
+
+let never = { neg = false; clauses = ConjSet.empty }
+
+let always = { never with neg = true }
+
+let xor f1 f2 =
+  { neg = if f1.neg then not f2.neg else f2.neg;
+    clauses =
+      ConjSet.merge (fun _c p1 p2 ->
+          not (p1 && p2))
+        f1.clauses f2.clauses;
+  }
+
+let neg f = { f with neg = not f.neg }
+
+let add_conj c1 f2 =
+  let clauses0 =
+    ConjSet.fold (fun c2 cs ->
+        match conj_conj c1 c2 with
+        | None -> cs
+        | Some c -> ConjSet.xor c cs)
+      f2.clauses ConjSet.empty
   in
-  let rec iter_d2 com exd2 rd1 rd2 =
-    match rd2 with
-    | [] -> rd1, com, exd2
-    | rd2 ->
-      let exd1, com, exd2, rd2 = iter_d1 [] com exd2 rd1 rd2 in
-      iter_d2 com exd2 exd1 rd2
+  let clauses = if f2.neg then ConjSet.xor c1 clauses0 else clauses0 in
+  { neg = false; clauses }
+
+let conj f1 f2 =
+  let clauses_conj =
+    ConjSet.fold (fun c1 cc ->
+        xor (add_conj c1 f2) cc)
+      f1.clauses never
   in
-  iter_d2 [] [] d1 d2
+  if f1.neg
+  then xor f2 clauses_conj
+  else clauses_conj
 
-let never = []
+let disj f1 f2 =
+  neg (conj (neg f1) (neg f2))
 
-let always = [{ input = Absent Variable.Set.empty; events = Variable.Map.empty }]
+type t = anf
 
-let is_never t = t == never
+let is_never t = not t.neg && ConjSet.is_empty t.clauses
 
-let is_always t = let _,_,exa = disj_disj t always in is_never exa
+let is_always t = t.neg && ConjSet.is_empty t.clauses
 
-let print_conj fmt { input; events } =
+let pp_xor = "\u{2295}"
+let pp_and = "\u{2227}"
+
+let print_conj fmt { input; events; } =
   let open Format in
-  begin match input with
-    | Present v -> fprintf fmt "i%d@ /\\ " (Variable.uid v)
-    | Absent a ->
-      if Variable.Set.is_empty a then fprintf fmt "T@ /\\ " else
-      fprintf fmt "@[<hov 2>!(%a@,@])@ /\\ "
-        (pp_print_list
-           ~pp_sep:(fun fmt () -> fprintf fmt "@ \\/ ")
-           (fun fmt v -> fprintf fmt "i%d" (Variable.uid v)))
-        (Variable.Set.elements a)
-  end;
-  if Variable.Map.is_empty events then fprintf fmt "T" else
-    pp_print_list
-      ~pp_sep:(fun fmt () -> fprintf fmt "@ /\\ ")
-      (fun fmt (v, p) ->
-         if not p then pp_print_char fmt '!';
-         fprintf fmt "e%d" (Variable.uid v))
-      fmt
-      (Variable.Map.bindings events)
+  let has_input =
+    match input with
+    | Some v -> fprintf fmt "i%d" (Variable.uid v); true
+    | None -> false
+  in
+  if not (Variable.Set.is_empty events) then
+    begin
+      if has_input then fprintf fmt "@ %s " pp_and;
+      pp_print_list
+        ~pp_sep:(fun fmt () -> fprintf fmt "@ %s " pp_and)
+        (fun fmt v -> fprintf fmt "e%d" (Variable.uid v))
+        fmt
+        (Variable.Set.elements events)
+    end
 
 let print_disj fmt t =
   let open Format in
-  match t with
-  | [] -> fprintf fmt "never"
-  | l ->
-    if is_always l then fprintf fmt "always" else
+  if t.neg then pp_print_char fmt 'T';
+  if ConjSet.is_empty t.clauses then
+    (if not t.neg then pp_print_string fmt "never")
+  else
+    begin
+      if t.neg then fprintf fmt "@ %s " pp_xor;
       pp_print_list
-        ~pp_sep:(fun fmt () -> fprintf fmt "@ \\/ ")
-        (fun fmt conj -> fprintf fmt "@[<hov 2>(%a@,@])" print_conj conj)
+        ~pp_sep:(fun fmt () -> fprintf fmt "@ %s " pp_xor)
+        (fun fmt c ->
+           fprintf fmt "@[<hov 2>(%a@])" print_conj c)
         fmt
-        l
+        (ConjSet.elements t.clauses)
+    end
 
-type t = disj
 
-let of_input v = [{ input = Present v; events = Variable.Map.empty }]
+let of_input v = {
+  neg = false;
+  clauses = ConjSet.singleton { input = Some v; events = Variable.Set.empty };
+}
 
-let of_event v p = [{ input = Absent Variable.Set.empty; events = Variable.Map.singleton v p }]
+let of_event v p = {
+  neg = not p;
+  clauses = ConjSet.singleton { input = None; events = Variable.Set.singleton v };
+}
 
-let conj = conj_disj
-
-let disj t1 t2 = let a,b,c = disj_disj t1 t2 in a@b@c
-
-let excluded t1 t2 = let ex1,_,_ = disj_disj t1 t2 in ex1
+let excluded t1 t2 = conj t1 (neg t2)
 
 let print = print_disj

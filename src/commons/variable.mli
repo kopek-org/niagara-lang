@@ -15,6 +15,7 @@ val uid : t -> int
 (** [unique_anon_name s] returns a unique variable name with prefix [s] *)
 val unique_anon_name : string -> string
 
+val compare : t -> t -> int
 val equal : t -> t -> bool
 
 module Map : Map.S with type key = t

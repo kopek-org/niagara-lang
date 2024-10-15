@@ -29,6 +29,8 @@ let create =
 
 let uid v = v
 
+let compare = Int.compare
+
 let unique_anon_name =
   let c = ref 0 in
   fun name ->

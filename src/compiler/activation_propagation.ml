@@ -7,28 +7,6 @@ let no_existence = {
   eq_expr = EConst (LRational R.zero)
 }
 
-let rec add_to_groups (groups : ('a list * Condition.t) list)
-    (obj : 'a) (cond : Condition.t) =
-  match groups with
-  | [] ->
-    if Condition.is_never cond then [] else
-      [[obj], cond]
-  | (gobjs, gcond)::groups ->
-    (* needs to preserve list order *)
-    let com = Condition.conj cond gcond in
-    if Condition.is_never com then
-      let groups = add_to_groups groups obj cond in
-      (gobjs, gcond)::groups
-    else
-      let cond = Condition.excluded cond com in
-      let groups = add_to_groups groups obj cond in
-      let ex_gcond = Condition.excluded gcond com in
-      let groups =
-        if Condition.is_never ex_gcond then groups else
-          (gobjs, ex_gcond)::groups
-      in
-      (obj::gobjs, com)::groups
-
 let generate_addition (exprs : expr list) =
   match exprs with
   | [] -> Errors.raise_error "(internal) Cannot generate addition on empty set"
@@ -92,7 +70,7 @@ let create_existential acc =
     bind_vinfo acc v
       {
         origin = ConditionExistential;
-        typ = ValueType.TRational;
+        typ = ValueType.TMoney;
         (* At this point the only type that makes sense *)
         kind = Intermediary;
       }
@@ -126,13 +104,36 @@ let result_to_var { acc; form; cond; deps; rev_deps } (target : Variable.t) =
   let acc = add_deps acc [target] (Variable.Set.elements rev_deps) in
   acc, eq
 
+let rec add_to_groups (groups : ('a list * Condition.t) list)
+    (obj : 'a) (cond : Condition.t) =
+  if Condition.is_never cond then groups else
+  match groups with
+  | [] ->
+    [[obj], cond]
+  | (gobjs, gcond)::groups ->
+    (* needs to preserve list order *)
+    let com = Condition.conj cond gcond in
+    if Condition.is_never com then
+      let groups = add_to_groups groups obj cond in
+      (gobjs, gcond)::groups
+    else
+      let cond = Condition.excluded cond com in
+      let groups = add_to_groups groups obj cond in
+      let ex_gcond = Condition.excluded gcond com in
+      let groups =
+        if Condition.is_never ex_gcond then groups else
+          (gobjs, ex_gcond)::groups
+      in
+      (obj::gobjs, com)::groups
+
 let aggregate_exprs acc (exprs : (expr * Condition.t * Variable.Set.t * Variable.Set.t) list) =
-  let ex_groups, target_cond =
-    List.fold_left (fun (groups, glob_cond) (e, cond, deps, rdeps) ->
-        let glob_cond = Condition.disj glob_cond cond in
-        let groups = add_to_groups groups (e, deps, rdeps) cond in
-        groups, glob_cond)
-      ([], Condition.never) exprs
+  let ex_groups =
+    List.fold_left (fun groups (e, cond, deps, rdeps) ->
+        add_to_groups groups (e, deps, rdeps) cond)
+      [] exprs
+  in
+  let target_cond =
+    List.fold_left (fun g (_, c) -> Condition.xor c g) Condition.never ex_groups
   in
   let ex_groups =
     List.map (fun (gexprs, gcond) ->
@@ -185,6 +186,47 @@ let aggregate_exprs acc (exprs : (expr * Condition.t * Variable.Set.t * Variable
       rev_deps = Variable.Set.empty;
       form = Merge (Variable.Set.elements fresh_vars);
     }
+
+(* let rec aggregate_exprs acc *)
+(*     (exprs : (expr * Condition.t * Variable.Set.t * Variable.Set.t) list) = *)
+(*   let cut_list l = *)
+(*     let hl = List.length l / 2 in *)
+(*     let rec aux i l = *)
+(*       if i >= hl then [], l else *)
+(*         match l with *)
+(*         | [] -> assert false *)
+(*         | h::t -> *)
+(*           let l,r = aux (i+1) t in *)
+(*           h::l, r *)
+(*     in *)
+(*     aux 0 l *)
+(*   in *)
+(*   let rebuild_expr ({ acc; cond; form; deps; rev_deps } as res) = *)
+(*     match form with *)
+(*     | Direct e -> acc, (e, cond, deps, rev_deps) *)
+(*     | Merge _ -> *)
+(*       let acc, fv = create_existential acc in *)
+(*       let acc, _ = result_to_var { res with acc } fv in *)
+(*       acc, (EVar fv, cond, Variable.Set.singleton fv, Variable.Set.empty) *)
+(*   in *)
+(*   match exprs with *)
+(*   | [] -> { *)
+(*       acc; *)
+(*       form = Direct (EConst (LRational R.zero)); *)
+(*       cond = Condition.never; *)
+(*       deps = Variable.Set.empty; *)
+(*       rev_deps = Variable.Set.empty; *)
+(*     } *)
+(*   | [e, cond, deps, rev_deps] -> { *)
+(*       acc; cond; deps; rev_deps; *)
+(*       form = Direct e; *)
+(*     } *)
+(*   | _ -> *)
+(*     let lexprs, rexprs = cut_list exprs in *)
+(*     let acc, lexpr = rebuild_expr @@ aggregate_exprs acc lexprs in *)
+(*     let acc, rexpr = rebuild_expr @@ aggregate_exprs acc rexprs in *)
+(*     let exprs = [lexpr;rexpr] in *)
+(*     aggregate_exprs0 acc exprs *)
 
 let aggregate_vars acc (target : Variable.t)
     (vars : (Variable.t * Condition.t) list) =
