@@ -168,15 +168,12 @@ let aggregate_exprs acc (exprs : (expr * Condition.t * Variable.Set.t * Variable
       List.fold_left (fun (acc, fvars) (gexprs, gdeps, grdeps, gcond) ->
           let e = generate_addition gexprs in
           let acc, fv =
-            match e with
-            | EVar v -> acc, v
-            | _ ->
-              let acc, fv = create_existential acc in
-              let ge = { eq_expr = e; eq_act = gcond } in
-              let acc = add_eq acc fv ge in
-              let acc = add_deps acc (Variable.Set.elements gdeps) [fv] in
-              let acc = add_deps acc [fv] (Variable.Set.elements grdeps) in
-              acc, fv
+            let acc, fv = create_existential acc in
+            let ge = { eq_expr = e; eq_act = gcond } in
+            let acc = add_eq acc fv ge in
+            let acc = add_deps acc (Variable.Set.elements gdeps) [fv] in
+            let acc = add_deps acc [fv] (Variable.Set.elements grdeps) in
+            acc, fv
           in
           acc, Variable.Set.add fv fvars)
         (acc, Variable.Set.empty) ex_groups
