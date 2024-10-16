@@ -127,13 +127,17 @@ let rec add_to_groups (groups : ('a list * Condition.t) list)
       (obj::gobjs, com)::groups
 
 let aggregate_exprs acc (exprs : (expr * Condition.t * Variable.Set.t * Variable.Set.t) list) =
-  let ex_groups =
-    List.fold_left (fun groups (e, cond, deps, rdeps) ->
-        add_to_groups groups (e, deps, rdeps) cond)
-      [] exprs
-  in
-  let target_cond =
-    List.fold_left (fun g (_, c) -> Condition.xor c g) Condition.never ex_groups
+  let ex_groups, target_cond =
+    List.fold_left (fun (groups, glob_cond) (e, cond, deps, rdeps) ->
+        let cex = Condition.excluded cond glob_cond in
+        let com = Condition.conj cond glob_cond in
+        let groups = add_to_groups groups (e, deps, rdeps) com in
+        if Condition.is_never cex then
+          groups, glob_cond
+        else
+          ([e,deps,rdeps], cex)::groups,
+          Condition.xor cex glob_cond)
+      ([], Condition.never) exprs
   in
   let ex_groups =
     List.map (fun (gexprs, gcond) ->
