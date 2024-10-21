@@ -366,7 +366,7 @@ let print_domain world fmt (d : domain) =
   Format.fprintf fmt "%s" dom
 
 let print_case world fmt (c : case) =
-  let case = (DomainMap.find c world.cases).case_name in
+  let case = (CaseMap.find c world.cases).case_name in
   Format.fprintf fmt "%s" case
 
 let print_cases world fmt (cs : CaseSet.t) =
