@@ -1,171 +1,248 @@
-let pp_xor = "\u{2295}"
-let pp_and = "\u{2227}"
 
-module Conj = struct
-
-type t = { input : Variable.t option; events : Variable.t list }
-
-let rec merge_evts ~(xor : bool) c1 c2 =
-  match c1, c2 with
-  | [],t | t,[] -> t
-  | h1::t1, h2::t2 ->
-    let cmp = Variable.compare h1 h2 in
-    if cmp = 0 then
-      if xor then merge_evts ~xor t1 t2 else h1::(merge_evts ~xor t1 t2)
-    else if cmp < 0 then
-      h1::(merge_evts ~xor t1 c2)
-    else
-      h2::(merge_evts ~xor c1 t2)
-
-let compare c1 c2 =
-  match c1.input, c2.input with
-  | None, Some _ -> -1
-  | Some _, None -> 1
-  | Some i1, Some i2 ->
-    let cmp = Variable.compare i1 i2 in
-    if cmp = 0 then List.compare Variable.compare c1.events c2.events
-    else cmp
-  | None, None -> List.compare Variable.compare c1.events c2.events
-
-let conj c1 c2 =
-  match c1.input, c2.input with
-  | Some i1, Some i2 when not (Variable.equal i1 i2) -> None
-  | None, input | input, _ ->
-    Some { input; events = merge_evts ~xor:false c1.events c2.events }
-
-let print fmt { input; events; } =
-  let open Format in
-  let has_input =
-    match input with
-    | Some v -> fprintf fmt "i%d" (Variable.uid v); true
-    | None -> false
-  in
-  if events <> [] then
-    begin
-      if has_input then fprintf fmt "@ %s " pp_and;
-      pp_print_list
-        ~pp_sep:(fun fmt () -> fprintf fmt "@ %s " pp_and)
-        (fun fmt v -> fprintf fmt "e%d" (Variable.uid v))
-        fmt events
-    end
-
-end
-
-module ConjSet = struct
-
-  type t = Conj.t list
-
-  let rec insert c cs =
-    match cs with
-    | [] -> [c]
-    | h::t ->
-      let cmp = Conj.compare c h in
-      if cmp = 0 then t
-      else if cmp < 0 then c::cs
-      else h::(insert c t)
-
-  let empty = []
-
-  let is_empty = (=) []
-
-  let disj_union cs1 cs2 =
-    let rec aux u cs1 cs2 =
-      match cs1, cs2 with
-      | [], cs | cs, [] -> List.rev_append cs u
-      | h1::t1, h2::t2 ->
-        let cmp = Conj.compare h1 h2 in
-        if cmp = 0 then aux u t1 t2
-        else if cmp < 0 then aux (h1::u) t1 cs2
-        else aux (h2::u) cs1 t2
-    in
-    List.rev @@ aux [] cs1 cs2
-
-  let fold = List.fold_left
-
-  let distribute c cs =
-    let rec aux r cs =
-      match cs with
-      | [] -> r
-      | h::t ->
-        match Conj.conj c h with
-        | None -> aux r t
-        | Some c -> aux (insert c r) t
-    in
-    aux [] (List.rev cs)
-
-  let print fmt cs =
-    let open Format in
-    pp_print_list
-      ~pp_sep:(fun fmt () -> fprintf fmt "@ %s " pp_xor)
-      (fun fmt c ->
-         fprintf fmt "@[<hov 2>(%a@])" Conj.print c)
-      fmt cs
-
-end
-
-
-type anf = {
-  neg : bool;
-  clauses : ConjSet.t;
+type 'a hcd = {
+  ctn : 'a;
+  tag : int;
 }
 
-let never = { neg = false; clauses = ConjSet.empty }
+module Hashing = struct
 
-let always = { never with neg = true }
+module Make(H : Hashtbl.HashedType) = struct
+  module E = Hashtbl.Make(H)
 
-let xor f1 f2 =
-  { neg = if f1.neg then not f2.neg else f2.neg;
-    clauses = ConjSet.disj_union f1.clauses f2.clauses;
-  }
+  let create = E.create
 
-let neg f = { f with neg = not f.neg }
+  let hash_cons =
+    let fresh =
+      let i = ref (-1) in
+      fun () -> incr i; !i
+    in
+    fun ht k ->
+      match E.find_opt ht k with
+      | Some t -> t
+      | None ->
+        let v = { ctn = k; tag = fresh () } in
+        E.add ht k v; v
 
-let add_conj c1 f2 =
-  let clauses0 = ConjSet.distribute c1 f2.clauses in
-  let clauses = if f2.neg then ConjSet.insert c1 clauses0 else clauses0 in
-  { neg = false; clauses }
+end
+end
 
-let conj f1 f2 =
-  let clauses_conj =
-    ConjSet.fold (fun cc c1 ->
-        xor (add_conj c1 f2) cc)
-      never f1.clauses
-  in
-  if f1.neg
-  then xor f2 clauses_conj
-  else clauses_conj
+module Memoizing = struct
 
-let disj f1 f2 =
-  neg (conj (neg f1) (neg f2))
+module Make(H : Hashtbl.HashedType) : sig
+  type t = H.t
+  val memo : ((t -> 'a) -> t -> 'a) -> t -> 'a
+  val memo2 : ((t -> t -> 'a) -> t -> t -> 'a) -> t -> t -> 'a
+end = struct
+  type t = H.t
 
-type t = anf
+  module Hash = Hashtbl.Make(H)
+  let memo f =
+    let ht = Hash.create 256 in
+    let rec ff k =
+      match Hash.find_opt ht k with
+      | Some v -> v
+      | None ->
+        let v = f ff k in
+        Hash.add ht k v; v
+    in
+    ff
 
-let is_never t = not t.neg && ConjSet.is_empty t.clauses
+  module Hash2 = Hashtbl.Make(struct
+      type t = H.t * H.t
+      let equal (x1,x2) (y1,y2) = H.equal x1 y1 && H.equal x2 y2
+      let hash (x,y) = (H.hash x) lxor (H.hash y)
+    end)
+  let memo2 f =
+    let ht = Hash2.create 256 in
+    let rec ff k1 k2 =
+      match Hash2.find_opt ht (k1,k2) with
+      | Some v -> v
+      | None ->
+        let v = f ff k1 k2 in
+        Hash2.add ht (k1,k2) v; v
+    in
+    ff
 
-let is_always t = t.neg && ConjSet.is_empty t.clauses
+end
+end
 
-let print_disj fmt t =
+type var =
+  | Input of Variable.t
+  | Event of Variable.t
+
+type comp =
+  | Eq
+  | Lt
+  | Gt
+  | Contradicts of int
+
+let compare2comp c =
+  if c = 0 then Eq else if c < 0 then Lt else Gt
+
+let var_comp v1 v2 =
+  match v1, v2 with
+  | Input v1, Input v2 ->
+    let c = Variable.compare v1 v2 in
+    if c <> 0 then Contradicts c
+    else compare2comp c
+  | Event v2, Event v1 -> (* reversed for events *)
+    let c = Variable.compare v1 v2 in
+    compare2comp c
+  | Input _, Event _ -> Gt
+  | Event _, Input _ -> Lt
+
+type bdd =
+  | T
+  | F
+  | Var of var * bdd hcd * bdd hcd
+
+module HCBDD = Hashing.Make(struct
+type t = bdd
+
+let equal t1 t2 =
+  match t1, t2 with
+  | F, F | T, T -> true
+  | Var (Input v1,l1,r1), Var (Input v2,l2,r2)
+  | Var (Event v1,l1,r1), Var (Event v2,l2,r2) ->
+    Variable.equal v1 v2
+    && l1 == l2
+    && r1 == r2
+  | _ -> false
+
+let hash t =
+  match t with
+  | F -> 0
+  | T -> 1
+  | Var ((Input v | Event v),l,r) ->
+    19 * (19 * (Variable.uid v) + l.tag) + r.tag + 2
+
+end)
+
+module Memo = Memoizing.Make(struct
+    type t = bdd hcd
+    let equal = (==)
+    let hash x = x.tag
+  end)
+
+let get hcd = hcd.ctn
+let map f hcd = f (get hcd)
+let hc = HCBDD.hash_cons (HCBDD.create 256)
+
+let always = hc T
+let never = hc F
+
+let is_never t = get t = F
+let is_always t = get t = T
+
+let var_weight var =
+  match var with
+  | Input v -> Variable.uid v
+  | Event v -> - Variable.uid v
+
+let weight t =
+  match get t with
+  | T | F -> max_int
+  | Var (v,_,_) -> var_weight v
+
+let node v l r =
+  if var_weight v >= weight l || var_weight v >= weight r
+  then assert false;
+  if l == r then l else hc (Var (v,l,r))
+
+let neg = Memo.memo (fun neg t ->
+    map
+      (function
+        | F -> always
+        | T -> never
+        | Var (v,l,r) -> node v (neg l) (neg r))
+      t)
+
+let of_bool b =
+  if b then always else never
+
+let no_more_inputs = Memo.memo (fun no_more_inputs ->
+  map (function
+  | T -> always | F -> never
+  | Var (v,l,r) ->
+    match v with
+    | Event _ -> node v (no_more_inputs l) (no_more_inputs r)
+    | Input _ -> no_more_inputs r))
+
+let rec comb op l r =
+  match get l, get r with
+  | T, T -> of_bool (op true true)
+  | F, F -> of_bool (op false false)
+  | T, F | F, T -> of_bool (op true false)
+  | T, Var (v,l,r) | Var (v,l,r), T ->
+    node v (comb op l always) (comb op r always)
+  | F, Var (v,l,r) | Var (v,l,r), F ->
+    node v (comb op l never) (comb op r never)
+  | Var (v1,l1,r1), Var (v2,l2,r2) ->
+    match var_comp v1 v2 with
+    | Eq -> node v1 (comb op l1 l2) (comb op r1 r2)
+    | Lt -> node v1 (comb op l1 r) (comb op r1 r)
+    | Gt -> node v2 (comb op l l2) (comb op l r2)
+    | Contradicts c ->
+      if c < 0 then node v1 (comb op l1 (no_more_inputs r2)) (comb op r1 r)
+      else node v2 (comb op l2 (no_more_inputs r1)) (comb op l r2)
+
+let conj = Memo.memo2 (fun _conj l r -> comb (&&) l r)
+
+let disj = Memo.memo2 (fun _disj l r -> comb (||) l r)
+
+let excluded = Memo.memo2 (fun _excl t1 t2 -> conj t1 (neg t2))
+
+let of_event v p = node (Event v) (of_bool p) (of_bool (not p))
+
+let of_input v = node (Input v) always never
+
+let print_neg fmt () = Format.fprintf fmt "\u{00AC}"
+let print_conj fmt () = Format.fprintf fmt "\u{22C0}"
+let print_disj fmt () = Format.fprintf fmt "\u{22C1}"
+
+let print_var fmt v b =
   let open Format in
-  if t.neg then pp_print_char fmt 'T';
-  if ConjSet.is_empty t.clauses then
-    (if not t.neg then pp_print_string fmt "never")
+  let v, d = match v with
+    | Input v -> 'i', Variable.uid v
+    | Event v -> 'e', Variable.uid v
+  in
+  if b then
+    fprintf fmt "%c%d" v d
   else
-    begin
-      if t.neg then fprintf fmt "@ %s " pp_xor;
-      ConjSet.print fmt t.clauses
-    end
+    fprintf fmt "%a%c%d" print_neg () v d
 
+let rec print fmt t =
+  let open Format in
+  match get t with
+  | T -> pp_print_string fmt "always"
+  | F -> pp_print_string fmt "never"
+  | Var (v,l,r) ->
+    match get l, get r with
+    | T,F -> print_var fmt v true
+    | F,T -> print_var fmt v false
+    | _,F -> print_with_var v true fmt l
+    | F,_ -> print_with_var v false fmt r
+    | _ ->
+      fprintf fmt "@[<hov 2>(%a@ %a %a@])"
+        (print_with_var v true) l
+        print_disj ()
+        (print_with_var v false) r
 
-let of_input v = {
-  neg = false;
-  clauses = [Conj.{ input = Some v; events = [] }];
-}
+and print_with_var v b fmt t =
+  let open Format in
+  match get t, v with
+  | (T | F), _ ->
+    let tv = is_always t in
+    if tv && b || not (tv || b)
+    then print_var fmt v true
+    else print_var fmt v false
+  | Var (Input _,_,_), Input _ ->
+    (* we are above another input, it's redondant *)
+    print fmt t
+  | _ ->
+    fprintf fmt "@[<hov 2>(%a@ %a %a@])"
+      (fun fmt -> print_var fmt v) b
+      print_conj ()
+      print t
 
-let of_event v p = {
-  neg = not p;
-  clauses =  [Conj.{ input = None; events = [v] }];
-}
-
-let excluded t1 t2 = conj t1 (neg t2)
-
-let print = print_disj
+type t = bdd hcd

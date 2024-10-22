@@ -5,6 +5,17 @@ type val_exprs =
   | Zero
   | Exprs of guarded_eq list
 
+let print_val_exprs fmt vl =
+  let open Format in
+  match vl with
+  | Zero -> pp_print_string fmt "zero"
+  | Exprs es->
+    fprintf fmt "@[<v 2>exprs:@ %a@])"
+      (pp_print_list (fun fmt ge -> fprintf fmt "{%a} %a"
+                         Condition.print ge.eq_act
+                         FormatEqu.print_expr ge.eq_expr))
+      es
+
 type acc = {
   info : VarInfo.collection;
   act_eqs : guarded_eq Variable.Map.t;
@@ -118,10 +129,13 @@ let rec expr_val acc (e : guarded_eq) =
     let acc, vl =
       List.fold_left (fun (acc, vl) v ->
           let acc, vals = var_val acc v in
-          match vl, vals with
-          | Zero, vl | vl, Zero -> acc, vl
-          | Exprs ge1, Exprs ge2 ->
-            acc, Exprs (ge1@ge2))
+          let vals =
+            match vl, vals with
+            | Zero, vl | vl, Zero -> vl
+            | Exprs ge1, Exprs ge2 ->
+              Exprs (ge1@ge2)
+          in
+          acc, vals)
         (var_val acc v) vars
     in
     acc, filter_val vl e.eq_act
@@ -174,7 +188,10 @@ let rec linear_of_expr (e : expr) =
       match l1.factor, l2.factor with
       | f, None | None, f -> f
       | Some (v1,f1), Some (v2,f2) ->
-        assert (Variable.equal v1 v2);
+        if not (Variable.equal v1 v2) then
+          (Format.eprintf "two var factors for %a@." FormatEqu.print_expr e;
+           assert false)
+        else
         Some (v1, EAdd (f1, f2))
     in
     let const =

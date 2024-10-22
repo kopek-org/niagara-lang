@@ -37,4 +37,4 @@ let unique_anon_name =
     let i = !c in incr c;
     name ^ "_" ^ string_of_int i
 
-let equal = (=)
+let equal = (==)

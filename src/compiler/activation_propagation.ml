@@ -111,7 +111,6 @@ let rec add_to_groups (groups : ('a list * Condition.t) list)
   | [] ->
     [[obj], cond]
   | (gobjs, gcond)::groups ->
-    (* needs to preserve list order *)
     let com = Condition.conj cond gcond in
     if Condition.is_never com then
       let groups = add_to_groups groups obj cond in
@@ -129,14 +128,8 @@ let rec add_to_groups (groups : ('a list * Condition.t) list)
 let aggregate_exprs acc (exprs : (expr * Condition.t * Variable.Set.t * Variable.Set.t) list) =
   let ex_groups, target_cond =
     List.fold_left (fun (groups, glob_cond) (e, cond, deps, rdeps) ->
-        let cex = Condition.excluded cond glob_cond in
-        let com = Condition.conj cond glob_cond in
-        let groups = add_to_groups groups (e, deps, rdeps) com in
-        if Condition.is_never cex then
-          groups, glob_cond
-        else
-          ([e,deps,rdeps], cex)::groups,
-          Condition.xor cex glob_cond)
+        add_to_groups groups (e, deps, rdeps) cond,
+        Condition.disj cond glob_cond)
       ([], Condition.never) exprs
   in
   let ex_groups =
