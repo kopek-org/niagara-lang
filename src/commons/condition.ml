@@ -168,27 +168,28 @@ let no_more_inputs = Memo.memo (fun no_more_inputs ->
     | Event _ -> node v (no_more_inputs l) (no_more_inputs r)
     | Input _ -> no_more_inputs r))
 
-let rec comb op l r =
-  match get l, get r with
-  | T, T -> of_bool (op true true)
-  | F, F -> of_bool (op false false)
-  | T, F | F, T -> of_bool (op true false)
-  | T, Var (v,l,r) | Var (v,l,r), T ->
-    node v (comb op l always) (comb op r always)
-  | F, Var (v,l,r) | Var (v,l,r), F ->
-    node v (comb op l never) (comb op r never)
-  | Var (v1,l1,r1), Var (v2,l2,r2) ->
-    match var_comp v1 v2 with
-    | Eq -> node v1 (comb op l1 l2) (comb op r1 r2)
-    | Lt -> node v1 (comb op l1 r) (comb op r1 r)
-    | Gt -> node v2 (comb op l l2) (comb op l r2)
-    | Contradicts c ->
-      if c < 0 then node v1 (comb op l1 (no_more_inputs r2)) (comb op r1 r)
-      else node v2 (comb op l2 (no_more_inputs r1)) (comb op l r2)
+let comb op = (fun comb l r ->
+    match get l, get r with
+    | T, T -> of_bool (op true true)
+    | F, F -> of_bool (op false false)
+    | T, F | F, T -> of_bool (op true false)
+    | T, Var (v,l,r) | Var (v,l,r), T ->
+      node v (comb l always) (comb r always)
+    | F, Var (v,l,r) | Var (v,l,r), F ->
+      node v (comb l never) (comb r never)
+    | Var (v1,l1,r1), Var (v2,l2,r2) ->
+      match var_comp v1 v2 with
+      | Eq -> node v1 (comb l1 l2) (comb  r1 r2)
+      | Lt -> node v1 (comb l1 r) (comb r1 r)
+      | Gt -> node v2 (comb l l2) (comb l r2)
+      | Contradicts c ->
+        if c < 0 then node v1 (comb l1 (no_more_inputs r2)) (comb r1 r)
+        else node v2 (comb l2 (no_more_inputs r1)) (comb l r2))
 
-let conj = Memo.memo2 (fun _conj l r -> comb (&&) l r)
 
-let disj = Memo.memo2 (fun _disj l r -> comb (||) l r)
+let conj = Memo.memo2 (comb (&&))
+
+let disj = Memo.memo2 (comb (||))
 
 let excluded = Memo.memo2 (fun _excl t1 t2 -> conj t1 (neg t2))
 
