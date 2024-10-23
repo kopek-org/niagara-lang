@@ -17,11 +17,10 @@ module Make(H : Hashtbl.HashedType) = struct
       fun () -> incr i; !i
     in
     fun ht k ->
-      match E.find_opt ht k with
-      | Some t -> t
-      | None ->
-        let v = { ctn = k; tag = fresh () } in
-        E.add ht k v; v
+      try E.find ht k with
+      | Not_found ->
+          let v = { ctn = k; tag = fresh () } in
+          E.add ht k v; v
 
 end
 end
@@ -39,11 +38,10 @@ end = struct
   let memo f =
     let ht = Hash.create 256 in
     let rec ff k =
-      match Hash.find_opt ht k with
-      | Some v -> v
-      | None ->
-        let v = f ff k in
-        Hash.add ht k v; v
+      try Hash.find ht k with
+      | Not_found ->
+          let v = f ff k in
+          Hash.add ht k v; v
     in
     ff
 
@@ -55,11 +53,10 @@ end = struct
   let memo2 f =
     let ht = Hash2.create 256 in
     let rec ff k1 k2 =
-      match Hash2.find_opt ht (k1,k2) with
-      | Some v -> v
-      | None ->
-        let v = f ff k1 k2 in
-        Hash2.add ht (k1,k2) v; v
+      try Hash2.find ht (k1,k2) with
+      | Not_found ->
+          let v = f ff k1 k2 in
+          Hash2.add ht (k1,k2) v; v
     in
     ff
 
