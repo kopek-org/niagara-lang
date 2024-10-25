@@ -22,9 +22,18 @@ let gnu_style_term =
   let doc = "Use GNU style when applicable" in
   Arg.(value & flag & info ~doc ["gnu"])
 
+(** Set test flag. *)
+let test_flag_term =
+  let open Cmdliner in
+  let doc =
+    "Awaits for testing inputs on stdin and print interpreter \
+     outputs"
+  in
+  Arg.(value & flag & info ~doc ["test"])
+
 (** The main compilation function. It simply calls the main compilation
     pipepine with a parsing on file. *)
-let compile : string -> unit = fun path ->
+let compile : string -> bool -> unit = fun path test ->
   let src_program = Grammar.ParserMain.parse_program path in
   let p, l = Compiler.Compile.compile src_program in
   (* let filter = Compiler.GenDot.{ *)
@@ -33,7 +42,8 @@ let compile : string -> unit = fun path ->
   (* } *)
   (* in *)
   (* Compiler.GenDot.dot_of_program p filter; *)
-  Test_interp.test p l
+  if test then
+    Testing.test_stdin p l
 
 (** [a -+ b] composes the terms [a] and [b] but ignores the
     [a] result. *)
@@ -51,7 +61,7 @@ let main () =
   let cmd = Cmd.v info (Term.(
       setup_log_term -+
       gnu_style_term -+
-      ((const compile) $ source_term)
+      ((const compile) $ source_term $ test_flag_term)
       )
   ) in
   let code = Cmd.eval cmd in

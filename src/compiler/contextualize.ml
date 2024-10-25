@@ -594,8 +594,7 @@ let projection_of_context_selector acc (ctx : context list) =
   in
   Context.group_of_selection contexts proj
 
-let projection_of_context_refinement acc (ctx : context_refinement) =
-  let contexts = Acc.contexts acc in
+let projection_of_context_refinement contexts (ctx : context_refinement) =
   let proj =
     List.fold_left (fun proj item ->
         match item.cri_desc with
@@ -621,7 +620,7 @@ let projection_of_context_refinement acc (ctx : context_refinement) =
 let find_holder0 ~(way : stream_way) acc (h : holder) =
   match h.holder_desc with
   | Pool (name, ctx) ->
-    let proj = projection_of_context_refinement acc ctx in
+    let proj = projection_of_context_refinement (Acc.contexts acc) ctx in
     begin match Acc.find_pool_opt acc name with
     | Some v ->
       Acc.add_proj_constraint acc v proj, (v, proj)
@@ -663,7 +662,7 @@ let named acc (named : named) ~(on_proj : Context.Group.t) =
     match named.named_desc with
     | Name (name, ctx) ->
       let v = Acc.find_misc_var ~way:Downstream acc name in
-      let proj = projection_of_context_refinement acc ctx in
+      let proj = projection_of_context_refinement (Acc.contexts acc) ctx in
       acc, (v, proj)
     | Holder h -> find_holder acc h
   in

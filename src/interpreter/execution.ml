@@ -206,7 +206,6 @@ let compute_action (p : program) (l : limits) (s : state) (action : action) =
       match find_event_threshold l s cond_state with
       | None -> s, value
       | Some threshold ->
-        Format.eprintf "threshold at %a@." Value.print threshold;
         if Value.lt threshold value then
           push_rep_action p s var (Value.sub value threshold),
           threshold
@@ -247,7 +246,6 @@ let compute_input_lines (p : program) (l : limits) (lines : computation_inputs) 
   let s = init_state p in
   let _s, output_lines =
     InputLineMap.fold (fun i line (s, outputs) ->
-        Format.eprintf "input %d@." i;
         let s, output =
           compute_input_value p l s line.input_variable line.input_value
         in

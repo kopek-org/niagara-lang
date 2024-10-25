@@ -59,6 +59,8 @@ module Group = struct
       only_right = diff g2 g1;
     }
 
+  let includes g1 g2 = is_empty (diff g2 g1)
+
   (* Select bits of a set corresponding to the given pattern description. The
      pattern is defined with a starting offset, a length of consecutive bits to
      select, and a period on which the pattern repeats.

@@ -77,15 +77,16 @@ let parse_money_value s : Z.t option =
   with
   | _ -> None
 
+let parse_money_amount_opt s =
+  match String.split_on_char '$' s with
+  | [s;""] -> parse_money_value s
+  | _ -> None
+
 let parse_money_amount s =
   let invalid_arg = Invalid_argument "Lexer.parse_money_amount" in
-  match String.split_on_char '$' s with
-  | [s;""] -> begin
-    match parse_money_value s with
-      | Some i -> i
-      | None -> raise invalid_arg
-    end
-  | _ -> raise invalid_arg
+  match parse_money_amount_opt s with
+  | Some i -> i
+  | None -> raise invalid_arg
 
 let parse_percent s =
   match String.split_on_char '%' s with

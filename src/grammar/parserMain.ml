@@ -8,18 +8,20 @@ let fail checkpoint =
   match checkpoint with
   | I.HandlingError env ->
     let start, stop = I.positions env in
+    Format.eprintf "On state %d@." (I.current_state_number env);
     Errors.raise_error "Parsing error" ~with_pos:(Pos.make ~start ~stop)
       ~span:(ParserErrors.message (I.current_state_number env))
   | _ -> assert false
 
 let parse_lexbuf :
-  ?literate:bool -> Sedlexing.lexbuf -> (Ast.source Ast.program -> 'a) -> 'a =
-  fun ?(literate = false) lexbuf k ->
+  entry:(Lexing.position -> 'a I.checkpoint) -> ?literate:bool
+  -> Sedlexing.lexbuf -> ('a -> 'b) -> 'b =
+  fun ~entry ?(literate = false) lexbuf k ->
     let lexer = match literate with
       | true -> Lexer.text_and_code ()
       | false -> Lexer.program_file () in
     let init_checkpoint =
-      Parser.Incremental.program (fst @@ Sedlexing.lexing_positions lexbuf) in
+      entry (fst @@ Sedlexing.lexing_positions lexbuf) in
     let program = I.loop_handle
       accept fail (Sedlexing.with_tokenizer lexer lexbuf) init_checkpoint in
     k program
@@ -29,19 +31,21 @@ let parse_program : string -> Ast.source Ast.program = fun filename ->
   let lexbuf = Sedlexing.Utf8.from_channel file_chan in
   Sedlexing.set_filename lexbuf filename;
   let literate = not @@ String.equal (Filename.extension filename) ".nga" in
-  try parse_lexbuf ~literate lexbuf (fun program ->
+  try parse_lexbuf ~entry:Parser.Incremental.program ~literate lexbuf (fun program ->
     close_in file_chan;
     program
   ) with exn ->
     close_in file_chan;
     raise exn
 
-let parse_string : ?literate:bool -> string -> Ast.source Ast.program =
-  fun ?literate str ->
+let parse_string : entry:(Lexing.position -> 'a I.checkpoint) -> ?literate:bool
+  -> string -> 'a =
+  fun ~entry ?literate str ->
     let lexbuf = Sedlexing.Utf8.from_string str in
-    parse_lexbuf ?literate lexbuf accept
+    parse_lexbuf ~entry ?literate lexbuf accept
 
-let parse_gen : ?literate:bool -> char Gen.t -> Ast.source Ast.program =
-  fun ?literate gen ->
+let parse_gen : entry:(Lexing.position -> 'a I.checkpoint) -> ?literate:bool
+  -> char Gen.t -> 'a =
+  fun ~entry ?literate gen ->
     let lexbuf = Sedlexing.Utf8.from_gen gen in
-    parse_lexbuf ?literate lexbuf (fun program -> program)
+    parse_lexbuf ~entry ?literate lexbuf (fun program -> program)

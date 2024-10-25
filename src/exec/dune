@@ -1,3 +1,5 @@
+(ocamllex testlex)
+
 (executable
   (name main)
   (package niagara-lang)
@@ -8,8 +10,10 @@
     commons
     cmdliner
     grammar
+    surface
     compiler
     internal
+    equations
     interpreter
     logs
     fmt.tty

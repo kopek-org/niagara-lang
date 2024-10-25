@@ -42,3 +42,4 @@
  (depends dune niagara-lang-lib))
 
 (generate_opam_files true)
+(cram enable)
