@@ -36,6 +36,12 @@ type t = {
 
 type collection = t Variable.Map.t
 
+let is_input t =
+  match t.kind with
+  | ParameterInput { shadow  = false }
+  | PoolInput { shadow  = false } -> true
+  | _ -> false
+
 let print fmt t =
   let open Format in
   match t.origin with

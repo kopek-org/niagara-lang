@@ -10,3 +10,10 @@ val excluded : t -> t -> t
 val is_never : t -> bool
 val is_always : t -> bool
 val print : Format.formatter -> t -> unit
+
+type satisfaction =
+  | Sat
+  | Unsat
+  | Unknown of Variable.t
+
+val satisfies : bool Variable.Map.t -> t -> satisfaction

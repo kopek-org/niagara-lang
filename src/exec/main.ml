@@ -26,14 +26,14 @@ let gnu_style_term =
     pipepine with a parsing on file. *)
 let compile : string -> unit = fun path ->
   let src_program = Grammar.ParserMain.parse_program path in
-  let p = Compiler.Compile.compile src_program in
-  let filter = Compiler.GenDot.{
-    no_filtering with
-    variable_inclusion = Some (Variable.Set.singleton (Obj.magic 119), DepsOf)
-  }
-  in
-  Compiler.GenDot.dot_of_program p filter;
-  Test_interp.test p
+  let p, l = Compiler.Compile.compile src_program in
+  (* let filter = Compiler.GenDot.{ *)
+  (*   no_filtering with *)
+  (*   variable_inclusion = Some (Variable.Set.singleton (Obj.magic 119), DepsOf) *)
+  (* } *)
+  (* in *)
+  (* Compiler.GenDot.dot_of_program p filter; *)
+  Test_interp.test p l
 
 (** [a -+ b] composes the terms [a] and [b] but ignores the
     [a] result. *)

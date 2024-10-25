@@ -415,12 +415,11 @@ let print_shape world fmt (s : shape) =
 let print_group_desc world fmt (desc : group_desc) =
   let print_one fmt d =
     let cs = DomainMap.fold (fun _d -> CaseSet.union) d CaseSet.empty in
-    if List.length desc > 1
-    then Format.fprintf fmt "@[<hov>- %a@]" (print_cases world) cs
-    else Format.fprintf fmt "@[<hov>%a@]" (print_cases world) cs
+    Format.fprintf fmt "@[<hov>%a@]" (print_cases world) cs
   in
-  Format.fprintf fmt "@[<v>%a@]"
-    (Format.pp_print_list print_one) desc
+  Format.fprintf fmt "@[<hv>%a@]"
+    (Format.pp_print_list ~pp_sep:(fun fmt () -> Format.fprintf fmt ";@ ")
+       print_one) desc
 
 let print_domain_desc world fmt (dom, dom_info) =
   Format.fprintf fmt "@[<v 2>Domain %a:@,%a@]"

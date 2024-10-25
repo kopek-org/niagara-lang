@@ -1,103 +1,99 @@
-open Internal
-open Interface
 open Execution
-open Value
 
-let print_var_with_ctx (desc : program_desc) fmt (v : Variable.t) =
-  let var_desc = try Variable.Map.find v desc.variables with
-    | Not_found -> Errors.raise_error "No description for var %d" (Variable.uid v)
+let print_event_switch fmt (changes : (string * bool) Variable.Map.t) =
+  let open Format in
+  if Variable.Map.is_empty changes then fprintf fmt "no events" else
+    fprintf fmt "@[<hov>%a@]"
+      (pp_print_list (fun fmt (_, (n, b)) ->
+           fprintf fmt "%s event %s "
+             (if b then "after" else "before")
+             n))
+      (Variable.Map.bindings changes)
+
+let find_step_value (v : Variable.t) (step : output_step) =
+  match Variable.Map.find_opt v step.step_valuations with
+  | None -> Absent
+  | Some v -> v
+
+let print_repartition ?(default=false)fmt (dest, value) =
+  match value with
+  | Absent -> ()
+  | Present value ->
+    if default then Format.fprintf fmt "@,default ";
+    Format.fprintf fmt "%a -> %s"
+      Value.human_print value
+      dest
+
+let print_default fmt rep = print_repartition ~default:true fmt rep
+
+let print_step layout ~iter_vars fmt (step : output_step) =
+  let open Format in
+  let map_reps reps =
+    List.map (fun (dest, value) ->
+        (Variable.Map.find dest layout).Results.display_name,
+        find_step_value value step)
+      (Variable.Map.bindings reps)
   in
-  let print_with_ctx fmt name ctx =
-    Format.fprintf fmt "%s(%a)" name (Context.print_group_desc desc.contexts) ctx
+  iter_vars layout (fun (item : Results.item_result_layout) ->
+      match find_step_value item.at_step step with
+      | Absent -> ()
+      | Present at_step ->
+      fprintf fmt "@[<v 2>- %s%s { %a, %a }:@ %a%a@]@,"
+        item.display_name
+        (if item.provider then " (as provider)" else "")
+        Value.human_print at_step
+        (fun fmt o -> match o with
+           | None -> pp_print_string fmt "%not_computed%"
+           | Some v ->
+             match find_step_value v step with
+             | Absent -> pp_print_string fmt "%unknown%"
+             | Present v -> Value.human_print fmt v)
+        item.cumulated
+        (pp_print_list print_repartition) (map_reps item.reps)
+        (pp_print_list print_default) (map_reps item.defaults)
+    )
+
+let print_event_line layout ~iter_vars ~changes fmt step =
+  Format.fprintf fmt "@[<v 2>++ %a:@ %a@]@,"
+    print_event_switch changes
+    (print_step layout ~iter_vars) step
+
+let event_flips (infos : VarInfo.collection) (past_state : bool Variable.Map.t)
+    (new_state : bool Variable.Map.t) =
+  let visible_name v b =
+    match (Variable.Map.find v infos).origin with
+    | Named name -> Some (name, b)
+    | AnonEvent -> Some ("anon_event_" ^ string_of_int (Variable.uid v), b)
+    | Peeking _ | RisingEvent _ -> None
+    | _ -> assert false
   in
-  let print_with_label ~providing fmt name label =
-    begin match label with
-    | None -> Format.fprintf fmt "%s" name
-    | Some label ->
-      Format.fprintf fmt "%s$%s" name label
-    end;
-    if providing then Format.pp_print_string fmt " (as provider)"
+ Variable.Map.merge (fun v e1 e2 ->
+      match e1,e2 with
+      | None, Some true -> visible_name v true
+      | Some pb, Some nb -> if pb <> nb then visible_name v nb else None
+      | Some true, None -> visible_name v false
+      | _ -> None)
+   past_state new_state
+
+let print_intepreter_outputs (p : Equations.Equ.program) fmt (lines : computation_outputs) =
+  let var_infos = p.infos.Surface.Ast.nvar_info in
+  let iter_vars = Results.iter_layout var_infos in
+  let layout = Results.build_result_layout p.infos in
+  let open Format in
+  fprintf fmt "@[<v>### OUTPUTS ###@,";
+  let _ =
+    IntMap.fold (fun i line past_events ->
+        fprintf fmt "%d: @[<v>" i;
+        let changes =
+          List.fold_left (fun past_events step ->
+              let changes = event_flips var_infos past_events step.step_events in
+              print_event_line layout ~iter_vars ~changes fmt step;
+              step.step_events)
+            past_events line
+        in
+        fprintf fmt "@.";
+        changes)
+      lines Variable.Map.empty
   in
-  match var_desc.var_kind with
-    | ParameterInput ctx
-    | PoolInput ctx
-    | Intermediary ctx ->
-      print_with_ctx fmt var_desc.var_name ctx.var_context_desc
-    | ReceivingActor l ->
-      print_with_label ~providing:false fmt var_desc.var_name l
-    | ProvidingActor l ->
-      print_with_label ~providing:true fmt var_desc.var_name l
+  pp_print_flush fmt ()
 
-let print_input_line (desc : program_desc) fmt (i, line : int * input_line) =
-  Format.fprintf fmt "%d: %a += %a"
-    i (print_var_with_ctx desc) line.input_variable
-    Literal.print line.input_value
-
-let print_intepreter_inputs (desc : program_desc) fmt
-    (lines : computation_inputs) =
-  Format.fprintf fmt "@[<v>### INPUTS ###@,%a@]"
-    (Format.pp_print_list (print_input_line desc)) (IntMap.bindings lines)
-
-let print_event_switch (desc : program_desc) fmt (evt : event_switch) =
-  match evt with
-  | NoEvent -> Format.fprintf fmt "no events"
-  | SwitchTo { event; value } ->
-    let { event_name } = Variable.Map.find event desc.events in
-    Format.fprintf fmt "switch %s event '%s'"
-      (if value then "after" else "before")
-      event_name
-
-let print_value_with_typ (typ : ValueType.t) fmt value =
-  match typ, value with
-  | TInteger, VRat r -> R.print_dec_repr fmt R.(to_dec_repr r)
-  | TMoney, VRat r ->
-    Format.fprintf fmt "%a$" R.print_dec_repr R.(to_dec_repr (r / ~$100))
-  | TRational, VRat r -> R.pp_print fmt r
-  | (TDate | TDuration | TEvent), _ -> assert false
-
-let print_tally (typ : ValueType.t) fmt tally =
-  Format.fprintf fmt "{ %a, %a }"
-    (print_value_with_typ typ) tally.at_instant
-    (print_value_with_typ typ) tally.total
-
-let print_repartition (desc : program_desc) (typ : ValueType.t) fmt rep =
-  let rep = Variable.Map.bindings rep in
-  Format.pp_print_list (fun fmt (var, value) ->
-      Format.fprintf fmt "%a -> %a"
-        (print_value_with_typ typ) value
-        (print_var_with_ctx desc) var)
-    fmt
-    rep
-
-let print_count (desc : program_desc) fmt (var, count) =
-  let typ = (Variable.Map.find var desc.variables).var_type in
-  Format.fprintf fmt "@[<v 2>- %a %a:@ %a@]"
-    (print_var_with_ctx desc) var
-    (print_tally typ) count.tally
-    (print_repartition desc typ) count.repartition
-
-let print_event_line (desc : program_desc) fmt (evt_swt, count) =
-  let count =
-    Variable.Map.bindings count
-    |> List.filter (fun (_, c) -> not (is_zero c.tally.at_instant))
-    |> List.sort (fun (v1, c1) (v2, c2) ->
-        if Variable.Map.mem v1 c2.repartition then 1
-        else if Variable.Map.mem v2 c1.repartition then -1
-        else
-          Interface.compare_kind
-            (Variable.Map.find v1 desc.variables).var_kind
-            (Variable.Map.find v2 desc.variables).var_kind)
-  in
-  Format.fprintf fmt "@[<v 2>++ %a:@ %a@]"
-    (print_event_switch desc) evt_swt
-    (Format.pp_print_list (print_count desc)) count
-
-let print_output_line (desc : program_desc) fmt (i, line : int * output_line) =
-  Format.fprintf fmt "%d: @[<v>%a@]"
-    i
-    (Format.pp_print_list (print_event_line desc)) (List.rev line)
-
-let print_intepreter_outputs (desc : program_desc) fmt
-    (lines : computation_outputs) =
-  Format.fprintf fmt "@[<v>### OUTPUTS ###@,%a@]"
-    (Format.pp_print_list (print_output_line desc)) (IntMap.bindings lines)

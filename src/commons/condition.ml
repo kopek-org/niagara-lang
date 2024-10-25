@@ -244,3 +244,22 @@ and print_with_var v b fmt t =
       print t
 
 type t = bdd hcd
+
+
+type satisfaction =
+  | Sat
+  | Unsat
+  | Unknown of Variable.t
+
+let rec satisfies (k : bool Variable.Map.t) t =
+  match get t with
+  | T -> Sat
+  | F -> Unsat
+  | Var (Event v, l, r) ->
+    (match Variable.Map.find_opt v k with
+     | None -> Unknown v
+     | Some b -> if b then satisfies k l else satisfies k r)
+  | Var (Input v, l, r) ->
+    match Variable.Map.find_opt v k with
+    | None -> satisfies k r
+    | Some b -> if b then satisfies k l else satisfies k r

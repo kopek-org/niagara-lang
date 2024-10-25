@@ -623,7 +623,7 @@ let rec translate_formula acc ~(ctx : Context.Group.t) ~(view : flow_view)
       let proj = resolve_projection_context acc ~context:ctx ~refinement:proj in
       let acc, vs = Acc.derive_ctx_variables ~mode:Strict acc v proj in
       let vs = match vs with
-        | ActorComp c -> c.compound
+        | ActorComp c -> [c.base]
         | ContextVar vs -> vs
       in
       let acc, f = aggregate_vars acc ~view vs in
