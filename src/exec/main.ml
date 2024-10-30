@@ -42,8 +42,7 @@ let compile : string -> bool -> unit = fun path test ->
   (* } *)
   (* in *)
   (* Compiler.GenDot.dot_of_program p filter; *)
-  if test then
-    Testing.test_stdin p l
+  if test then Testing.test_stdin p l
 
 (** [a -+ b] composes the terms [a] and [b] but ignores the
     [a] result. *)

@@ -9,6 +9,12 @@ type artefact_event =
   | PreviousState of Variable.t
   | RaiseTest of Variable.t
 
+type result = {
+  infos : Ast.program_infos;
+  aggr_eqs : Equ.aggregate_eqs;
+  event_eqs : Equ.expr Variable.Map.t;
+}
+
 module Acc = struct
 
 type t = {
@@ -506,7 +512,10 @@ let produce_aggregated_eqs t =
   let t = aggregate_compounds t in
   let t = convert_cumulations t in
   let t = convert_deficits t in
-  t.pinfos, t.value_eqs, t.event_eqs
+  { infos = t.pinfos;
+    aggr_eqs = t.value_eqs;
+    event_eqs = t.event_eqs;
+  }
 
 end
 

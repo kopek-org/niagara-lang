@@ -42,6 +42,12 @@ let is_input t =
   | PoolInput { shadow  = false } -> true
   | _ -> false
 
+let is_partner t =
+  match t.kind with
+  | ReceivingPartner
+  | ProvidingPartner -> true
+  | _ -> false
+
 let print fmt t =
   let open Format in
   match t.origin with

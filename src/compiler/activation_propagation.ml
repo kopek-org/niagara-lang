@@ -52,7 +52,7 @@ let create_var_from t (ov : Variable.t) (build : VarInfo.t -> VarInfo.t) =
   t, v
 
 let add_dep acc from to_ =
-  { acc with dep_graph = Variable.Graph.add_edge acc.dep_graph from to_ }
+  { acc with dep_graph = Variable.Graph.add_edge acc.dep_graph to_ from }
 
 let add_deps acc from to_ =
   List.fold_left (fun acc from ->
@@ -345,7 +345,7 @@ and compute_one acc (v : Variable.t) =
 
 let order_eqs ~filter acc =
   let scc = Variable.Graph.Topology.scc_list acc.dep_graph in
-  List.rev @@ List.filter_map (fun vs ->
+  List.filter_map (fun vs ->
       match List.filter filter vs with
       | [] -> None
       | [v] -> Some v

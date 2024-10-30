@@ -14,6 +14,18 @@ val print : Format.formatter -> t -> unit
 type satisfaction =
   | Sat
   | Unsat
-  | Unknown of Variable.t
+  | MaySat
 
 val satisfies : bool Variable.Map.t -> t -> satisfaction
+
+
+type var =
+  | Input of Variable.t
+  | Event of Variable.t
+
+type tree = private
+  | True
+  | False
+  | Branch of { var : var; yes : tree; no : tree }
+
+val tree : t -> tree

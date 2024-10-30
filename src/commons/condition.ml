@@ -249,7 +249,7 @@ type t = bdd hcd
 type satisfaction =
   | Sat
   | Unsat
-  | Unknown of Variable.t
+  | MaySat
 
 let rec satisfies (k : bool Variable.Map.t) t =
   match get t with
@@ -257,9 +257,25 @@ let rec satisfies (k : bool Variable.Map.t) t =
   | F -> Unsat
   | Var (Event v, l, r) ->
     (match Variable.Map.find_opt v k with
-     | None -> Unknown v
-     | Some b -> if b then satisfies k l else satisfies k r)
+     | Some b -> if b then satisfies k l else satisfies k r
+     | None ->
+       match satisfies k l, satisfies k r with
+       | Sat, Sat -> Sat
+       | Unsat, Unsat -> Unsat
+       | _ -> MaySat)
   | Var (Input v, l, r) ->
     match Variable.Map.find_opt v k with
     | None -> satisfies k r
     | Some b -> if b then satisfies k l else satisfies k r
+
+
+type tree =
+  | True
+  | False
+  | Branch of { var : var; yes : tree; no : tree }
+
+let rec tree (t : t) =
+  match get t with
+  | T -> True
+  | F -> False
+  | Var (var, yes, no) -> Branch { var; yes = tree yes; no = tree no }

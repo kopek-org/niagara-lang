@@ -162,10 +162,8 @@ let compute_events (p : program) (s : state) =
 let compute_value (s : state) (cond_state : cond_state)
     ({ eq_act; eq_expr } : guarded_eq) =
   match Condition.satisfies cond_state eq_act with
-  | Unknown v ->
-    Errors.raise_error "(internal) Unable to check activation, var \
-                        %d is missing value"
-      (Variable.uid v)
+  | MaySat ->
+    Errors.raise_error "(internal) Unable to check activation, missing var value"
   | Unsat -> Absent
   | Sat -> Present (valuate s eq_expr)
 
