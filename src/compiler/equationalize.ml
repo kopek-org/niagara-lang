@@ -1,5 +1,5 @@
 open Surface
-open Equations
+open Dataflow
 open Equ
 
 type flow_view = AtInstant | Cumulated
@@ -42,7 +42,7 @@ let make (pinfos : Ast.program_infos) = {
 }
 
 let find_vinfo t (v : Variable.t) =
-  match Variable.Map.find_opt v t.pinfos.nvar_info with
+  match Variable.Map.find_opt v t.pinfos.var_info with
   | None -> Errors.raise_error "(internal) variable %d info not found" (Variable.uid v)
   | Some i -> i
 
@@ -50,7 +50,7 @@ let bind_vinfo t (v : Variable.t) (info : VarInfo.t) =
   { t with
     pinfos = {
       t.pinfos with
-      nvar_info = Variable.Map.add v info t.pinfos.nvar_info
+      var_info = Variable.Map.add v info t.pinfos.var_info
     }
   }
 
@@ -85,7 +85,9 @@ let type_of t v =
   | None -> Errors.raise_error "(internal) Cannot find type of variable"
 
 let is_actor t (v : Variable.t) =
-  Variable.Map.mem v t.pinfos.actors
+  match Variable.Map.find_opt v t.pinfos.var_info with
+  | None -> false
+  | Some i -> VarInfo.is_partner i
 
 let find_const_opt t (v : Variable.t) =
   Variable.Map.find_opt v t.pinfos.Ast.constants
@@ -210,7 +212,7 @@ let register_value t ~(act : Condition.t) ~(dest : Variable.t) (expr : expr) =
         | Some ag ->
           Variable.Map.iter (fun v _ ->
               Format.eprintf "%a@\n" (FormatEqu.print_var_with_info t.pinfos) v)
-            t.pinfos.nvar_info;
+            t.pinfos.var_info;
           Format.eprintf "var %d: %a (%s)@."
                     (Variable.uid dest)
                     FormatEqu.print_expr expr
@@ -252,7 +254,6 @@ let get_derivative_var t (v : Variable.t) (ctx : Context.Group.t) =
           create_var_from ~shadowing:true t v
             (fun i -> { i with origin = ContextSpecialized { origin = v; context = ctx } })
         in
-        let { Variable.var_name } = Variable.Map.find v t.pinfos.var_info in
         let typ = type_of t v in
         let t = flag_variable_usage t dv in
         let t = ensure_cumulation t dv in
@@ -260,7 +261,6 @@ let get_derivative_var t (v : Variable.t) (ctx : Context.Group.t) =
           t with
           pinfos = {
             t.pinfos with
-            var_info = Variable.Map.add dv { Variable.var_name } t.pinfos.var_info;
             types =  Variable.Map.add dv typ t.pinfos.types;
             var_shapes = Variable.Map.add dv
                 (Context.shape_of_groups [ctx]) t.pinfos.var_shapes;
@@ -272,18 +272,6 @@ let get_derivative_var t (v : Variable.t) (ctx : Context.Group.t) =
               )
               t.ctx_derivations;
         }
-        in
-        let t =
-          match Variable.Map.find_opt v t.pinfos.inputs with
-          | None -> t
-          | Some kind ->
-            { t with pinfos = { t.pinfos with inputs = Variable.Map.add dv kind t.pinfos.inputs }}
-        in
-        let t =
-          match Variable.Map.find_opt v t.pinfos.actors with
-          | None -> t
-          | Some way ->
-            { t with pinfos = { t.pinfos with actors = Variable.Map.add dv way t.pinfos.actors }}
         in
         t, dv
 

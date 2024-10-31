@@ -1,4 +1,4 @@
-open Equations
+open Dataflow
 open Equ
 
 type val_exprs =
@@ -284,7 +284,7 @@ let rec expr_limits acc (evt : Variable.t) (e : guarded_eq) =
 
 let compute (p : program) =
   let acc = {
-    info = Surface.Ast.(p.infos.nvar_info);
+    info = Surface.Ast.(p.infos.var_info);
     act_eqs = p.act_eqs;
     val_eqs = p.val_eqs;
     val_memo = Variable.Map.empty;

@@ -5,8 +5,7 @@
     calendar
     commons
     surface
-    internal
-    equations
+    dataflow
     ocamlgraph
     dot
   )

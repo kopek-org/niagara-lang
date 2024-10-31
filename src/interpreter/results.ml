@@ -87,7 +87,7 @@ let build_result_layout (pinfos : Surface.Ast.program_infos) =
       | RepartitionSum _ | DeficitSum _ | ConditionExistential
       | AnonEvent | Peeking _ | RisingEvent _ ->
         layout)
-    pinfos.nvar_info Variable.Map.empty
+    pinfos.var_info Variable.Map.empty
 
 let sort_layout (infos : collection) (layout : results_layout) =
   List.sort (fun (v1,_) (v2,_) ->

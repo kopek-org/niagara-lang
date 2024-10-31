@@ -39,4 +39,6 @@ type collection = t Variable.Map.t
 val is_input : t -> bool
 val is_partner : t -> bool
 
+val get_name : collection -> Variable.t -> string option
+
 val print : Format.formatter -> t -> unit

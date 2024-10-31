@@ -1,5 +1,5 @@
 open Interpreter
-open Equations
+open Dataflow
 open Grammar
 open Surface
 
@@ -29,7 +29,7 @@ let convert_line (p : Equ.program) (input : string) (amount : string) =
       ParserMain.parse_string ~entry:Parser.Incremental.raw_pool input
   in
   let var =
-    find_input p.infos.Ast.nvar_info name
+    find_input p.infos.Ast.var_info name
       (Compiler.Contextualize.projection_of_context_refinement
          p.infos.Ast.contexts ctx)
   in

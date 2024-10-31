@@ -37,8 +37,6 @@ module Acc : sig
 
   val find_misc_var : way:stream_way -> t -> string -> Variable.t
 
-  val generate_advance_pool : t -> Variable.t -> t * Variable.t * string
-
   val add_proj_constraint : t -> Variable.t -> Context.Group.t -> t
 
   val add_var_constraint : t -> Variable.t -> Variable.t -> Context.Group.t -> t
@@ -71,16 +69,13 @@ end = struct
 
   type t = {
     program_decls : contextualized declaration list; (* the program in reverse order *)
-    var_info : Variable.info Variable.Map.t;
-    nvar_info : VarInfo.collection;
+    var_info : VarInfo.collection;
     var_table : name_ref StrMap.t;
     contexts : Context.world;
-    inputs : input_kind Variable.Map.t;
     actors : stream_way Variable.Map.t;
     compounds : Variable.Set.t Variable.Map.t; (* Aggregations of actor labels *)
     types : ValueType.t Variable.Map.t;
     constants : Literal.t Variable.Map.t;
-    advance_pools : Variable.t Variable.Map.t; (* substitution map *)
     constraints : context_constraint Variable.Map.t;
     deps : Variable.Set.t Variable.Map.t; (* maps src -> dests, for cycle detections *)
   }
@@ -88,20 +83,22 @@ end = struct
   let empty = {
     program_decls = [];
     var_info = Variable.Map.empty;
-    nvar_info = Variable.Map.empty;
     var_table = StrMap.empty;
     contexts = Context.empty_world;
-    inputs = Variable.Map.empty;
     actors = Variable.Map.empty;
     compounds = Variable.Map.empty;
     types = Variable.Map.empty;
     constants = Variable.Map.empty;
-    advance_pools = Variable.Map.empty;
     constraints = Variable.Map.empty;
     deps = Variable.Map.empty;
   }
 
   let contexts t = t.contexts
+
+  let is_actor v t =
+    match Variable.Map.find_opt v t.var_info with
+    | None -> false
+    | Some i -> VarInfo.is_partner i
 
   let add_program_decl t (decl : contextualized declaration) =
     { t with program_decls = decl::t.program_decls }
@@ -115,20 +112,8 @@ end = struct
     in
     { t with var_table }
 
-  let bind_name (v : Variable.t) (name : string) t =
-    { t with
-      var_info =
-        Variable.Map.add v { Variable.var_name = name; } t.var_info
-    }
-
-  let bind_input (v : Variable.t) (kind : input_kind) t =
-    { t with inputs = Variable.Map.add v kind t.inputs }
-
   let bind_type (v : Variable.t) (typ : ValueType.t) t =
     { t with types = Variable.Map.add v typ t.types }
-
-  let bind_actor (v : Variable.t) (way : stream_way) t =
-    { t with actors = Variable.Map.add v way t.actors }
 
   let bind_compound (v : Variable.t) (c : Variable.t) t =
     { t with
@@ -143,7 +128,7 @@ end = struct
     { t with constants = Variable.Map.add v value t.constants }
 
   let bind_vinfo (v : Variable.t) (info : VarInfo.t) t =
-    { t with nvar_info = Variable.Map.add v info t.nvar_info }
+    { t with var_info = Variable.Map.add v info t.var_info }
 
   let register_pool t (name : string) =
     let v = Variable.create () in
@@ -156,7 +141,6 @@ end = struct
     let t = bind_vinfo v info t in
     let t =
       bind_var name (RefPool v) t
-      |> bind_name v name
       |> bind_type v ValueType.TMoney
     in
     t, v
@@ -172,7 +156,6 @@ end = struct
       }
       in
       let t, v = register_pool t name in
-      let t = bind_input v Attributable t in
       let t = bind_vinfo v info t in
       t, v
     | ReadOnly ->
@@ -185,9 +168,7 @@ end = struct
       in
       let t =
         bind_var name (RefROInput v) t
-        |> bind_name v name
         |> bind_type v typ
-        |> bind_input v ReadOnly
       in
       let t = bind_vinfo v info t in
       t, v
@@ -210,12 +191,8 @@ end = struct
     let t = bind_vinfo uv uinfo t in
     let t = bind_vinfo dv dinfo t in
     bind_var name (RefActor (BaseActor {upstream = uv; downstream = dv})) t
-    |> bind_name uv name
     |> bind_type uv ValueType.TMoney
-    |> bind_name dv name
     |> bind_type dv ValueType.TMoney
-    |> bind_actor dv Downstream
-    |> bind_actor uv Upstream
     |> bind_compound dv dv
     |> bind_compound uv uv
 
@@ -230,7 +207,6 @@ end = struct
     let t = bind_vinfo v info t in
     let t =
       bind_var name (RefEvent v) t
-      |> bind_name v name
       |> bind_type v ValueType.TEvent
     in
     t, v
@@ -245,7 +221,6 @@ end = struct
     in
     let t = bind_vinfo v info t in
     bind_var name (RefConst v) t
-    |> bind_name v name
     |> bind_type v typ
     |> bind_const v value
 
@@ -316,9 +291,7 @@ end = struct
       let t = bind_vinfo vl info t in
       let t =
         bind_var lname (RefActor (Label (vl, way))) t
-        |> bind_name vl lname
         |> bind_type vl ValueType.TMoney
-        |> bind_actor vl way
         |> bind_compound vl base_actor
       in
       t, vl
@@ -331,22 +304,9 @@ end = struct
                           labeled actor"
         name label
 
-  let generate_advance_pool t (dest : Variable.t) =
-    let dest_name = (Variable.Map.find dest t.var_info).var_name in
-    let pool_name = "advance_" ^ dest_name in
-    let t, middle_pool = register_pool t pool_name in
-    let t = { t with
-      advance_pools =
-        Variable.Map.update dest (function
-            | Some v -> Errors.raise_error "Advance already exists for %d" (Variable.uid v)
-            | None -> Some middle_pool)
-          t.advance_pools; }
-    in
-    t, middle_pool, pool_name
-
   let add_var_constraint t (v : Variable.t)
       (from_var : Variable.t) (proj : Context.Group.t) =
-    if Variable.Map.mem v t.actors then t else
+    if is_actor v t then t else
       { t with
         constraints =
           Variable.Map.update v (function
@@ -369,7 +329,7 @@ end = struct
       }
 
   let add_proj_constraint t (v : Variable.t) (proj : Context.Group.t) =
-    if Variable.Map.mem v t.actors then t else
+    if is_actor v t then t else
       { t with
         constraints =
           Variable.Map.update v (function
@@ -383,90 +343,6 @@ end = struct
                 })
             t.constraints
       }
-
-  (* Tricky things going on there.
-
-     Advances are implemented by inserting a intermediary pool before the target
-     of the advance. This pool is redistributed to the target or the provider
-     depending on a generated event that check that the intermediary has reach
-     the advance amount.
-
-     This would disrupt the flow described by the user as everything flowing in
-     the target must now flow to the intermediary, amending every declaration
-     already processed.
-
-     Instead, the actual way this is done is to add the intermediary *after* the
-     target, with the right redistribution, but not taken into account by the
-     rest of the processing. Until the following function, which swap the target
-     and intermediary uids when everything has been processed. This way
-     everything is still flowing into the initial target, but the target itself
-     flow into the intermediary (through the generated operation), and
-     everything flowing out of the target then flow out of the intermediary, and
-     voila.
-
-     We have to be careful when swapping additionnal infos to remain coherent.
-     But as it stand, it works fine, with only limited noise for the user,
-     namely and additionnal event and pool, but endpoint names are properly
-     preserved and do not disturb the "interface" intended by the user. *)
-  let advance_substitution t =
-    let subst dest middle t =
-      let program_decls =
-        List.map (fun decl ->
-            match decl with
-            | DVarOperation o ->
-              DVarOperation(
-                if fst o.ctx_op_source = dest then
-                  { o with ctx_op_source = middle, snd o.ctx_op_source }
-                else if fst o.ctx_op_source = middle then
-                  (* only for the generated indirection operation *)
-                  { o with ctx_op_source = dest, snd o.ctx_op_source }
-                else o)
-            | DVarDefault d ->
-              DVarDefault(
-                if fst d.ctx_default_source = dest then
-                  { d with ctx_default_source = middle, snd d.ctx_default_source }
-                else d)
-            | DVarEvent _
-            | DVarDeficit _ -> decl
-          )
-          t.program_decls
-      in
-      let dest_is_actor = Variable.Map.mem dest t.actors in
-      let var_info =
-        (* swap names only if the initial destination is an actor, to preserve user naming *)
-        if dest_is_actor then
-          let middle_info = Variable.Map.find middle t.var_info in
-          let infos = Variable.Map.add middle (Variable.Map.find dest t.var_info) t.var_info in
-          Variable.Map.add dest middle_info infos
-        else t.var_info
-      in
-      let actors =
-        if dest_is_actor then
-          let actors = Variable.Map.add middle Downstream t.actors in
-          Variable.Map.remove dest actors
-        else t.actors
-      in
-      let constraints =
-        match Variable.Map.find_opt dest t.constraints with
-        | None -> t.constraints
-        | Some consts ->
-          let constraints = Variable.Map.add middle consts t.constraints in
-          Variable.Map.add dest {
-            from_vars =
-              Variable.Map.singleton
-                middle
-                (Context.Group.Set.singleton (Context.any_projection t.contexts));
-            projections = Context.Group.Set.empty;
-          } constraints
-      in
-      { t with
-        program_decls;
-        var_info;
-        actors;
-        constraints;
-      }
-    in
-    Variable.Map.fold subst t.advance_pools t
 
   let resolve_constraints t =
     let rec resolve_var v shapes =
@@ -547,14 +423,10 @@ end = struct
     { t with deps }
 
   let to_contextualized_program t =
-    let t = advance_substitution t in
-    let infos = {
+    let infos : program_infos = {
       var_info = t.var_info;
-      nvar_info = t.nvar_info;
       var_shapes = resolve_constraints t;
       contexts = t.contexts;
-      inputs = t.inputs;
-      actors = t.actors;
       compounds = t.compounds;
       types = t.types;
       constants = t.constants;
@@ -826,56 +698,7 @@ let constant acc (c : const_decl) =
   let t = Literal.type_of c.const_value in
   Acc.register_const acc c.const_name t c.const_value
 
-let advance acc (a : advance_decl) =
-  let acc, output = find_holder acc a.adv_output in
-  let acc, provider =
-    let holder = holder ~loc:a.adv_provider.actor_loc (Actor a.adv_provider) in
-    find_holder acc holder in
-  let acc, amount =
-    formula acc a.adv_amount
-      ~on_proj:(Context.any_projection (Acc.contexts acc))
-  in
-  let acc, adv_pool, pool_name = Acc.generate_advance_pool acc (fst output) in
-  let adv_pool = adv_pool, snd output in
-  let acc, evt = Acc.register_event acc ("repayed_" ^ pool_name) in
-  let event_expr = {
-    event_expr_loc = Pos.dummy;
-    event_expr_desc =
-      EventComp
-        (Eq,
-         Surface.Ast.formula ~loc:a.adv_output.holder_loc (Variable output),
-         amount)
-  }
-  in
-  let event_ref = {
-    event_expr_loc = event_expr.event_expr_loc;
-    event_expr_desc = EventVar evt;
-  }
-  in
-  let evt_decl =
-    { ctx_event_var = evt;
-      ctx_event_expr = event_expr;
-    }
-  in
-  let acc = Acc.add_program_decl acc (DVarEvent evt_decl) in
-  let build_redist dest =
-    Redists [ WithVar (Surface.Ast.redistribution
-                        (Part (Surface.Ast.formula
-                           (Literal (LRational R.one)), [])), Some dest)]
-  in
-  (* operation with sources output and adv_pool will be swaped later *)
-  let redirection = {
-    ctx_op_label = a.adv_label;
-    ctx_op_default_dest = None;
-    ctx_op_source = adv_pool;
-    ctx_op_guarded_redistrib =
-      Branches {
-        befores = [event_ref, build_redist provider];
-        afters = [event_ref, build_redist adv_pool]
-      }
-  }
-  in
-  Acc.add_program_decl acc (DVarOperation redirection)
+let advance _acc (_a : advance_decl) = Errors.raise_error "no more advance"
 
 let declaration acc (decl : source declaration) =
   match decl with

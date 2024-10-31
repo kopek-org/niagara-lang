@@ -231,12 +231,9 @@ type _ declaration =
   | DVarDeficit : ctx_deficit_decl -> contextualized declaration
 
 type program_infos = {
-  var_info : Variable.info Variable.Map.t;
-  nvar_info : VarInfo.collection;
+  var_info : VarInfo.collection;
   var_shapes : Context.shape Variable.Map.t;
   contexts : Context.world;
-  inputs : input_kind Variable.Map.t;
-  actors : stream_way Variable.Map.t;
   compounds : Variable.Set.t Variable.Map.t;
   types : ValueType.t Variable.Map.t;
   constants : Literal.t Variable.Map.t;

@@ -71,8 +71,11 @@ let print_destination fmt (dest : holder) =
   Format.fprintf fmt "vers %a" print_holder dest
 
 let print_variable infos fmt (v : Variable.t) =
-  let vinfos = Variable.Map.find v infos.var_info in
-  Format.fprintf fmt "%s/%d" vinfos.var_name (Variable.uid v)
+  match VarInfo.get_name infos.var_info v with
+  | Some name ->
+    Format.fprintf fmt "%s/%d" name (Variable.uid v)
+  | None ->
+    VarInfo.print fmt (Variable.Map.find v infos.var_info)
 
 let print_ctx_variable infos fmt ((v, proj) : contextualized_variable) =
   Format.fprintf fmt "@[<hv 2>%a@,%a@]" (print_variable infos) v
@@ -260,11 +263,8 @@ let print_program (type a) fmt (p : a program) =
     | Source decls ->
       let dummy_infos = {
         var_info = Variable.Map.empty;
-        nvar_info = Variable.Map.empty;
         var_shapes = Variable.Map.empty;
         contexts = Context.empty_world;
-        inputs = Variable.Map.empty;
-        actors = Variable.Map.empty;
         compounds = Variable.Map.empty;
         types = Variable.Map.empty;
         constants = Variable.Map.empty;

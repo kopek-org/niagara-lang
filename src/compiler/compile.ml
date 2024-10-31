@@ -1,6 +1,6 @@
 open Surface
 
-open Equations
+open Dataflow
 
 let timing = false
 
@@ -20,7 +20,7 @@ let compile : Ast.source Ast.program -> Equ.program * Equ.limits = fun program -
   let equ_res = Equationalize.translate_program ctx_program in
   (* Variable.Map.iter (fun v _ -> *)
   (*     Format.fprintf fmt "%a@." (FormatEqu.print_var_with_info equ_res.infos) v) *)
-  (*   equ_res.infos.nvar_info; *)
+  (*   equ_res.infos.var_info; *)
   time "equationalized";
   (* let filter = *)
   (*   Dot.{ no_filtering with *)

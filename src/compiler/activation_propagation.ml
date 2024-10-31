@@ -1,5 +1,5 @@
 open Surface
-open Equations
+open Dataflow
 open Equ
 
 let no_existence = {
@@ -32,7 +32,7 @@ let make_acc (pinfos : Ast.program_infos) (aggr : aggregate_eqs)
 }
 
 let find_vinfo t (v : Variable.t) =
-  match Variable.Map.find_opt v t.pinfos.nvar_info with
+  match Variable.Map.find_opt v t.pinfos.var_info with
   | None -> Errors.raise_error "(internal) variable %d info not found" (Variable.uid v)
   | Some i -> i
 
@@ -40,7 +40,7 @@ let bind_vinfo t (v : Variable.t) (info : VarInfo.t) =
   { t with
     pinfos = {
       t.pinfos with
-      nvar_info = Variable.Map.add v info t.pinfos.nvar_info
+      var_info = Variable.Map.add v info t.pinfos.var_info
     }
   }
 
@@ -337,7 +337,7 @@ and compute_one acc (v : Variable.t) =
       match Variable.Map.find_opt v acc.aggr with
       | None ->
         let eq_act =
-          if Variable.Map.mem v acc.pinfos.Ast.inputs
+          if VarInfo.is_input (find_vinfo acc v)
           then Condition.of_input v else Condition.never
         in
         acc, { eq_act; eq_expr = EVar v }
@@ -368,14 +368,14 @@ let compute (pinfos : Ast.program_infos) (ag_eqs : aggregate_eqs)
   let val_order =
     order_eqs acc
       ~filter:(fun v ->
-          match (Variable.Map.find v acc.pinfos.nvar_info).kind with
+          match (Variable.Map.find v acc.pinfos.var_info).kind with
           | ParameterInput { shadow = false }
           | PoolInput { shadow = false }
           | Event -> false
           | _ -> true)
   in
   let is_event v =
-    match (Variable.Map.find v acc.pinfos.nvar_info).kind with
+    match (Variable.Map.find v acc.pinfos.var_info).kind with
     | Event -> true
     | _ -> false
   in

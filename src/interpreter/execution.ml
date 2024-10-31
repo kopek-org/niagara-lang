@@ -1,4 +1,4 @@
-open Equations
+open Dataflow
 open Equ
 
 type value_presence =
@@ -122,7 +122,7 @@ let value_inputs (p : program) (s : state) =
         if VarInfo.is_input infos then
           Variable.Map.add v Absent vals
         else vals)
-      p.infos.Surface.Ast.nvar_info s.valuations
+      p.infos.Surface.Ast.var_info s.valuations
   in
   { s with valuations }
 

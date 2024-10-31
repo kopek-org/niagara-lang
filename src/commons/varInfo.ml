@@ -48,6 +48,24 @@ let is_partner t =
   | ProvidingPartner -> true
   | _ -> false
 
+let rec get_name coll v =
+  match Variable.Map.find_opt v coll with
+  | None -> None
+  | Some t ->
+    match t.origin with
+    | Named name -> Some name
+    | LabelOfPartner { partner; _ } -> get_name coll partner
+    | Cumulative v -> get_name coll v
+    | AnonEvent -> None
+    | Peeking v -> get_name coll v
+    | RisingEvent v -> get_name coll v
+    | ContextSpecialized { origin; _ } -> get_name coll origin
+    | OperationDetail _ -> None
+    | OperationSum _ -> None
+    | RepartitionSum _ -> None
+    | DeficitSum _ -> None
+    | ConditionExistential -> None
+
 let print fmt t =
   let open Format in
   match t.origin with

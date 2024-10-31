@@ -21,5 +21,5 @@ type computation_inputs = input_line InputLineMap.t
 type computation_outputs = output_line InputLineMap.t
 
 val compute_input_lines :
-  Equations.Equ.program -> Equations.Equ.limits -> computation_inputs
+  Dataflow.Equ.program -> Dataflow.Equ.limits -> computation_inputs
   -> computation_outputs

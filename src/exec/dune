@@ -12,8 +12,7 @@
     grammar
     surface
     compiler
-    internal
-    equations
+    dataflow
     interpreter
     logs
     fmt.tty

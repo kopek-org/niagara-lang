@@ -1,5 +1,5 @@
 open Surface
-open Equations
+open Dataflow
 
 type result = {
   infos : Ast.program_infos;

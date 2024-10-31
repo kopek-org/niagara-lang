@@ -1,5 +1,5 @@
 (library
   (name interpreter)
   (public_name niagara-lang-lib.interpreter)
-  (libraries calendar commons compiler internal equations surface)
+  (libraries calendar commons compiler dataflow surface)
 )

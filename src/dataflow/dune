@@ -1,7 +1,7 @@
 
 (library
-  (name internal)
-  (public_name niagara-lang-lib.internal)
+  (name dataflow)
+  (public_name niagara-lang-lib.dataflow)
   (libraries
     zarith
     calendar

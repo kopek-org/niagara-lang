@@ -75,8 +75,8 @@ let event_flips (infos : VarInfo.collection) (past_state : bool Variable.Map.t)
       | _ -> None)
    past_state new_state
 
-let print_intepreter_outputs (p : Equations.Equ.program) fmt (lines : computation_outputs) =
-  let var_infos = p.infos.Surface.Ast.nvar_info in
+let print_intepreter_outputs (p : Dataflow.Equ.program) fmt (lines : computation_outputs) =
+  let var_infos = p.infos.Surface.Ast.var_info in
   let iter_vars = Results.iter_layout var_infos in
   let layout = Results.build_result_layout p.infos in
   let open Format in
