@@ -92,3 +92,8 @@ let print fmt t =
   | DeficitSum v -> fprintf fmt "%d->!" (Variable.uid v)
   | ConditionExistential ->
     fprintf fmt "`E"
+
+let get_any_name coll v =
+  match get_name coll v with
+  | Some n -> n
+  | None -> Format.asprintf "%a" print (Variable.Map.find v coll)
