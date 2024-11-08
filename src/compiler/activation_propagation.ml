@@ -99,10 +99,11 @@ let result_to_var { acc; form; cond; deps; rev_deps } (target : Variable.t) =
         | Merge vars -> EMerge vars
     }
   in
-  let acc = add_eq acc target eq in
-  let acc = add_deps acc (Variable.Set.elements deps) [target] in
-  let acc = add_deps acc [target] (Variable.Set.elements rev_deps) in
-  acc, eq
+  if Condition.is_never cond then acc, eq else
+    let acc = add_eq acc target eq in
+    let acc = add_deps acc (Variable.Set.elements deps) [target] in
+    let acc = add_deps acc [target] (Variable.Set.elements rev_deps) in
+    acc, eq
 
 let rec add_to_groups (groups : ('a list * Condition.t) list)
     (obj : 'a) (cond : Condition.t) =
