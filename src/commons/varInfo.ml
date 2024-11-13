@@ -48,6 +48,8 @@ let is_partner t =
   | ProvidingPartner -> true
   | _ -> false
 
+let is_event t = t.kind = Event
+
 let rec get_name coll v =
   match Variable.Map.find_opt v coll with
   | None -> None

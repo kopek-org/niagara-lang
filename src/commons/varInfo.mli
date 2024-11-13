@@ -38,6 +38,7 @@ type collection = t Variable.Map.t
 
 val is_input : t -> bool
 val is_partner : t -> bool
+val is_event : t -> bool
 
 val get_name : collection -> Variable.t -> string option
 val get_any_name : collection -> Variable.t -> string

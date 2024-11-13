@@ -8,7 +8,7 @@
 
 (maintainers "keryan.didier@ocamlpro.com")
 
-(authors "keyran.didier@ocamlpro.com" "julien.blond@ocamlpro.com")
+(authors "keryan.didier@ocamlpro.com" "julien.blond@ocamlpro.com")
 
 (homepage "https://github.com/kopek-org/niagara-lang")
 
