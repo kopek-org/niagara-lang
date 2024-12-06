@@ -456,6 +456,7 @@ let convert_flats t =
 
 let aggregate_derivations t =
   Variable.Map.fold (fun dest ctxv t ->
+      let t = ensure_cumulation t dest in
       Context.Group.Map.fold (fun _ctx deriv t ->
           register_aggregation t ~act:Condition.always ~dest deriv)
         ctxv t)
@@ -463,6 +464,7 @@ let aggregate_derivations t =
 
 let aggregate_compounds t =
   Variable.Map.fold (fun dest ctxv t ->
+      let t = ensure_cumulation t dest in
       Variable.Set.fold (fun c t ->
           if Variable.equal dest c then t else
             register_aggregation t ~act:Condition.always ~dest c)
