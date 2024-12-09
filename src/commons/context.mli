@@ -31,6 +31,9 @@ module Group : sig
       in [g2]. *)
   val diff : t -> t -> t
 
+  (** [is_empty g] returns if [g] contains any point. *)
+  val is_empty : t -> bool
+
   (** [includes g1 g2] returns if [g2] is entirely included in [g1]. *)
   val includes : t -> t -> bool
 
