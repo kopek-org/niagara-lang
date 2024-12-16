@@ -27,6 +27,7 @@ type t = {
   value_eqs : aggregate_eqs; (* dest key *)
   cumulation_vars : Variable.t Variable.Map.t;
   deficits_vars : (Variable.t * Condition.t) list Variable.Map.t;
+  oppositions : expr Variable.Map.t Variable.Map.t (* target -> og variable -> subst expr *)
 }
 
 let make (pinfos : Ast.program_infos) = {
@@ -39,6 +40,7 @@ let make (pinfos : Ast.program_infos) = {
   value_eqs = Variable.Map.empty;
   cumulation_vars = Variable.Map.empty;
   deficits_vars = Variable.Map.empty;
+  oppositions = Variable.Map.empty;
 }
 
 let find_vinfo t (v : Variable.t) =
@@ -172,8 +174,12 @@ let register_part t ~(act : Condition.t) ~(src : Variable.t)
   { t with repartitions }
 
 let register_redist t ~(act : Condition.t) ~(src : Variable.t)
-    ~(dest : Variable.t) (part : R.t) =
-  register_part t ~act ~src ~dest (Part part)
+    ~(dest : Variable.t) (part : R.t) (opps : (Variable.t * R.t) list) =
+  let opps =
+    List.map (fun (opp_target, opp_value) ->
+      Repartition.{ opp_target; opp_value }) opps
+  in
+  register_part t ~act ~src ~dest (Part (part, opps))
 
 let register_default t ~(act : Condition.t) ~(src : Variable.t)
     ~(dest : Variable.t) =
@@ -221,6 +227,15 @@ let register_value t ~(act : Condition.t) ~(dest : Variable.t) (expr : expr) =
       t.value_eqs
   in
   { t with value_eqs; }
+
+let register_opposition t ~(on : Variable.t) ~(target : Variable.t) (expr : expr) =
+  let oppositions =
+    Variable.Map.update target (function
+        | None -> Some (Variable.Map.singleton on expr)
+        | Some opps -> Some (Variable.Map.add on expr opps))
+      t.oppositions
+  in
+  { t with oppositions }
 
 let add_deficit_var t ~(act : Condition.t) ~(provider : Variable.t) (def : Variable.t) =
   { t with
@@ -330,7 +345,7 @@ let group_productions ~produce ~aggr_var t ops =
 let convert_repartitions t =
   let conv_shares t src shares =
     let grouped_shares =
-      List.fold_left (fun gs (share : R.t Repartition.share) ->
+      List.fold_left (fun gs (share : _ Repartition.share) ->
           Variable.Map.update share.dest (function
               | None -> Some [share]
               | Some sh -> Some (share::sh))
@@ -343,11 +358,19 @@ let convert_repartitions t =
             Variable.Map.fold (fun dest shares (t, vars) ->
                 let t, (pvar, pcond) =
                   group_productions
-                    ~produce:(List.fold_left_map (fun t ({ condition; part; _ } : R.t Repartition.share) ->
+                    ~produce:(List.fold_left_map (fun t ({ condition; part; _ }
+                                                         : Repartition.opposable_part Repartition.share) ->
                         let t, ov = create_var_from t dest (fun i ->
                             { i with
                               origin = OperationDetail { op_kind = Quotepart; source = src; target = dest }
                             })
+                        in
+                        let part, opposed = part in
+                        let t =
+                          List.fold_left (fun t Repartition.{ opp_value; opp_target } ->
+                              let expr = EMult (EConst (LRational opp_value), EVar src) in
+                              register_opposition t ~on:ov ~target:opp_target expr)
+                            t opposed
                         in
                         let expr = EMult (EConst (LRational part), EVar src) in
                         let t = register_value t ~act:condition ~dest:ov expr in
@@ -661,15 +684,28 @@ let translate_redistribution acc ~(ctx : Context.Group.t) ~(act : Condition.t)
     | _ -> Errors.raise_error "(internal) Destination context inapplicable"
   in
   match redist.redistribution_desc with
-  | Part (f, []) ->
+  | Part (f, opp) ->
     let acc, (partf, _) = translate_formula ~ctx ~view:AtInstant acc f in
     let part =
       match reduce_to_r partf with
       | Some p -> p
       | None -> Errors.raise_error "Non-constant quotepart"
     in
-    Acc.register_redist acc ~act ~src ~dest part
-  | Part (_, _) -> assert false
+    let acc, opps =
+      List.fold_left_map (fun acc (Ast.VarOpp { opp_towards; opp_value; _ }) ->
+          let acc, (partf, _) = translate_formula ~ctx ~view:AtInstant acc opp_value in
+          let opp_part =
+            match reduce_to_r partf with
+            | Some p -> p
+            | None -> Errors.raise_error "Non-constant quotepart"
+          in
+          if R.(opp_part > part) then
+            Errors.raise_error "Opposition quotepart higher than nominal"
+          else
+            acc, (opp_towards, opp_part))
+        acc opp
+    in
+    Acc.register_redist acc ~act ~src ~dest part opps
   | Flat f ->
     let acc, (e, _) = translate_formula ~ctx ~view:AtInstant acc f in
     Acc.register_flat acc ~act ~src ~dest e

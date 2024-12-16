@@ -136,7 +136,7 @@ let print_opposable (type a )infos fmt (opposable : a opposable) =
   | VarOpp opposable ->
     Format.fprintf fmt "opposable %a @[<hv>envers %a@ par %a@]"
       (print_formula infos) opposable.opp_value
-      (print_ctx_variable infos) opposable.opp_towards
+      (print_variable infos) opposable.opp_towards
       (print_ctx_variable infos) opposable.opp_provider
 
 let print_redist (type a) infos fmt (redist : a redistribution) =

@@ -1,4 +1,8 @@
-type part_or_def = Part of R.t | Default | Deficit
+type opposed_part = { opp_value : R.t; opp_target : Variable.t }
+
+type opposable_part = R.t * opposed_part list
+
+type part_or_def = Part of opposable_part | Default | Deficit
 
 type 'a share = {
   dest : Variable.t;
@@ -13,7 +17,7 @@ type eqs = part_or_def t Variable.Map.t
 type unified_parts = Condition.t R.Map.t
 
 type fullness_result = {
-  parts : R.t t;
+  parts : opposable_part t;
   defaults : unified_parts t;
   deficits : unified_parts share option;
 }

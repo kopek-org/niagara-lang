@@ -1,4 +1,9 @@
-type part_or_def = Part of R.t | Default | Deficit
+
+type opposed_part = { opp_value : R.t; opp_target : Variable.t }
+
+type opposable_part = R.t * opposed_part list
+
+type part_or_def = Part of opposable_part | Default | Deficit
 
 type 'a share = {
   dest : Variable.t;
@@ -114,7 +119,7 @@ let sort_shares (rep : part_or_def t) =
               { defs with local_defaults = share::defs.local_defaults }
         in
         parts, defs
-      | Part p ->
+      | Part (p, _) ->
         let parts = add_part parts share.condition p in
         parts, defs)
     (R.Map.empty, empty_defs) rep
@@ -133,7 +138,7 @@ let check_fullness (rep : unified_parts) =
     Errors.raise_error "Pool needs default"
 
 type fullness_result = {
-  parts : R.t t;
+  parts : opposable_part t;
   defaults : unified_parts t;
   deficits : unified_parts share option;
 }

@@ -587,9 +587,10 @@ let opposable acc ~(on_proj : Context.Group.t)
     find_holder_as_source acc
       (holder ~loc:opp_provider.actor_loc (Actor opp_provider))
   in
-  let acc, opp_towards =
-    find_holder acc
-      (holder ~loc:opp_towards.actor_loc (Actor opp_towards))
+  let opp_towards =
+    match opp_towards.actor_desc with
+    | LabeledActor _ -> Errors.raise_error "Opposition target must be a partner without label"
+    | PlainActor s -> Acc.find_actor acc ~way:Downstream s
   in
   acc, VarOpp { opp_value; opp_provider; opp_towards }
 
