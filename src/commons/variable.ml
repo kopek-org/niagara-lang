@@ -2,7 +2,6 @@ type t = int
 
 module Map = Map.Make(Int)
 module Set = Set.Make(Int)
-module BDT = BinaryDecisionTree.Make(Int)(Map)
 
 module G = Graph.Persistent.Digraph.ConcreteBidirectionalLabeled(struct
     include Int
