@@ -27,7 +27,7 @@ type t = {
   value_eqs : aggregate_eqs; (* dest key *)
   cumulation_vars : Variable.t Variable.Map.t;
   deficits_vars : (Variable.t * Condition.t) list Variable.Map.t;
-  oppositions : expr Variable.Map.t Variable.Map.t (* target -> og variable -> subst expr *)
+  oppositions : Opposition.user_substitutions Variable.Map.t (* target -> og variable -> subst expr *)
 }
 
 let make (pinfos : Ast.program_infos) = {
@@ -518,6 +518,16 @@ let convert_deficits t =
       register_aggregation t ~act ~dest:provider sumdef)
     t.deficits_vars t
 
+let resolve_oppositions (t : t) =
+  let Opposition.{ var_info; value_eqs; event_eqs } =
+    Opposition.resolve t.pinfos.var_info t.value_eqs t.event_eqs t.oppositions
+  in
+  { t with
+    pinfos = { t.pinfos with var_info };
+    value_eqs;
+    event_eqs
+  }
+
 let produce_aggregated_eqs t =
   let t = convert_repartitions t in
   let t = convert_flats t in
@@ -525,6 +535,7 @@ let produce_aggregated_eqs t =
   let t = aggregate_compounds t in
   let t = convert_cumulations t in
   let t = convert_deficits t in
+  let t = resolve_oppositions t in
   { infos = t.pinfos;
     aggr_eqs = t.value_eqs;
     event_eqs = t.event_eqs;

@@ -18,6 +18,7 @@ type origin =
   | RepartitionSum of Variable.t
   | DeficitSum of Variable.t
   | ConditionExistential
+  | OpposingVariant of { target : Variable.t; origin : Variable.t }
 
 type kind =
   | ReceivingPartner

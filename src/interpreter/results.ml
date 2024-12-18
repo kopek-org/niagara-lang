@@ -126,6 +126,9 @@ let build_result_layout (pinfos : Surface.Ast.program_infos) =
         update_detail_of source (fun l ->
             { l with reps = Variable.Map.add target v l.reps })
           layout
+      | OpposingVariant { target; origin } ->
+        ignore (target, origin);
+        failwith "TODO opposing variant"
       | RepartitionSum _ | DeficitSum _ | ConditionExistential
       | AnonEvent | Peeking _ | RisingEvent _ ->
         layout)
