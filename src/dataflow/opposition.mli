@@ -1,9 +1,9 @@
 type user_substitutions = Equ.expr Variable.Map.t
 
 type result = {
-  var_info : VarInfo.collection;
-  value_eqs : Equ.aggregate_eqs;
-  event_eqs : Equ.expr Variable.Map.t;
+  opp_var_info : VarInfo.collection;
+  opp_value_eqs : Equ.aggregate_eqs;
+  opp_event_eqs : Equ.expr Variable.Map.t;
 }
 
 val resolve

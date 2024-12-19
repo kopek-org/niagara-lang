@@ -128,7 +128,8 @@ let build_result_layout (pinfos : Surface.Ast.program_infos) =
           layout
       | OpposingVariant { target; origin } ->
         ignore (target, origin);
-        failwith "TODO opposing variant"
+        Printf.eprintf "TODO implement opposing variant results";
+        layout
       | RepartitionSum _ | DeficitSum _ | ConditionExistential
       | AnonEvent | Peeking _ | RisingEvent _ ->
         layout)

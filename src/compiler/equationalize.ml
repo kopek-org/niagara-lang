@@ -519,13 +519,13 @@ let convert_deficits t =
     t.deficits_vars t
 
 let resolve_oppositions (t : t) =
-  let Opposition.{ var_info; value_eqs; event_eqs } =
+  let Opposition.{ opp_var_info; opp_value_eqs; opp_event_eqs } =
     Opposition.resolve t.pinfos.var_info t.value_eqs t.event_eqs t.oppositions
   in
   { t with
-    pinfos = { t.pinfos with var_info };
-    value_eqs;
-    event_eqs
+    pinfos = { t.pinfos with var_info = opp_var_info };
+    value_eqs = opp_value_eqs;
+    event_eqs = opp_event_eqs;
   }
 
 let produce_aggregated_eqs t =

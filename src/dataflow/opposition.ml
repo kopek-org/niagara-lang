@@ -3,137 +3,161 @@ open Equ
 type user_substitutions = expr Variable.Map.t
 
 type result = {
-  var_info : VarInfo.collection;
-  value_eqs : aggregate_eqs;
-  event_eqs : expr Variable.Map.t;
+  opp_var_info : VarInfo.collection;
+  opp_value_eqs : aggregate_eqs;
+  opp_event_eqs : expr Variable.Map.t;
 }
 
 type copies = Variable.t option Variable.Map.t
 
-type concequents = {
-  user_substs : user_substitutions;
-  events : Variable.Set.t;
+type acc = {
+  var_info : VarInfo.collection;
+  value_eqs : aggregate_eqs;
+  event_eqs : expr Variable.Map.t;
   copies : copies;
+  events : Variable.Set.t;
 }
 
-let is_user_subst csq var = Variable.Map.mem var csq.user_substs
+type env = {
+  target : Variable.t;
+  user_substs : user_substitutions;
+  maybes : Condition.t Variable.Map.t;
+}
 
-let add_copy acc csq ~(target : Variable.t) (var : Variable.t) =
+let is_user_subst env var = Variable.Map.mem var env.user_substs
+
+let add_copy acc { target; _ } (var : Variable.t) =
   let copy = Variable.create () in
   let infos = Variable.Map.find var acc.var_info in
-  let origin = VarInfo.OpposingVariant { target; origin = var} in
+  let origin = VarInfo.OpposingVariant { target; origin = var } in
   let acc =
     { acc with
       var_info =
         Variable.Map.add copy { infos with origin } acc.var_info;
     }
   in
-  let copies = Variable.Map.add var (Some copy) csq.copies in
-  let csq = { csq with copies } in
-  acc, csq
+  let copies = Variable.Map.add var (Some copy) acc.copies in
+  let acc = { acc with copies } in
+  acc
 
-let not_consequent csq (var : Variable.t) =
-  { csq with
-    copies = Variable.Map.add var None csq.copies
-  }
-
-let register_consequence acc csq ~(target : Variable.t)
-    (var : Variable.t) (is_consequent : bool) =
-  let is_consequent = is_consequent || is_user_subst csq var in
-  let acc, csq =
-    if is_consequent then
-      add_copy acc csq ~target var
-    else
-      acc, not_consequent csq var
-  in
-  acc, csq, is_consequent
-
-let add_condition_events csq (cond : Condition.t) =
-  let rec aux csq (tree : Condition.tree) =
+let add_condition_events acc (cond : Condition.t) =
+  let rec aux acc (tree : Condition.tree) =
     match tree with
-    | True | False -> csq
+    | True | False -> acc
     | Branch { var = Input _; _ } -> assert false
     | Branch { var = Event v; yes; no } ->
-      let csq =
-        { csq with events = Variable.Set.add v csq.events }
+      let acc =
+        { acc with events = Variable.Set.add v acc.events }
       in
-      aux (aux csq yes) no
+      aux (aux acc yes) no
   in
-  aux csq (Condition.tree cond)
+  aux acc (Condition.tree cond)
 
-let rec expr_consequents acc csq ~(target : Variable.t) (expr : expr) =
-  match expr with
-  | EConst _ -> acc, csq, false
-  | EVar var | EPre var ->
-    let acc, csq, is_consequent =
-      compute_consequents acc csq ~target var
-    in
-    acc, csq, is_consequent
-  | ENeg e | EInv e | ENot e ->
-    expr_consequents acc csq ~target e
-  | EAdd (e1, e2) | EMult (e1, e2)
-  | EAnd (e1, e2) | EGe (e1, e2) ->
-    let acc, csq, is_csq1 =
-      expr_consequents acc csq ~target e1
-    in
-    let acc, csq, is_csq2 =
-      expr_consequents acc csq ~target e2
-    in
-    acc, csq, is_csq1 || is_csq2
-  | EMerge _ -> assert false
+let maybes_are_certain acc env =
+  let acc =
+    Variable.Map.fold (fun var cond acc ->
+        let acc = add_copy acc env var in
+        add_condition_events acc cond)
+      env.maybes acc
+  in
+  let env = { env with maybes = Variable.Map.empty } in
+  acc, env
 
-and eq_consequents acc csq ~(target : Variable.t) (eq : aggregation) =
+let not_consequent acc (var : Variable.t) =
+  { acc with
+    copies = Variable.Map.add var None acc.copies
+  }
+
+let register_consequence acc env (var : Variable.t) (is_consequent : bool) =
+  if is_consequent then
+    add_copy acc env var
+  else
+    not_consequent acc var
+
+let rec expr_consequents acc env (expr : expr) =
+  let rec aux acc env delays expr =
+    match expr with
+    | EConst _ -> acc, false, delays
+    | EVar var ->
+      let acc, is_consequent = compute_consequents acc env var in
+      acc, is_consequent, delays
+    | EPre var ->
+      acc, false, Variable.Set.add var delays
+    | ENeg e | EInv e | ENot e ->
+      aux acc env delays e
+    | EAdd (e1, e2) | EMult (e1, e2)
+    | EAnd (e1, e2) | EGe (e1, e2) ->
+      let acc, is_csq1, delays =
+        aux acc env delays e1
+      in
+      let acc, is_csq2, delays  =
+        aux acc env delays e2
+      in
+      acc, is_csq1 || is_csq2, delays
+    | EMerge _ -> assert false
+  in
+  aux acc env Variable.Set.empty expr
+
+and eq_consequents acc env (var : Variable.t) (eq : aggregation) =
   match eq with
   | One { eq_act; eq_expr } ->
-    let acc, csq, is_consequent =
-      expr_consequents acc csq ~target eq_expr
-    in
-    let csq =
-      if is_consequent then add_condition_events csq eq_act else csq
-    in
-    acc, csq, is_consequent
+    let env = { env with maybes = Variable.Map.add var eq_act env.maybes } in
+    let acc, is_consequent, delays = expr_consequents acc env eq_expr in
+    let acc, delay_consequent = compute_consequent_delays acc env delays in
+    acc, is_consequent || delay_consequent
   | More vars ->
-    List.fold_left (fun (acc, csq, aggr_is_consequent) (var, cond) ->
-        let acc, csq, is_consequent =
-          compute_consequents acc csq ~target var
-        in
-        let csq =
-          if is_consequent then add_condition_events csq cond else csq
-        in
-        acc, csq, (aggr_is_consequent || is_consequent))
-      (acc, csq, false) vars
+    let env = { env with maybes = Variable.Map.add var Condition.always env.maybes } in
+    List.fold_left (fun (acc, aggr_is_consequent) (var, _) ->
+        let acc, is_consequent = compute_consequents acc env var in
+        acc, (aggr_is_consequent || is_consequent))
+      (acc, false) vars
 
-and compute_consequents acc csq ~(target : Variable.t) (var : Variable.t) =
-  match Variable.Map.find_opt var csq.copies with
-  | Some c -> acc, csq, Option.is_some c
+and compute_consequent_delays acc env (delays : Variable.Set.t) =
+  Variable.Set.fold (fun var (acc, one_consequent) ->
+      let acc, is_consequent = compute_consequents acc env var in
+      acc, is_consequent || one_consequent)
+    delays (acc, false)
+
+and compute_consequents acc env (var : Variable.t) =
+  match Variable.Map.find_opt var acc.copies with
+  | Some c -> acc, Option.is_some c
   | None ->
-    match Variable.Map.find_opt var acc.value_eqs with
-    | None -> acc, csq, false
-    | Some eq ->
-      let acc, csq, is_consequent = eq_consequents acc csq ~target eq in
-      register_consequence acc csq ~target var is_consequent
+    if Variable.Map.mem var env.maybes then
+      acc, false
+    else
+      match Variable.Map.find_opt var acc.value_eqs with
+      | None -> acc, false
+      | Some eq ->
+        let is_user_subst = is_user_subst env var in
+        let acc, env =
+          if is_user_subst
+          then maybes_are_certain acc env
+          else acc, env
+        in
+        let acc, is_consequent = eq_consequents acc env var eq in
+        let is_consequent = is_consequent || is_user_subst in
+        let acc = register_consequence acc env var is_consequent in
+        acc, is_consequent
 
-let rec events_consequents acc csq ~(target : Variable.t) =
+let rec events_consequents acc env =
   let new_events =
-    Variable.Set.filter (fun ev -> not @@ Variable.Map.mem ev csq.copies)
-      csq.events
+    Variable.Set.filter (fun ev -> not @@ Variable.Map.mem ev acc.copies)
+      acc.events
   in
-  let csq = { csq with events = Variable.Set.empty } in
+  let acc = { acc with events = Variable.Set.empty } in
   let fixpoint_reached = Variable.Set.is_empty new_events in
-  if fixpoint_reached then acc, csq else
-    let acc, csq =
-      Variable.Set.fold (fun ev (acc, csq) ->
+  if fixpoint_reached then acc else
+    let acc =
+      Variable.Set.fold (fun ev acc ->
           let ev_expr = Variable.Map.find ev acc.event_eqs in
-          let acc, csq, is_consequent =
-            expr_consequents acc csq ~target ev_expr
-          in
-          let acc, csq, _ =
-            register_consequence acc csq ~target ev is_consequent
-          in
-          acc, csq)
-        new_events (acc, csq)
+          let acc, is_consequent, delays = expr_consequents acc env ev_expr in
+          let acc, delay_consequent = compute_consequent_delays acc env delays in
+          let is_consequent = is_consequent || delay_consequent in
+          let acc = register_consequence acc env ev is_consequent in
+          acc)
+        new_events acc
     in
-    events_consequents acc csq ~target
+    events_consequents acc env
 
 let var_subst csq (var : Variable.t) =
   match Variable.Map.find_opt var csq.copies with
@@ -183,23 +207,23 @@ let condition_subst csq (cond : Condition.t) =
   in
   aux (tree cond)
 
-let duplicate_event acc csq ~(org : Variable.t) ~(dup : Variable.t) =
+let duplicate_event acc env ~(org : Variable.t) ~(dup : Variable.t) =
   let expr =
-    match Variable.Map.find_opt org csq.user_substs with
+    match Variable.Map.find_opt org env.user_substs with
     | Some expr -> expr
     | None -> Variable.Map.find org acc.event_eqs
   in
-  let dup_expr = expr_subst csq expr in
+  let dup_expr = expr_subst acc expr in
   let event_eqs = Variable.Map.add dup dup_expr acc.event_eqs in
   { acc with event_eqs }
 
-let duplicate_value acc csq ~(org : Variable.t) ~(dup : Variable.t) =
+let duplicate_value acc env ~(org : Variable.t) ~(dup : Variable.t) =
   let dup_one cond expr =
-    let cond = condition_subst csq cond in
+    let cond = condition_subst acc cond in
     let expr =
-      match Variable.Map.find_opt org csq.user_substs with
-      | None -> expr_subst csq expr
-      | Some uexpr -> expr_subst csq uexpr
+      match Variable.Map.find_opt org env.user_substs with
+      | None -> expr_subst acc expr
+      | Some uexpr -> expr_subst acc uexpr
     in
     cond, expr
   in
@@ -211,8 +235,8 @@ let duplicate_value acc csq ~(org : Variable.t) ~(dup : Variable.t) =
   | More vars ->
     let dup_vars =
       List.map (fun (var, cond) ->
-          let cond = condition_subst csq cond in
-          let var = var_subst csq var in
+          let cond = condition_subst acc cond in
+          let var = var_subst acc var in
           var, cond)
         vars
     in
@@ -221,32 +245,38 @@ let duplicate_value acc csq ~(org : Variable.t) ~(dup : Variable.t) =
   let value_eqs = Variable.Map.add dup dup_aggr acc.value_eqs in
   { acc with value_eqs }
 
-let duplication acc csq =
+let duplication acc env =
   Variable.Map.fold (fun org dup acc ->
       match dup with
       | None -> acc
       | Some dup ->
         let is_event = VarInfo.is_event (Variable.Map.find org acc.var_info) in
         if is_event
-        then duplicate_event acc csq ~org ~dup
-        else duplicate_value acc csq ~org ~dup)
-    csq.copies acc
+        then duplicate_event acc env ~org ~dup
+        else duplicate_value acc env ~org ~dup)
+    acc.copies acc
 
 let resolve_one_target acc ~(target : Variable.t) (user_substs : user_substitutions) =
-  let csq = {
-    user_substs;
-    events = Variable.Set.empty;
-    copies = Variable.Map.empty;
-  }
-  in
-  let acc, csq, is_consequent = compute_consequents acc csq ~target target in
+  let env = { target; user_substs; maybes = Variable.Map.empty } in
+  let acc, is_consequent = compute_consequents acc env target in
   if not is_consequent then Errors.raise_error "Useless opposition";
-  let acc, csq = events_consequents acc csq ~target in
-  duplication acc csq
+  let acc = events_consequents acc env in
+  duplication acc env
 
 let resolve (var_info : VarInfo.collection) (value_eqs : aggregate_eqs)
     (event_eqs : expr Variable.Map.t) (oppositions : user_substitutions Variable.Map.t) =
-  let acc = { var_info; value_eqs; event_eqs } in
-  Variable.Map.fold (fun target substs acc ->
-      resolve_one_target acc ~target substs)
-    oppositions acc
+  let acc = {
+    var_info; value_eqs; event_eqs;
+    copies = Variable.Map.empty;
+    events = Variable.Set.empty;
+  }
+  in
+  let acc =
+    Variable.Map.fold (fun target substs acc ->
+        resolve_one_target acc ~target substs)
+      oppositions acc
+  in
+  { opp_var_info = acc.var_info;
+    opp_value_eqs = acc.value_eqs;
+    opp_event_eqs = acc.event_eqs;
+  }
