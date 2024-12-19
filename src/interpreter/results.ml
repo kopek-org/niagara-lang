@@ -77,63 +77,112 @@ let context_display (world : Context.world) (c : Context.Group.t) =
     (Context.print_group_desc world)
     (Context.group_desc world c)
 
+let variant_copy (pinfos : Surface.Ast.program_infos) layout
+    (targeted_variants : Variable.t Variable.Map.t Variable.Map.t) =
+  Variable.Map.fold (fun target variants layout ->
+      let target_name = VarInfo.get_any_name pinfos.var_info target in
+      let variant_opt v = Variable.Map.find_opt v variants in
+      let variant_if_exists v = Option.value ~default:v (variant_opt v) in
+      let copy_item item v = {
+        display_name = Printf.sprintf "%s @%s" item.display_name target_name;
+        provider = item.provider;
+        at_step = v;
+        cumulated = Option.bind item.cumulated variant_opt;
+        reps =
+          Variable.Map.fold (fun dest value reps ->
+              let dest = variant_if_exists dest in
+              match variant_opt value with
+              | None -> reps
+              | Some value -> Variable.Map.add dest value reps)
+            item.reps Variable.Map.empty;
+        defaults =
+          Variable.Map.fold (fun dest value defs ->
+              let dest = variant_if_exists dest in
+              match variant_opt value with
+              | None -> defs
+              | Some value -> Variable.Map.add dest value defs)
+            item.defaults Variable.Map.empty;
+      }
+      in
+      Variable.Map.fold (fun org variant layout ->
+          match Variable.Map.find_opt org layout with
+          | None -> layout
+          | Some (Top item) ->
+            Variable.Map.add variant (Top (copy_item item variant)) layout
+          | Some (Detail item) ->
+            Variable.Map.add variant (Detail (copy_item item variant)) layout
+          | Some (Super { super_item; super_detail_items }) ->
+            let super_item = copy_item super_item variant in
+            let super_detail_items =
+              Variable.Set.filter_map variant_opt super_detail_items
+            in
+            Variable.Map.add variant (Super { super_item; super_detail_items }) layout
+        )
+        variants layout)
+    targeted_variants layout
+
 let build_result_layout (pinfos : Surface.Ast.program_infos) =
-  Variable.Map.fold (fun v infos layout ->
-      let update f = update_detail_of v f layout in
-      let super_update s f = update_super_detail_of s v f layout in
-      match infos.origin with
-      | Named name ->
-        (match infos.kind with
-         | Event | Constant -> layout
-         | ProvidingPartner ->
-           update (fun l -> { l with display_name = name; provider = true })
-         | _ -> update (fun l -> { l with display_name = name }))
-      | LabelOfPartner { partner; label } ->
-        super_update partner (fun l ->
-            { l with
-              display_name =
-                (VarInfo.get_any_name pinfos.var_info partner)
-                ^ "[" ^ label ^ "]"
-            })
-      | Cumulative step ->
-        update_detail_of step (fun l -> { l  with cumulated = Some v }) layout
-      | ContextSpecialized { origin; context } ->
-        super_update origin (fun l ->
-            { l with
-              display_name =
-                (VarInfo.get_any_name pinfos.var_info origin)
-                ^ "(" ^ (context_display pinfos.contexts context) ^ ")"
-            })
-      | OperationDetail { op_kind; source; target } ->
-        (match op_kind with
-         | Quotepart | Bonus ->
-           update_detail_of source (fun l ->
-               { l with reps = Variable.Map.update target (function
-                     | None -> Some v
-                     | o -> o)
-                     l.reps
-               })
-             layout
-         | Default _ ->
-           update_detail_of source (fun l ->
-               { l with defaults = Variable.Map.add target v l.defaults })
-             layout
-         | Deficit _ ->
-           update_detail_of source (fun l ->
-               { l with reps = Variable.Map.add target v l.reps })
-             layout)
-      | OperationSum { source; target } ->
-        update_detail_of source (fun l ->
-            { l with reps = Variable.Map.add target v l.reps })
-          layout
-      | OpposingVariant { target; origin } ->
-        ignore (target, origin);
-        Printf.eprintf "TODO implement opposing variant results";
-        layout
-      | RepartitionSum _ | DeficitSum _ | ConditionExistential
-      | AnonEvent | Peeking _ | RisingEvent _ ->
-        layout)
-    pinfos.var_info Variable.Map.empty
+  let layout, variants =
+    Variable.Map.fold (fun v infos (layout, variants) ->
+        let update f = update_detail_of v f layout in
+        let super_update s f = update_super_detail_of s v f layout in
+        match infos.origin with
+        | Named name ->
+          (match infos.kind with
+           | Event | Constant -> layout, variants
+           | ProvidingPartner ->
+             update (fun l -> { l with display_name = name; provider = true }), variants
+           | _ -> update (fun l -> { l with display_name = name }), variants)
+        | LabelOfPartner { partner; label } ->
+          super_update partner (fun l ->
+              { l with
+                display_name =
+                  (VarInfo.get_any_name pinfos.var_info partner)
+                  ^ "[" ^ label ^ "]"
+              }), variants
+        | Cumulative step ->
+          update_detail_of step (fun l -> { l with cumulated = Some v }) layout, variants
+        | ContextSpecialized { origin; context } ->
+          super_update origin (fun l ->
+              { l with
+                display_name =
+                  (VarInfo.get_any_name pinfos.var_info origin)
+                  ^ "(" ^ (context_display pinfos.contexts context) ^ ")"
+              }), variants
+        | OperationDetail { op_kind; source; target } ->
+          (match op_kind with
+           | Quotepart | Bonus ->
+             update_detail_of source (fun l ->
+                 { l with reps = Variable.Map.update target (function
+                       | None -> Some v
+                       | o -> o)
+                       l.reps
+                 })
+               layout
+           | Default _ ->
+             update_detail_of source (fun l ->
+                 { l with defaults = Variable.Map.add target v l.defaults })
+               layout
+           | Deficit _ ->
+             update_detail_of source (fun l ->
+                 { l with reps = Variable.Map.add target v l.reps })
+               layout), variants
+        | OperationSum { source; target } ->
+          update_detail_of source (fun l ->
+              { l with reps = Variable.Map.add target v l.reps })
+            layout, variants
+        | OpposingVariant { target; origin } ->
+          layout,
+          Variable.Map.update target (function
+              | None -> Some (Variable.Map.singleton origin v)
+              | Some vrt -> Some (Variable.Map.add origin v vrt))
+            variants
+        | RepartitionSum _ | DeficitSum _ | ConditionExistential
+        | AnonEvent | Peeking _ | RisingEvent _ ->
+          layout, variants)
+      pinfos.var_info (Variable.Map.empty, Variable.Map.empty)
+  in
+  variant_copy pinfos layout variants
 
 let sort_layout (infos : collection) (layout : results_layout) =
   List.sort (fun (v1,_) (v2,_) ->

@@ -1,0 +1,31 @@
+acteur distrib
+acteur prod
+acteur sofica
+
+entree assiette rbd
+
+operation 'com'
+sur assiette rbd
+quotepart 40% vers distrib opposable 20% envers sofica par prod
+quotepart reste vers assiette rnc
+
+evenement recup_frais atteint quand distrib[frais] = 2000$
+
+operation 'frais'
+sur assiette rnc
+avant evenement recup_frais
+ quotepart 100% vers distrib[frais]
+
+defaut sur assiette rnc vers assiette rnpp
+
+evenement recup_sofica atteint quand sofica[recup] = 10000$
+
+operation 'part sofica'
+sur assiette rnpp
+avant evenement recup_sofica
+ quotepart 20% vers sofica[recup]
+apres evenement recup_sofica
+  quotepart 5% vers sofica[residuel]
+
+defaut sur assiette rnpp vers prod[residuel]
+

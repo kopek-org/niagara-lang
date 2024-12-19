@@ -93,10 +93,14 @@ let print_event_line layout ~iter_vars ~changes fmt step =
 
 let event_flips (infos : VarInfo.collection) (past_state : bool Variable.Map.t)
     (new_state : bool Variable.Map.t) =
-  let visible_name v b =
+  let rec visible_name v b =
     match (Variable.Map.find v infos).origin with
     | Named name -> Some (name, b)
     | AnonEvent -> Some ("anon_event_" ^ string_of_int (Variable.uid v), b)
+    | OpposingVariant { origin; target } ->
+      Option.map (fun (name, b) ->
+          name ^ " @" ^ VarInfo.get_any_name infos target, b)
+        (visible_name origin b)
     | Peeking _ | RisingEvent _ -> None
     | _ -> assert false
   in
