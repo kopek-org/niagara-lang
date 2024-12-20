@@ -11,4 +11,5 @@ val resolve
   -> Equ.aggregate_eqs
   -> Equ.expr Variable.Map.t
   -> user_substitutions Variable.Map.t
+  -> Variable.t Variable.Map.t
   -> result

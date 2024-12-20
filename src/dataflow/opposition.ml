@@ -21,24 +21,30 @@ type acc = {
 type env = {
   target : Variable.t;
   user_substs : user_substitutions;
+  cumulatives : Variable.t Variable.Map.t;
   maybes : Condition.t Variable.Map.t;
 }
 
 let is_user_subst env var = Variable.Map.mem var env.user_substs
 
-let add_copy acc { target; _ } (var : Variable.t) =
-  let copy = Variable.create () in
-  let infos = Variable.Map.find var acc.var_info in
-  let origin = VarInfo.OpposingVariant { target; origin = var } in
-  let acc =
-    { acc with
-      var_info =
-        Variable.Map.add copy { infos with origin } acc.var_info;
-    }
+let add_copy acc { target; cumulatives; _ } (var : Variable.t) =
+  let one_copy acc var =
+    let copy = Variable.create () in
+    let infos = Variable.Map.find var acc.var_info in
+    let origin = VarInfo.OpposingVariant { target; origin = var } in
+    let acc =
+      { acc with
+        var_info =
+          Variable.Map.add copy { infos with origin } acc.var_info;
+      }
+    in
+    let copies = Variable.Map.add var (Some copy) acc.copies in
+    { acc with copies }
   in
-  let copies = Variable.Map.add var (Some copy) acc.copies in
-  let acc = { acc with copies } in
-  acc
+  let acc = one_copy acc var in
+  match Variable.Map.find_opt var cumulatives with
+  | None -> acc
+  | Some c -> one_copy acc c
 
 let add_condition_events acc (cond : Condition.t) =
   let rec aux acc (tree : Condition.tree) =
@@ -256,15 +262,17 @@ let duplication acc env =
         else duplicate_value acc env ~org ~dup)
     acc.copies acc
 
-let resolve_one_target acc ~(target : Variable.t) (user_substs : user_substitutions) =
-  let env = { target; user_substs; maybes = Variable.Map.empty } in
+let resolve_one_target acc ~(target : Variable.t) (user_substs : user_substitutions)
+  (cumulatives : Variable.t Variable.Map.t) =
+  let env = { target; user_substs; cumulatives; maybes = Variable.Map.empty } in
   let acc, is_consequent = compute_consequents acc env target in
   if not is_consequent then Errors.raise_error "Useless opposition";
   let acc = events_consequents acc env in
   duplication acc env
 
 let resolve (var_info : VarInfo.collection) (value_eqs : aggregate_eqs)
-    (event_eqs : expr Variable.Map.t) (oppositions : user_substitutions Variable.Map.t) =
+    (event_eqs : expr Variable.Map.t) (oppositions : user_substitutions Variable.Map.t)
+    (cumulatives : Variable.t Variable.Map.t) =
   let acc = {
     var_info; value_eqs; event_eqs;
     copies = Variable.Map.empty;
@@ -273,7 +281,7 @@ let resolve (var_info : VarInfo.collection) (value_eqs : aggregate_eqs)
   in
   let acc =
     Variable.Map.fold (fun target substs acc ->
-        resolve_one_target acc ~target substs)
+        resolve_one_target acc ~target substs cumulatives)
       oppositions acc
   in
   { opp_var_info = acc.var_info;
