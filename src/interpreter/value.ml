@@ -43,7 +43,7 @@ let inv (v : t) =
 
 let min (v1 : t) (v2 : t) =
   match v1, v2 with
-  | VRat r1, VRat r2 -> VRat (min r1 r2)
+  | VRat r1, VRat r2 -> VRat R.(min r1 r2)
 
 let lt (v1 : t) (v2 : t) =
   match v1, v2 with
