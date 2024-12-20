@@ -104,20 +104,31 @@ let variant_copy (pinfos : Surface.Ast.program_infos) layout
             item.defaults Variable.Map.empty;
       }
       in
+      let layout, variant_detail_items =
+        Variable.Map.fold (fun org variant (layout, details) ->
+            match Variable.Map.find_opt org layout with
+            | None | Some (Top _ | Detail _) -> layout, details
+            | Some (Super { super_item; super_detail_items }) ->
+              let super_item = copy_item super_item variant in
+              let super_detail_items =
+                Variable.Set.filter_map variant_opt super_detail_items
+              in
+              Variable.Map.add variant (Super { super_item; super_detail_items }) layout,
+              Variable.Set.union details super_detail_items)
+          variants (layout, Variable.Set.empty)
+      in
       Variable.Map.fold (fun org variant layout ->
           match Variable.Map.find_opt org layout with
-          | None -> layout
+          | None | Some (Super _) -> layout
           | Some (Top item) ->
             Variable.Map.add variant (Top (copy_item item variant)) layout
           | Some (Detail item) ->
-            Variable.Map.add variant (Detail (copy_item item variant)) layout
-          | Some (Super { super_item; super_detail_items }) ->
-            let super_item = copy_item super_item variant in
-            let super_detail_items =
-              Variable.Set.filter_map variant_opt super_detail_items
+            let item =
+              if Variable.Set.mem variant variant_detail_items
+              then Detail (copy_item item variant)
+              else Top (copy_item item variant)
             in
-            Variable.Map.add variant (Super { super_item; super_detail_items }) layout
-        )
+            Variable.Map.add variant item layout)
         variants layout)
     targeted_variants layout
 
