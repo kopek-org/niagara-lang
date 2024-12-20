@@ -9,7 +9,7 @@ sur assiette rbd
 quotepart 40% vers distrib opposable 20% envers sofica par prod
 quotepart reste vers assiette rnc
 
-evenement recup_frais atteint quand distrib[frais] = 2000$
+evenement recup_frais atteint quand distrib[frais] = 2400$
 
 operation 'frais'
 sur assiette rnc
@@ -18,7 +18,7 @@ avant evenement recup_frais
 
 defaut sur assiette rnc vers assiette rnpp
 
-evenement recup_sofica atteint quand sofica[recup] = 10000$
+evenement recup_sofica atteint quand sofica[recup] = 12000$
 
 operation 'part sofica'
 sur assiette rnpp
