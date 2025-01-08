@@ -711,10 +711,7 @@ let translate_redistribution acc ~(ctx : Context.Group.t) ~(act : Condition.t)
             | Some p -> p
             | None -> Errors.raise_error "Non-constant quotepart"
           in
-          if R.(opp_part > part) then
-            Errors.raise_error "Opposition quotepart higher than nominal"
-          else
-            acc, (opp_towards, opp_part))
+          acc, (opp_towards, opp_part))
         acc opp
     in
     Acc.register_redist acc ~act ~src ~dest part opps
