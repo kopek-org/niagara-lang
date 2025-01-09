@@ -1,7 +1,6 @@
 open Interpreter
 open Dataflow
 open Grammar
-open Surface
 
 let find_input (infos : VarInfo.collection) (name : string) (ctx : Context.Group.t) =
   let vars =
@@ -29,9 +28,9 @@ let convert_line (p : Equ.program) (input : string) (amount : string) =
       ParserMain.parse_string ~entry:Parser.Incremental.raw_pool input
   in
   let var =
-    find_input p.infos.Ast.var_info name
+    find_input p.infos.var_info name
       (Compiler.Contextualize.projection_of_context_refinement
-         p.infos.Ast.contexts ctx)
+         p.infos.contexts ctx)
   in
   let amount =
     match Lexer.parse_money_amount_opt amount with

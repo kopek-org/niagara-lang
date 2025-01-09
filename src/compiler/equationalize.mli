@@ -2,7 +2,7 @@ open Surface
 open Dataflow
 
 type result = {
-  infos : Ast.program_infos;
+  infos : ProgramInfo.t;
   aggr_eqs : Equ.aggregate_eqs;
   event_eqs : Equ.expr Variable.Map.t;
 }

@@ -88,7 +88,7 @@ let context_display (world : Context.world) (c : Context.Group.t) =
     (Context.print_group_desc world)
     (Context.group_desc world c)
 
-let variant_copy (pinfos : Surface.Ast.program_infos) layout
+let variant_copy (pinfos : ProgramInfo.t) layout
     (targeted_variants : Variable.t Variable.Map.t Variable.Map.t) =
   Variable.Map.fold (fun target variants layout ->
       let target_name = VarInfo.get_any_name pinfos.var_info target in
@@ -143,7 +143,7 @@ let variant_copy (pinfos : Surface.Ast.program_infos) layout
         variants layout)
     targeted_variants layout
 
-let build_result_layout (pinfos : Surface.Ast.program_infos) =
+let build_result_layout (pinfos : ProgramInfo.t) =
   let layout, variants =
     Variable.Map.fold (fun v infos (layout, variants) ->
         let update f = update_detail_of v f layout in

@@ -10,7 +10,7 @@ type artefact_event =
   | RaiseTest of Variable.t
 
 type result = {
-  infos : Ast.program_infos;
+  infos : ProgramInfo.t;
   aggr_eqs : Equ.aggregate_eqs;
   event_eqs : Equ.expr Variable.Map.t;
 }
@@ -18,7 +18,7 @@ type result = {
 module Acc = struct
 
 type t = {
-  pinfos : Ast.program_infos;
+  pinfos : ProgramInfo.t;
   used_variables : Variable.Set.t;
   ctx_derivations : Variable.t Context.Group.Map.t Variable.Map.t;
   event_eqs : expr Variable.Map.t;
@@ -30,7 +30,7 @@ type t = {
   oppositions : Opposition.user_substitutions Variable.Map.t (* target -> og variable -> subst expr *)
 }
 
-let make (pinfos : Ast.program_infos) = {
+let make (pinfos : ProgramInfo.t) = {
   pinfos;
   used_variables = Variable.Set.empty;
   ctx_derivations = Variable.Map.empty;
@@ -82,8 +82,8 @@ let create_var_from t ?(shadowing=false) (ov : Variable.t)
 let contexts t = t.pinfos.contexts
 
 let type_of t v =
-  match Variable.Map.find_opt v t.pinfos.types with
-  | Some typ -> typ
+  match Variable.Map.find_opt v t.pinfos.var_info with
+  | Some vinfo -> vinfo.typ
   | None -> Errors.raise_error "(internal) Cannot find type of variable"
 
 let is_actor t (v : Variable.t) =
@@ -92,7 +92,7 @@ let is_actor t (v : Variable.t) =
   | Some i -> VarInfo.is_partner i
 
 let find_const_opt t (v : Variable.t) =
-  Variable.Map.find_opt v t.pinfos.Ast.constants
+  Variable.Map.find_opt v t.pinfos.constants
 
 let create_cumulation t v =
   let t, cv =
@@ -269,14 +269,12 @@ let get_derivative_var t (v : Variable.t) (ctx : Context.Group.t) =
           create_var_from ~shadowing:true t v
             (fun i -> { i with origin = ContextSpecialized { origin = v; context = ctx } })
         in
-        let typ = type_of t v in
         let t = flag_variable_usage t dv in
         let t = ensure_cumulation t dv in
         let t = {
           t with
           pinfos = {
             t.pinfos with
-            types =  Variable.Map.add dv typ t.pinfos.types;
             var_shapes = Variable.Map.add dv
                 (Context.shape_of_groups [ctx]) t.pinfos.var_shapes;
           };
@@ -492,7 +490,7 @@ let aggregate_compounds t =
           if Variable.equal dest c then t else
             register_aggregation t ~act:Condition.always ~dest c)
         ctxv t)
-    t.pinfos.Ast.compounds t
+    t.pinfos.compounds t
 
 let convert_cumulations t =
   Variable.Map.fold (fun instant cumul t ->
@@ -519,12 +517,16 @@ let convert_deficits t =
     t.deficits_vars t
 
 let resolve_oppositions (t : t) =
-  let Opposition.{ opp_var_info; opp_value_eqs; opp_event_eqs } =
+  let Opposition.{ opp_var_info; opp_value_eqs; opp_event_eqs; opp_pertinence_sets } =
     Opposition.resolve t.pinfos.var_info t.value_eqs t.event_eqs
       t.oppositions t.cumulation_vars
   in
   { t with
-    pinfos = { t.pinfos with var_info = opp_var_info };
+    pinfos =
+      { t.pinfos with
+        var_info = opp_var_info;
+        pertinence_sets = opp_pertinence_sets
+      };
     value_eqs = opp_value_eqs;
     event_eqs = opp_event_eqs;
   }

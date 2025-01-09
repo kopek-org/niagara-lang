@@ -70,17 +70,6 @@ let print_op_source fmt (src : holder) =
 let print_destination fmt (dest : holder) =
   Format.fprintf fmt "vers %a" print_holder dest
 
-let print_variable infos fmt (v : Variable.t) =
-  match VarInfo.get_name infos.var_info v with
-  | Some name ->
-    Format.fprintf fmt "%s/%d" name (Variable.uid v)
-  | None ->
-    VarInfo.print fmt (Variable.Map.find v infos.var_info)
-
-let print_ctx_variable infos fmt ((v, proj) : contextualized_variable) =
-  Format.fprintf fmt "@[<hv 2>%a@,%a@]" (print_variable infos) v
-    (Context.print_projection infos.contexts) proj
-
 let print_named fmt (named : named) =
   match named.named_desc with
   | Name (name, ctx) -> Format.fprintf fmt "%s%a" name print_context_refinement ctx
@@ -94,12 +83,12 @@ let print_binop fmt (op : binop) =
      | Mult -> "*"
      | Div -> "/")
 
-let rec print_formula : type a. program_infos -> Format.formatter -> a formula -> unit =
+let rec print_formula : type a. ProgramInfo.t -> Format.formatter -> a formula -> unit =
   fun infos fmt f ->
   match f.formula_desc with
   | Literal l -> Literal.print fmt l
   | Named n -> print_named fmt n
-  | Variable v -> print_ctx_variable infos fmt v
+  | Variable v -> ProgramInfo.print_ctx_variable infos fmt v
   | Binop (op, f1, f2) ->
       Format.fprintf fmt "@[<hov 2>(%a@ %a %a)@]"
         (print_formula infos) f1
@@ -108,11 +97,11 @@ let rec print_formula : type a. program_infos -> Format.formatter -> a formula -
   | Total f -> Format.fprintf fmt "(%a) total" (print_formula infos) f
   | Instant f -> Format.fprintf fmt "(%a) courant" (print_formula infos) f
 
-let rec print_event_expr : type a. program_infos -> Format.formatter -> a event_expr -> unit =
+let rec print_event_expr : type a. ProgramInfo.t -> Format.formatter -> a event_expr -> unit =
   fun infos fmt e ->
   match e.event_expr_desc with
   | EventId id -> Format.fprintf fmt "evenement %s" id
-  | EventVar v -> Format.fprintf fmt "evenement %a" (print_variable infos) v
+  | EventVar v -> Format.fprintf fmt "evenement %a" (ProgramInfo.print_variable infos) v
   | EventComp (Eq, f1, f2) ->
     Format.fprintf fmt "@[<hov 2>(%a@ %s %a)@]"
       (print_formula infos) f1 "="
@@ -136,8 +125,8 @@ let print_opposable (type a )infos fmt (opposable : a opposable) =
   | VarOpp opposable ->
     Format.fprintf fmt "opposable %a @[<hv>envers %a@ par %a@]"
       (print_formula infos) opposable.opp_value
-      (print_variable infos) opposable.opp_towards
-      (print_ctx_variable infos) opposable.opp_provider
+      (ProgramInfo.print_variable infos) opposable.opp_towards
+      (ProgramInfo.print_ctx_variable infos) opposable.opp_provider
 
 let print_redist (type a) infos fmt (redist : a redistribution) =
   match redist.redistribution_desc with
@@ -161,10 +150,10 @@ let print_redistrib_with_dest (type a) infos fmt (r : a redistrib_with_dest) =
   | WithVar (redist, dest) ->
     Format.fprintf fmt "%a -> %a"
       (print_redist infos) redist
-      (Format.pp_print_option (print_ctx_variable infos)) dest
+      (Format.pp_print_option (ProgramInfo.print_ctx_variable infos)) dest
 
 let rec print_guarded_redistrib :
-  type a. Ast.program_infos -> Format.formatter -> a guarded_redistrib -> unit =
+  type a. ProgramInfo.t -> Format.formatter -> a guarded_redistrib -> unit =
   fun infos fmt g_redist ->
   match g_redist with
   | Redists rs ->
@@ -209,15 +198,15 @@ let print_declaration (type a) infos fmt (decl : a declaration) =
   | DVarOperation op ->
     Format.fprintf fmt "@[<hv 2>operation '%s' -> %a@,sur %a@;%a@]"
       op.ctx_op_label
-      (Format.pp_print_option (print_ctx_variable infos)) op.ctx_op_default_dest
-      (print_ctx_variable infos) op.ctx_op_source
+      (Format.pp_print_option (ProgramInfo.print_ctx_variable infos)) op.ctx_op_default_dest
+      (ProgramInfo.print_ctx_variable infos) op.ctx_op_source
       (print_guarded_redistrib infos) op.ctx_op_guarded_redistrib
   | DHolderEvent e ->
     Format.fprintf fmt "@[<hov>evenement %s@ atteint quand %a"
       e.event_name (print_event_expr infos) e.event_expr
   | DVarEvent e ->
     Format.fprintf fmt "@[<hov>evenement %a@ atteint quand %a"
-      (print_variable infos) e.ctx_event_var
+      (ProgramInfo.print_variable infos) e.ctx_event_var
       (print_event_expr infos) e.ctx_event_expr
   | DConstant c ->
     Format.fprintf fmt "constante %s : %a" c.const_name Literal.print c.const_value
@@ -231,28 +220,20 @@ let print_declaration (type a) infos fmt (decl : a declaration) =
       print_holder d.default_source print_holder d.default_dest
   | DVarDefault d ->
     Format.fprintf fmt "@[<hv>defaut sur %a@ vers %a@]"
-      (print_ctx_variable infos) d.ctx_default_source
-      (print_ctx_variable infos) d.ctx_default_dest
+      (ProgramInfo.print_ctx_variable infos) d.ctx_default_source
+      (ProgramInfo.print_ctx_variable infos) d.ctx_default_dest
   | DHolderDeficit d ->
     Format.fprintf fmt "@[<hv>deficit sur %a@ par %a@]"
       print_holder d.deficit_pool print_holder d.deficit_provider
   | DVarDeficit d ->
     Format.fprintf fmt "@[<hv>deficit sur %a@ par %a@]"
-      (print_ctx_variable infos) d.ctx_deficit_pool
-      (print_ctx_variable infos) d.ctx_deficit_provider
-
-let print_var_contexts infos fmt () =
-  Variable.Map.iter (fun v shape ->
-      Format.fprintf fmt "@[<hv 2>var %a@ %a@]@;"
-        (print_ctx_variable infos) (v, Context.any_projection (infos.contexts))
-        (Context.print_shape infos.contexts) shape
-    )
-    infos.var_shapes
+      (ProgramInfo.print_ctx_variable infos) d.ctx_deficit_pool
+      (ProgramInfo.print_ctx_variable infos) d.ctx_deficit_provider
 
 let print_constants infos fmt () =
   Variable.Map.iter (fun v value ->
       Format.fprintf fmt "%a = %a@;"
-        (print_variable infos) v
+        (ProgramInfo.print_variable infos) v
         Literal.print value
     )
     infos.constants
@@ -261,18 +242,18 @@ let print_program (type a) fmt (p : a program) =
   Format.pp_open_vbox fmt 0;
   begin match p with
     | Source decls ->
-      let dummy_infos = {
+      let dummy_infos = ProgramInfo.{
         var_info = Variable.Map.empty;
         var_shapes = Variable.Map.empty;
         contexts = Context.empty_world;
         compounds = Variable.Map.empty;
-        types = Variable.Map.empty;
         constants = Variable.Map.empty;
+        pertinence_sets = Variable.Map.empty;
       }
       in
       Format.pp_print_list (print_declaration dummy_infos) fmt decls
     | Contextualized (infos, decls) ->
-      print_var_contexts infos fmt ();
+      ProgramInfo.print_var_contexts infos fmt ();
       print_constants infos fmt ();
       Format.pp_print_list (print_declaration infos) fmt decls
   end;

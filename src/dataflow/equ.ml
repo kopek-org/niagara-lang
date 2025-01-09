@@ -24,7 +24,7 @@ type aggregation =
 type aggregate_eqs = aggregation Variable.Map.t
 
 type program = {
-  infos : Surface.Ast.program_infos;
+  infos : ProgramInfo.t;
   val_eqs : guarded_eq Variable.Map.t;
   val_order : Variable.t list;
   act_eqs : guarded_eq Variable.Map.t;

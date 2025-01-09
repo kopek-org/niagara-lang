@@ -1,4 +1,3 @@
-open Surface
 open Dataflow
 open Equ
 
@@ -15,14 +14,14 @@ let generate_addition (exprs : expr list) =
       h t
 
 type acc = {
-  pinfos : Ast.program_infos;
+  pinfos : ProgramInfo.t;
   aggr : aggregate_eqs;
   events : expr Variable.Map.t;
   memo : guarded_eq Variable.Map.t;
   dep_graph : Variable.Graph.t;
  }
 
-let make_acc (pinfos : Ast.program_infos) (aggr : aggregate_eqs)
+let make_acc (pinfos : ProgramInfo.t) (aggr : aggregate_eqs)
     (events : expr Variable.Map.t) = {
   pinfos;
   aggr;
@@ -353,7 +352,7 @@ let order_eqs ~filter acc =
       | _scc -> Errors.raise_error "(internal) Cyclic equations")
     scc
 
-let compute (pinfos : Ast.program_infos) (ag_eqs : aggregate_eqs)
+let compute (pinfos : ProgramInfo.t) (ag_eqs : aggregate_eqs)
     (act_eqs : expr Variable.Map.t) =
   let acc = make_acc pinfos ag_eqs act_eqs in
   let acc =

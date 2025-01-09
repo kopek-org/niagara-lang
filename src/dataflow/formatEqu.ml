@@ -2,7 +2,7 @@ open Equ
 open Format
 
 let print_var_info infos fmt (v : Variable.t) =
-  let i = Variable.Map.find v infos.Surface.Ast.var_info in
+  let i = Variable.Map.find v infos.ProgramInfo.var_info in
   VarInfo.print fmt i
 
 let print_var_with_info infos fmt (v : Variable.t) =
@@ -69,7 +69,7 @@ let print_inputs fmt (p : program) =
          print_eq p.infos fmt v (Variable.Map.find_opt v p.val_eqs);
          pp_print_cut fmt ()
        | _ -> ())
-    p.infos.Surface.Ast.var_info;
+    p.infos.ProgramInfo.var_info;
   fprintf fmt "@]@."
 
 let print_events fmt (p : program) =

@@ -74,7 +74,6 @@ end = struct
     contexts : Context.world;
     actors : stream_way Variable.Map.t;
     compounds : Variable.Set.t Variable.Map.t; (* Aggregations of actor labels *)
-    types : ValueType.t Variable.Map.t;
     constants : Literal.t Variable.Map.t;
     constraints : context_constraint Variable.Map.t;
     deps : Variable.Set.t Variable.Map.t; (* maps src -> dests, for cycle detections *)
@@ -87,7 +86,6 @@ end = struct
     contexts = Context.empty_world;
     actors = Variable.Map.empty;
     compounds = Variable.Map.empty;
-    types = Variable.Map.empty;
     constants = Variable.Map.empty;
     constraints = Variable.Map.empty;
     deps = Variable.Map.empty;
@@ -111,9 +109,6 @@ end = struct
         t.var_table
     in
     { t with var_table }
-
-  let bind_type (v : Variable.t) (typ : ValueType.t) t =
-    { t with types = Variable.Map.add v typ t.types }
 
   let bind_compound (v : Variable.t) (c : Variable.t) t =
     { t with
@@ -139,10 +134,7 @@ end = struct
       }
     in
     let t = bind_vinfo v info t in
-    let t =
-      bind_var name (RefPool v) t
-      |> bind_type v ValueType.TMoney
-    in
+    let t = bind_var name (RefPool v) t in
     t, v
 
   let register_input t (name : string) (typ : ValueType.t) (kind : input_kind) =
@@ -166,10 +158,7 @@ end = struct
         kind = ParameterInput { shadow = false };
       }
       in
-      let t =
-        bind_var name (RefROInput v) t
-        |> bind_type v typ
-      in
+      let t = bind_var name (RefROInput v) t in
       let t = bind_vinfo v info t in
       t, v
 
@@ -191,8 +180,6 @@ end = struct
     let t = bind_vinfo uv uinfo t in
     let t = bind_vinfo dv dinfo t in
     bind_var name (RefActor (BaseActor {upstream = uv; downstream = dv})) t
-    |> bind_type uv ValueType.TMoney
-    |> bind_type dv ValueType.TMoney
     |> bind_compound dv dv
     |> bind_compound uv uv
 
@@ -205,10 +192,7 @@ end = struct
       }
     in
     let t = bind_vinfo v info t in
-    let t =
-      bind_var name (RefEvent v) t
-      |> bind_type v ValueType.TEvent
-    in
+    let t = bind_var name (RefEvent v) t in
     t, v
 
   let register_const t (name : string) (typ : ValueType.t) (value : Literal.t) =
@@ -221,7 +205,6 @@ end = struct
     in
     let t = bind_vinfo v info t in
     bind_var name (RefConst v) t
-    |> bind_type v typ
     |> bind_const v value
 
   let find_pool_opt t (name : string) =
@@ -291,7 +274,6 @@ end = struct
       let t = bind_vinfo vl info t in
       let t =
         bind_var lname (RefActor (Label (vl, way))) t
-        |> bind_type vl ValueType.TMoney
         |> bind_compound vl base_actor
       in
       t, vl
@@ -423,13 +405,13 @@ end = struct
     { t with deps }
 
   let to_contextualized_program t =
-    let infos : program_infos = {
+    let infos : ProgramInfo.t = {
       var_info = t.var_info;
       var_shapes = resolve_constraints t;
       contexts = t.contexts;
       compounds = t.compounds;
-      types = t.types;
       constants = t.constants;
+      pertinence_sets = Variable.Map.empty;
     }
     in
     Contextualized (infos, List.rev t.program_decls)
