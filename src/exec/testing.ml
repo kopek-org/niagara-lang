@@ -2,26 +2,42 @@ open Interpreter
 open Dataflow
 open Grammar
 
-let find_input (infos : VarInfo.collection) (name : string) (ctx : Context.Group.t) =
+let find_var (infos : VarInfo.collection) info_filter  =
   let vars =
-    Variable.Map.filter (fun _ info ->
-        if not (VarInfo.is_input info) then false else
-          match info.origin with
-          | Named n -> String.equal name n
-          | ContextSpecialized { origin; context } ->
-            let n =
-              match (Variable.Map.find origin infos).origin with
-              | Named n -> n
-              | _ -> assert false
-            in
-            String.equal n name && Context.Group.includes context ctx
-          |  _ -> false)
+    Variable.Map.filter (fun _ info -> info_filter info)
       infos
   in
   match Variable.Map.cardinal vars with
   | 0 -> None
   | 1 -> Some (fst (Variable.Map.choose vars))
-  | _ -> Errors.raise_error "(internal) Unable to distinguish input"
+  | _ -> None
+
+let find_input (infos : VarInfo.collection) (name : string) (ctx : Context.Group.t) =
+  let filter_info info =
+    if not (VarInfo.is_input info) then false else
+      match info.origin with
+      | Named n -> String.equal name n
+      | ContextSpecialized { origin; context } ->
+        let n =
+              match (Variable.Map.find origin infos).origin with
+              | Named n -> n
+              | _ -> assert false
+        in
+        String.equal n name && Context.Group.includes context ctx
+      |  _ -> false
+  in
+  find_var infos filter_info
+
+let find_partner (infos : VarInfo.collection) (name : string) =
+  let filter_info info =
+    match info.VarInfo.kind with
+    | ReceivingPartner ->
+      (match info.origin with
+      | Named n -> String.equal name n
+      |  _ -> false)
+    | _ -> false
+  in
+  find_var infos filter_info
 
 let convert_line (p : Equ.program) (input : string) (amount : string) =
   let (name, ctx) =
@@ -42,7 +58,7 @@ let convert_line (p : Equ.program) (input : string) (amount : string) =
   in
   Option.map (fun v -> v, amount) var
 
-let test_stdin (p : Equ.program) (l : Equ.limits) =
+let test_stdin (p : Equ.program) (l : Equ.limits) (for_partner : string option) =
   Format.printf "Awaiting inputs:@.";
   let raw_inputs = Testlex.parse stdin in
   let inputs =
@@ -55,6 +71,14 @@ let test_stdin (p : Equ.program) (l : Equ.limits) =
                                       the right context" i)
       raw_inputs
   in
+  let norm_mode =
+    match for_partner with
+    | None -> Results.Canonical
+    | Some s ->
+      match find_partner p.infos.var_info s with
+      | None -> Errors.raise_error "Unable to find partner %s" s
+      | Some v -> Results.OpposedTo v
+  in
   let outputs = Interpreter.Execution.compute_input_lines p l inputs in
   Interpreter.Printer.print_intepreter_outputs
-    p (Format.formatter_of_out_channel stdout) outputs
+    p (Format.formatter_of_out_channel stdout) norm_mode outputs

@@ -231,3 +231,136 @@ let sort_layout (infos : collection) (layout : results_layout) =
 
 let iter_layout (infos : collection) (layout : results_layout) f =
   sort_layout infos layout |> List.iter f
+
+
+open Execution
+
+type norm_mode =
+  | Canonical
+  | OpposedTo of Variable.t
+
+let filter_of_norm_mode (info : ProgramInfo.t) (mode : norm_mode) =
+  let canonical_filter v =
+    match (Variable.Map.find v info.var_info).origin with
+    | OpposingVariant _ -> false
+    | _ -> true
+  in
+  match mode with
+  | Canonical -> canonical_filter
+  | OpposedTo target ->
+    match Variable.Map.find_opt target info.pertinence_sets with
+    | None -> canonical_filter
+    | Some ps ->
+      fun (v : Variable.t) -> Variable.Set.mem v ps.pertinent_vars
+
+let merge_valuations (info : ProgramInfo.t) ~(filter : Variable.t -> bool)
+    (val1 : value_presence Variable.Map.t) (val2 : value_presence Variable.Map.t) =
+  Variable.Map.merge (fun v p1 p2 ->
+      if filter v then
+        match p1, p2 with
+        | None, None -> None
+        | Some p, None | None, Some p -> Some p
+        | Some p1, Some p2 ->
+          let rec merge_on_org vorigin =
+            match vorigin with
+            | Cumulative _ -> p2
+            | Named _
+            | LabelOfPartner _
+            | Peeking _
+            | ContextSpecialized _
+            | OperationDetail _
+            | OperationSum _
+            | RepartitionSum _
+            | DeficitSum _
+            | ConditionExistential ->
+              (match p1, p2 with
+               | Present v1, Present v2 -> Present (Value.add v1 v2)
+               | Absent, p | p, Absent -> p)
+            | OpposingVariant { origin ; target = _ } ->
+              merge_on_org (Variable.Map.find origin info.var_info).origin
+            | AnonEvent | RisingEvent _ -> assert false
+          in
+          Some (merge_on_org (Variable.Map.find v info.var_info).origin)
+      else None)
+      val1 val2
+
+let try_step_merge (info : ProgramInfo.t) ~(filter : Variable.t -> bool)
+    (step1 : output_step) (step2 : output_step) =
+  let ev1 = Variable.Map.filter (fun v _ -> filter v) step1.step_events in
+  let ev2 = Variable.Map.filter (fun v _ -> filter v) step2.step_events in
+  if Variable.Map.equal (=) ev1 ev2 then
+    let step_valuations =
+      merge_valuations info ~filter step1.step_valuations step2.step_valuations
+    in
+    Some { step_valuations; step_events = ev2 }
+  else
+    None
+
+let normalize_valuations (info : ProgramInfo.t) (mode : norm_mode)
+    (valuations : computation_outputs) : computation_outputs =
+  let filter = filter_of_norm_mode info mode in
+  InputLineMap.map (function
+      | ([] | [_]) as line -> line
+      | fstep::steps ->
+        let lstep, nsteps =
+          List.fold_left (fun (acc_step, nsteps) step ->
+              match try_step_merge info ~filter acc_step step with
+              | None -> step, acc_step :: nsteps
+              | Some merged -> merged, nsteps)
+            (fstep, []) steps
+        in
+        let lstep =
+          { step_events = Variable.Map.filter (fun v _ -> filter v) lstep.step_events;
+            step_valuations = Variable.Map.filter (fun v _ -> filter v)
+                lstep.step_valuations;
+          }
+        in
+        List.rev_append nsteps [lstep])
+    valuations
+
+let normalize_layout (info : ProgramInfo.t) (mode : norm_mode) (layout : results_layout)
+  : results_layout =
+  let filter = filter_of_norm_mode info mode in
+  let filter_res_item item =
+    { item with
+      reps = Variable.Map.filter_map (fun d v ->
+          if filter d && filter v then Some v else None)
+          item.reps;
+      defaults = Variable.Map.filter_map (fun d v ->
+          if filter d && filter v then Some v else None)
+          item.defaults
+    }
+  in
+  let layout, promotions =
+    Variable.Map.fold (fun v item (nlayout, promotions) ->
+        match item with
+        | Super { super_item; super_detail_items } ->
+          if filter v then
+            let item = Super {
+                super_item = filter_res_item super_item;
+                super_detail_items = Variable.Set.filter filter super_detail_items;
+              }
+            in
+            (Variable.Map.add v item nlayout, promotions)
+          else
+            let promotions =
+              Variable.Set.union promotions
+                (Variable.Set.filter filter super_detail_items)
+            in
+            nlayout, promotions
+        | Top item ->
+          if filter v then
+            Variable.Map.add v (Top (filter_res_item item)) nlayout, promotions
+          else nlayout, promotions
+        | Detail item ->
+          if filter v then
+            Variable.Map.add v (Detail (filter_res_item item)) nlayout, promotions
+          else nlayout, promotions)
+      layout (Variable.Map.empty, Variable.Set.empty)
+  in
+  Variable.Set.fold (fun v layout ->
+      Variable.Map.update v (function
+          | Some (Detail item) -> Some (Top item)
+          | item -> item)
+        layout)
+    promotions layout

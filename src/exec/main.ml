@@ -31,9 +31,18 @@ let test_flag_term =
   in
   Arg.(value & flag & info ~doc ["test"])
 
+(** Set result point of view. *)
+let result_pov_term =
+  let open Cmdliner in
+  let doc =
+    "Specify for which partner the test results are tailored (defaults \
+     to canonical results)"
+  in
+  Arg.(value & opt (some string) None & info ~doc ["for"])
+
 (** The main compilation function. It simply calls the main compilation
     pipepine with a parsing on file. *)
-let compile : string -> bool -> unit = fun path test ->
+let compile : string -> bool -> string option -> unit = fun path test res_pov ->
   let src_program = Grammar.ParserMain.parse_program path in
   let p, l = Compiler.Compile.compile src_program in
   (* let filter = Compiler.GenDot.{ *)
@@ -42,7 +51,7 @@ let compile : string -> bool -> unit = fun path test ->
   (* } *)
   (* in *)
   (* Compiler.GenDot.dot_of_program p filter; *)
-  if test then Testing.test_stdin p l
+  if test then Testing.test_stdin p l res_pov
 
 (** [a -+ b] composes the terms [a] and [b] but ignores the
     [a] result. *)
@@ -60,7 +69,7 @@ let main () =
   let cmd = Cmd.v info (Term.(
       setup_log_term -+
       gnu_style_term -+
-      ((const compile) $ source_term $ test_flag_term)
+      ((const compile) $ source_term $ test_flag_term $ result_pov_term)
       )
   ) in
   let code = Cmd.eval cmd in

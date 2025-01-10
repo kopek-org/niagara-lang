@@ -71,16 +71,20 @@ let maybes_are_certain acc env =
   let env = { env with maybes = Variable.Map.empty } in
   acc, env
 
-let not_consequent acc (var : Variable.t) =
+let not_consequent acc env (var : Variable.t) =
   { acc with
-    copies = Variable.Map.add var None acc.copies
+    copies =
+      Variable.Map.add var None
+        (match Variable.Map.find_opt var env.cumulatives with
+         | None -> acc.copies
+         | Some c -> Variable.Map.add c None acc.copies)
   }
 
 let register_consequence acc env (var : Variable.t) (is_consequent : bool) =
   if is_consequent then
     add_copy acc env var
   else
-    not_consequent acc var
+    not_consequent acc env var
 
 let rec expr_consequents acc env (expr : expr) =
   let rec aux acc env delays expr =
@@ -134,7 +138,7 @@ and compute_consequents acc env (var : Variable.t) =
       acc, false
     else
       match Variable.Map.find_opt var acc.value_eqs with
-      | None -> acc, false
+      | None -> not_consequent acc env var, false
       | Some eq ->
         let is_user_subst = is_user_subst env var in
         let acc, env =

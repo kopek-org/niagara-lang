@@ -112,10 +112,15 @@ let event_flips (infos : VarInfo.collection) (past_state : bool Variable.Map.t)
       | _ -> None)
    past_state new_state
 
-let print_intepreter_outputs (p : Dataflow.Equ.program) fmt (lines : computation_outputs) =
+let print_intepreter_outputs (p : Dataflow.Equ.program) fmt (norm_mode : Results.norm_mode)
+    (lines : computation_outputs) =
   let var_infos = p.infos.var_info in
   let iter_vars = Results.iter_layout var_infos in
-  let layout = Results.build_result_layout p.infos in
+  let layout =
+    Results.build_result_layout p.infos
+    |> Results.normalize_layout p.infos norm_mode
+  in
+  let lines = Results.normalize_valuations p.infos norm_mode lines in
   let open Format in
   fprintf fmt "@[<v>### OUTPUTS ###@,";
   let _ =
