@@ -26,17 +26,20 @@ let print_default fmt rep = print_repartition ~default:true fmt rep
 let rec print_item ?(close=true) fmt layout step (item : Results.top_item) =
   let open Format in
   let map_reps reps =
-    List.filter_map (fun (dest, value) ->
-        match find_step_value value step with
-        | Absent -> None
-        | Present v ->
-          let name =
-            match (Variable.Map.find dest layout : Results.top_item) with
-            | Top item | Detail item -> item.display_name
-            | Super item -> item.super_item.display_name
-          in
-          Some (name, v))
-      (Variable.Map.bindings reps)
+    Variable.Map.fold (fun dest values replist ->
+        Variable.Set.fold (fun value replist ->
+            match find_step_value value step with
+            | Absent -> replist
+            | Present v ->
+              let name =
+                match (Variable.Map.find dest layout : Results.top_item) with
+                | Top item | Detail item -> item.display_name
+                | Super item -> item.super_item.display_name
+              in
+              (name, v)::replist)
+          values replist)
+      reps []
+      |> List.rev
   in
   match item with
   | Top item | Detail item ->

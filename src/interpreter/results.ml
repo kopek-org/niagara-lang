@@ -9,9 +9,9 @@ type item_result_layout = {
      canonical item variable, the one to look for in maps and for infos *)
   cumulated : Variable.t option;
   (* total value, if exists *)
-  reps : Variable.t Variable.Map.t;
+  reps : Variable.Set.t Variable.Map.t;
   (* destination -> value mapping of repartition *)
-  defaults : Variable.t Variable.Map.t;
+  defaults : Variable.Set.t Variable.Map.t;
   (* destination -> value mapping of default repartition *)
 }
 
@@ -90,57 +90,86 @@ let context_display (world : Context.world) (c : Context.Group.t) =
 
 let variant_copy (pinfos : ProgramInfo.t) layout
     (targeted_variants : Variable.t Variable.Map.t Variable.Map.t) =
-  Variable.Map.fold (fun target variants layout ->
+  Variable.Map.fold (fun target variants (layout : results_layout) ->
       let target_name = VarInfo.get_any_name pinfos.var_info target in
       let variant_opt v = Variable.Map.find_opt v variants in
       let variant_if_exists v = Option.value ~default:v (variant_opt v) in
+      let reps_update reps base =
+        Variable.Map.fold (fun dest values reps ->
+              let dest = variant_if_exists dest in
+              Variable.Set.fold (fun value reps ->
+                  match variant_opt value with
+                  | None -> reps
+                  | Some value ->
+                    Variable.Map.update dest (function
+                        | None -> Some (Variable.Set.singleton value)
+                        | Some values -> Some (Variable.Set.add value values))
+                      reps)
+                values reps)
+          reps base
+      in
       let copy_item item v = {
         display_name = Printf.sprintf "%s @%s" item.display_name target_name;
         provider = item.provider;
         at_step = v;
         cumulated = Option.bind item.cumulated variant_opt;
-        reps =
-          Variable.Map.fold (fun dest value reps ->
-              let dest = variant_if_exists dest in
-              match variant_opt value with
-              | None -> reps
-              | Some value -> Variable.Map.add dest value reps)
-            item.reps Variable.Map.empty;
-        defaults =
-          Variable.Map.fold (fun dest value defs ->
-              let dest = variant_if_exists dest in
-              match variant_opt value with
-              | None -> defs
-              | Some value -> Variable.Map.add dest value defs)
-            item.defaults Variable.Map.empty;
+        reps = reps_update item.reps Variable.Map.empty;
+        defaults = reps_update item.defaults Variable.Map.empty;
+      }
+      in
+      let update_canon_item item = {
+        item with
+        reps = reps_update item.reps item.reps;
+        defaults = reps_update item.defaults item.defaults;
       }
       in
       let layout, variant_detail_items =
-        Variable.Map.fold (fun org variant (layout, details) ->
-            match Variable.Map.find_opt org layout with
-            | None | Some (Top _ | Detail _) -> layout, details
-            | Some (Super { super_item; super_detail_items }) ->
-              let super_item = copy_item super_item variant in
-              let super_detail_items =
-                Variable.Set.filter_map variant_opt super_detail_items
+        Variable.Map.fold (fun org item (layout, details) ->
+            match item with
+            | Top item ->
+              let canon_item = update_canon_item item in
+              let layout =
+                Variable.Map.add org (Top canon_item) layout
               in
-              Variable.Map.add variant (Super { super_item; super_detail_items }) layout,
-              Variable.Set.union details super_detail_items)
-          variants (layout, Variable.Set.empty)
+              layout, details
+            | Detail item ->
+              let canon_item = update_canon_item item in
+              let layout =
+                Variable.Map.add org (Detail canon_item) layout
+              in
+              layout, details
+            | Super { super_item; super_detail_items } ->
+              let canon_super_item = update_canon_item super_item in
+              let layout =
+                Variable.Map.add org (Super { super_item = canon_super_item; super_detail_items }) layout
+              in
+              match Variable.Map.find_opt org variants with
+              | None -> layout, details
+              | Some variant ->
+                let super_item = copy_item super_item variant in
+                let super_detail_items =
+                  Variable.Set.filter_map variant_opt super_detail_items
+                in
+                Variable.Map.add variant (Super { super_item; super_detail_items }) layout,
+                Variable.Set.union details super_detail_items)
+          layout (layout, Variable.Set.empty)
       in
-      Variable.Map.fold (fun org variant layout ->
-          match Variable.Map.find_opt org layout with
-          | None | Some (Super _) -> layout
-          | Some (Top item) ->
-            Variable.Map.add variant (Top (copy_item item variant)) layout
-          | Some (Detail item) ->
-            let item =
-              if Variable.Set.mem variant variant_detail_items
-              then Detail (copy_item item variant)
-              else Top (copy_item item variant)
-            in
-            Variable.Map.add variant item layout)
-        variants layout)
+      Variable.Map.fold (fun org item layout ->
+          match Variable.Map.find_opt org variants with
+          | None -> layout
+          | Some variant ->
+            match item with
+            | Super _ -> layout
+            | Top item ->
+              Variable.Map.add variant (Top (copy_item item variant)) layout
+            | Detail item ->
+              let item =
+                if Variable.Set.mem variant variant_detail_items
+                then Detail (copy_item item variant)
+                else Top (copy_item item variant)
+              in
+              Variable.Map.add variant item layout)
+        layout layout)
     targeted_variants layout
 
 let build_result_layout (pinfos : ProgramInfo.t) =
@@ -176,22 +205,27 @@ let build_result_layout (pinfos : ProgramInfo.t) =
            | Quotepart | Bonus ->
              update_detail_of source (fun l ->
                  { l with reps = Variable.Map.update target (function
-                       | None -> Some v
-                       | o -> o)
+                       | None -> Some (Variable.Set.singleton v)
+                       | Some vs -> Some (Variable.Set.add v vs))
                        l.reps
                  })
                layout
            | Default _ ->
              update_detail_of source (fun l ->
-                 { l with defaults = Variable.Map.add target v l.defaults })
+                 { l with defaults = Variable.Map.update target (function
+                       | None -> Some (Variable.Set.singleton v)
+                       | Some vs -> Some (Variable.Set.add v vs))
+                       l.defaults })
                layout
            | Deficit _ ->
              update_detail_of source (fun l ->
-                 { l with reps = Variable.Map.add target v l.reps })
+                 { l with reps = Variable.Map.update target (function
+                       | None -> Some (Variable.Set.singleton v)
+                       | Some vs -> Some (Variable.Set.add v vs))
+                       l.reps })
                layout), variants
-        | OperationSum { source; target } ->
-          update_detail_of source (fun l ->
-              { l with reps = Variable.Map.add target v l.reps })
+        | OperationSum _ ->
+            (* No need, we already register the details, which always exists *)
             layout, variants
         | OpposingVariant { target; origin } ->
           layout,
@@ -322,25 +356,58 @@ let normalize_layout (info : ProgramInfo.t) (mode : norm_mode) (layout : results
   : results_layout =
   let filter = filter_of_norm_mode info mode in
   let filter_res_item item =
+    let filter_map map =
+      Variable.Map.fold (fun d vs (map, ref_items) ->
+          let vs = Variable.Set.filter filter vs in
+          if Variable.Set.is_empty vs
+          then (map, ref_items)
+          else
+            let ref_items =
+              if filter d then ref_items else
+                Variable.Set.add d ref_items
+            in
+            Variable.Map.add d vs map,
+            ref_items)
+        map (Variable.Map.empty, Variable.Set.empty)
+    in
+    let reps, reps_items = filter_map item.reps in
+    let defaults, defs_items = filter_map item.defaults in
     { item with
-      reps = Variable.Map.filter_map (fun d v ->
-          if filter d && filter v then Some v else None)
-          item.reps;
-      defaults = Variable.Map.filter_map (fun d v ->
-          if filter d && filter v then Some v else None)
-          item.defaults
-    }
+      reps;
+      defaults;
+    },
+    Variable.Set.union reps_items defs_items
+  in
+  let import_dummy_items layout nlayout items =
+    (* this is needed to properly display opposed repartitions values
+       even when the destination is not relevant (therefore, absent
+       from the layout) *)
+    Variable.Set.fold (fun ri nlayout ->
+        let item =
+          match Variable.Map.find ri layout with
+          | Super { super_item = item; super_detail_items = _ }
+          | Top item | Detail item ->
+            Detail { item with
+                     cumulated = None;
+                     reps = Variable.Map.empty;
+                     defaults = Variable.Map.empty;
+                   }
+        in
+        Variable.Map.add ri item nlayout)
+      items nlayout
   in
   let layout, promotions =
     Variable.Map.fold (fun v item (nlayout, promotions) ->
         match item with
         | Super { super_item; super_detail_items } ->
           if filter v then
+            let super_item, ref_items = filter_res_item super_item in
             let item = Super {
-                super_item = filter_res_item super_item;
+                super_item;
                 super_detail_items = Variable.Set.filter filter super_detail_items;
               }
             in
+            let nlayout = import_dummy_items layout nlayout ref_items in
             (Variable.Map.add v item nlayout, promotions)
           else
             let promotions =
@@ -350,11 +417,15 @@ let normalize_layout (info : ProgramInfo.t) (mode : norm_mode) (layout : results
             nlayout, promotions
         | Top item ->
           if filter v then
-            Variable.Map.add v (Top (filter_res_item item)) nlayout, promotions
+            let item, ref_items = filter_res_item item in
+            let nlayout = import_dummy_items layout nlayout ref_items in
+            Variable.Map.add v (Top item) nlayout, promotions
           else nlayout, promotions
         | Detail item ->
           if filter v then
-            Variable.Map.add v (Detail (filter_res_item item)) nlayout, promotions
+            let item, ref_items = filter_res_item item in
+            let nlayout = import_dummy_items layout nlayout ref_items in
+            Variable.Map.add v (Detail item) nlayout, promotions
           else nlayout, promotions)
       layout (Variable.Map.empty, Variable.Set.empty)
   in

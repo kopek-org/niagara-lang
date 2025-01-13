@@ -39,12 +39,16 @@
   ### OUTPUTS ###
   1: ++ no events:
        - rbd { 300000., 300000. }:
+         60000. -> distrib
+         default 240000. -> rnc @sofica
        - rnc @sofica { 240000., 240000. }:
          240000. -> distrib[frais] @sofica
        - distrib[frais] @sofica { 240000., 240000. }:
        
      ++ after event recup_frais @sofica :
        - rbd { 7500000., 7800000. }:
+         1500000. -> distrib
+         default 6000000. -> rnc @sofica
        - rnc @sofica { 6000000., 6240000. }:
          default 6000000. -> rnpp @sofica
        - rnpp @sofica { 6000000., 6000000. }:
@@ -55,6 +59,8 @@
        
      ++ after event recup_sofica @sofica :
        - rbd { 2200000., 10000000. }:
+         440000. -> distrib
+         default 1760000. -> rnc @sofica
        - rnc @sofica { 1760000., 8000000. }:
          default 1760000. -> rnpp @sofica
        - rnpp @sofica { 1760000., 7760000. }:
