@@ -23,7 +23,7 @@ let print_repartition ?(default=false) fmt (dest, value) =
 
 let print_default fmt rep = print_repartition ~default:true fmt rep
 
-let rec print_item ?(close=true) fmt layout step (item : Results.top_item) =
+let rec print_item ?(close=true) infos fmt layout step (item : Results.top_item) =
   let open Format in
   let map_reps reps =
     Variable.Map.fold (fun dest values replist ->
@@ -32,14 +32,22 @@ let rec print_item ?(close=true) fmt layout step (item : Results.top_item) =
             | Absent -> replist
             | Present v ->
               let name =
-                match (Variable.Map.find dest layout : Results.top_item) with
-                | Top item | Detail item -> item.display_name
-                | Super item -> item.super_item.display_name
+                match Variable.Map.find_opt dest layout with
+                | Some (Results.Top item | Detail item) -> item.display_name
+                | Some (Super item) -> item.super_item.display_name
+                | None ->
+                  match VarInfo.get_name infos dest with
+                  | Some name -> name
+                  | None ->
+                    Errors.raise_error
+                      "(internal) unable to find \
+                       suitable name for repartition \
+                       destination variable"
               in
               (name, v)::replist)
           values replist)
       reps []
-      |> List.rev
+    |> List.rev
   in
   match item with
   | Top item | Detail item ->
@@ -68,13 +76,13 @@ let rec print_item ?(close=true) fmt layout step (item : Results.top_item) =
        if close then pp_close_box fmt ();
        true)
   | Super item ->
-    if print_item ~close:false fmt layout step (Top item.super_item) then
+    if print_item ~close:false infos fmt layout step (Top item.super_item) then
       begin
         if Variable.Set.cardinal item.super_detail_items > 0 then
           fprintf fmt "@,%a"
             (pp_print_list ~pp_sep:(fun _ _ -> ()) (fun fmt item ->
-                if print_item fmt layout step item then
-                  pp_print_cut fmt ()))
+                 if print_item infos fmt layout step item then
+                   pp_print_cut fmt ()))
             (Variable.Set.fold (fun v items ->
                  let i = Variable.Map.find v layout in
                  i::items)
@@ -84,15 +92,15 @@ let rec print_item ?(close=true) fmt layout step (item : Results.top_item) =
       end
     else false
 
-let print_step layout ~iter_vars fmt (step : output_step) =
+let print_step infos layout ~iter_vars fmt (step : output_step) =
   iter_vars layout (fun (item : Results.top_item) ->
-      if print_item fmt layout step item then
+      if print_item infos fmt layout step item then
         Format.pp_print_cut fmt ())
 
-let print_event_line layout ~iter_vars ~changes fmt step =
+let print_event_line infos layout ~iter_vars ~changes fmt step =
   Format.fprintf fmt "@[<v 2>++ %a:@ %a@]@,"
     print_event_switch changes
-    (print_step layout ~iter_vars) step
+    (print_step infos layout ~iter_vars) step
 
 let event_flips (infos : VarInfo.collection) (past_state : bool Variable.Map.t)
     (new_state : bool Variable.Map.t) =
@@ -132,7 +140,7 @@ let print_intepreter_outputs (p : Dataflow.Equ.program) fmt (norm_mode : Results
         let changes =
           List.fold_left (fun past_events step ->
               let changes = event_flips var_infos past_events step.step_events in
-              print_event_line layout ~iter_vars ~changes fmt step;
+              print_event_line p.infos.var_info layout ~iter_vars ~changes fmt step;
               step.step_events)
             past_events line
         in

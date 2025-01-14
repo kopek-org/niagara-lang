@@ -357,57 +357,30 @@ let normalize_layout (info : ProgramInfo.t) (mode : norm_mode) (layout : results
   let filter = filter_of_norm_mode info mode in
   let filter_res_item item =
     let filter_map map =
-      Variable.Map.fold (fun d vs (map, ref_items) ->
+      Variable.Map.filter_map (fun _d vs ->
           let vs = Variable.Set.filter filter vs in
           if Variable.Set.is_empty vs
-          then (map, ref_items)
-          else
-            let ref_items =
-              if filter d then ref_items else
-                Variable.Set.add d ref_items
-            in
-            Variable.Map.add d vs map,
-            ref_items)
-        map (Variable.Map.empty, Variable.Set.empty)
+          then None else Some vs)
+        map
     in
-    let reps, reps_items = filter_map item.reps in
-    let defaults, defs_items = filter_map item.defaults in
+    let reps = filter_map item.reps in
+    let defaults = filter_map item.defaults in
     { item with
       reps;
-      defaults;
-    },
-    Variable.Set.union reps_items defs_items
-  in
-  let import_dummy_items layout nlayout items =
-    (* this is needed to properly display opposed repartitions values
-       even when the destination is not relevant (therefore, absent
-       from the layout) *)
-    Variable.Set.fold (fun ri nlayout ->
-        let item =
-          match Variable.Map.find ri layout with
-          | Super { super_item = item; super_detail_items = _ }
-          | Top item | Detail item ->
-            Detail { item with
-                     cumulated = None;
-                     reps = Variable.Map.empty;
-                     defaults = Variable.Map.empty;
-                   }
-        in
-        Variable.Map.add ri item nlayout)
-      items nlayout
+      defaults
+    }
   in
   let layout, promotions =
     Variable.Map.fold (fun v item (nlayout, promotions) ->
         match item with
         | Super { super_item; super_detail_items } ->
           if filter v then
-            let super_item, ref_items = filter_res_item super_item in
+            let super_item = filter_res_item super_item in
             let item = Super {
                 super_item;
                 super_detail_items = Variable.Set.filter filter super_detail_items;
               }
             in
-            let nlayout = import_dummy_items layout nlayout ref_items in
             (Variable.Map.add v item nlayout, promotions)
           else
             let promotions =
@@ -417,14 +390,12 @@ let normalize_layout (info : ProgramInfo.t) (mode : norm_mode) (layout : results
             nlayout, promotions
         | Top item ->
           if filter v then
-            let item, ref_items = filter_res_item item in
-            let nlayout = import_dummy_items layout nlayout ref_items in
+            let item = filter_res_item item in
             Variable.Map.add v (Top item) nlayout, promotions
           else nlayout, promotions
         | Detail item ->
           if filter v then
-            let item, ref_items = filter_res_item item in
-            let nlayout = import_dummy_items layout nlayout ref_items in
+            let item = filter_res_item item in
             Variable.Map.add v (Detail item) nlayout, promotions
           else nlayout, promotions)
       layout (Variable.Map.empty, Variable.Set.empty)
