@@ -41,11 +41,6 @@ let dummy_detail v = {
   defaults = Variable.Map.empty;
 }
 
-let dummy_super v = {
-  super_item = dummy_detail v;
-  super_detail_items = Variable.Set.empty;
-}
-
 let update_detail_of ?(is_detail=false) (v : Variable.t)
     (f : item_result_layout -> item_result_layout)
     (layout : results_layout) =
