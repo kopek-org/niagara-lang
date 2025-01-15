@@ -1,4 +1,11 @@
-type user_substitutions = Equ.expr Variable.Map.t
+type user_substitution = {
+  expr : Equ.expr;
+  source : Variable.t;
+  condition : Condition.t;
+  delta : R.t;
+}
+
+type user_substitutions = user_substitution Variable.Map.t
 
 type result = {
   opp_var_info : VarInfo.collection;

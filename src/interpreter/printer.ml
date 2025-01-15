@@ -108,7 +108,7 @@ let event_flips (infos : VarInfo.collection) (past_state : bool Variable.Map.t)
     match (Variable.Map.find v infos).origin with
     | Named name -> Some (name, b)
     | AnonEvent -> Some ("anon_event_" ^ string_of_int (Variable.uid v), b)
-    | OpposingVariant { origin; target } ->
+    | OpposingVariant { origin; target; variant = _ } ->
       Option.map (fun (name, b) ->
           name ^ " @" ^ VarInfo.get_any_name infos target, b)
         (visible_name origin b)

@@ -222,7 +222,7 @@ let build_result_layout (pinfos : ProgramInfo.t) =
         | OperationSum _ ->
             (* No need, we already register the details, which always exists *)
             layout, variants
-        | OpposingVariant { target; origin } ->
+        | OpposingVariant { target; origin; variant = _ } ->
           layout,
           Variable.Map.update target (function
               | None -> Some (Variable.Map.singleton origin v)
@@ -305,8 +305,8 @@ let merge_valuations (info : ProgramInfo.t) ~(filter : Variable.t -> bool)
               (match p1, p2 with
                | Present v1, Present v2 -> Present (Value.add v1 v2)
                | Absent, p | p, Absent -> p)
-            | OpposingVariant { origin ; target = _ } ->
-              merge_on_org (Variable.Map.find origin info.var_info).origin
+            | OpposingVariant { origin = _; target = _; variant } ->
+              merge_on_org variant
             | AnonEvent | RisingEvent _ -> assert false
           in
           Some (merge_on_org (Variable.Map.find v info.var_info).origin)

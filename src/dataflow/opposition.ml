@@ -1,6 +1,13 @@
 open Equ
 
-type user_substitutions = expr Variable.Map.t
+type user_substitution = {
+  expr : expr;
+  source : Variable.t;
+  condition : Condition.t;
+  delta : R.t;
+}
+
+type user_substitutions = user_substitution Variable.Map.t
 
 type result = {
   opp_var_info : VarInfo.collection;
@@ -29,17 +36,9 @@ type env = {
 
 let is_user_subst env var = Variable.Map.mem var env.user_substs
 
-let add_copy acc { target; cumulatives; _ } (var : Variable.t) =
+let add_copy acc { cumulatives; _ } (var : Variable.t) =
   let one_copy acc var =
     let copy = Variable.create () in
-    let infos = Variable.Map.find var acc.var_info in
-    let origin = VarInfo.OpposingVariant { target; origin = var } in
-    let acc =
-      { acc with
-        var_info =
-          Variable.Map.add copy { infos with origin } acc.var_info;
-      }
-    in
     let copies = Variable.Map.add var (Some copy) acc.copies in
     { acc with copies }
   in
@@ -222,7 +221,7 @@ let condition_subst csq (cond : Condition.t) =
 let duplicate_event acc env ~(org : Variable.t) ~(dup : Variable.t) =
   let expr =
     match Variable.Map.find_opt org env.user_substs with
-    | Some expr -> expr
+    | Some { expr; _ } -> expr
     | None -> Variable.Map.find org acc.event_eqs
   in
   let dup_expr = expr_subst acc expr in
@@ -235,7 +234,7 @@ let duplicate_value acc env ~(org : Variable.t) ~(dup : Variable.t) =
     let expr =
       match Variable.Map.find_opt org env.user_substs with
       | None -> expr_subst acc expr
-      | Some uexpr -> expr_subst acc uexpr
+      | Some { expr; _ } -> expr_subst acc expr
     in
     cond, expr
   in
@@ -244,25 +243,86 @@ let duplicate_value acc env ~(org : Variable.t) ~(dup : Variable.t) =
     | One { eq_act; eq_expr } ->
       let eq_act, eq_expr = dup_one eq_act eq_expr in
       One { eq_act; eq_expr }
-  | More vars ->
-    let dup_vars =
-      List.map (fun (var, cond) ->
-          let cond = condition_subst acc cond in
-          let var = var_subst acc var in
-          var, cond)
-        vars
-    in
-    More dup_vars
+    | More vars ->
+      let dup_vars =
+        List.map (fun (var, cond) ->
+            let cond = condition_subst acc cond in
+            let var = var_subst acc var in
+            var, cond)
+          vars
+      in
+      More dup_vars
   in
   let value_eqs = Variable.Map.add dup dup_aggr acc.value_eqs in
   { acc with value_eqs }
+
+let origin_variant acc env (vorigin : VarInfo.origin) =
+  let convert_rep (source : Variable.t) (rep : Condition.t R.Map.t) =
+    let relevant_substs =
+      Variable.Map.filter (fun _ subst -> Variable.equal source subst.source)
+        env.user_substs
+    in
+    R.Map.fold (fun r c rep ->
+        let r =
+          Variable.Map.fold (fun _ subst r ->
+              if not Condition.(is_never (conj c subst.condition))
+              then R.(r - subst.delta)
+              else r)
+          relevant_substs r
+        in
+        if R.(r < zero || r > one) then rep else
+          R.Map.add r (condition_subst acc c) rep)
+      rep R.Map.empty
+  in
+  let variant_if_exists v =
+    match Variable.Map.find_opt v acc.copies with
+    | None | Some None -> v
+    | Some (Some var) -> var
+  in
+  match vorigin with
+  | Named _ | LabelOfPartner _ | Cumulative _ | AnonEvent
+  | Peeking _ | RisingEvent _ | ContextSpecialized _
+  | ConditionExistential -> vorigin
+  | OpposingVariant { variant; _ } -> variant
+  | OperationDetail { op_kind; source; target } ->
+    let op_kind =
+      match op_kind with
+      | Quotepart -> VarInfo.Quotepart
+      | Bonus -> Bonus
+      | Default rep -> Default (convert_rep source rep)
+      | Deficit rep -> Deficit (convert_rep source rep)
+    in
+    let source = variant_if_exists source in
+    let target = variant_if_exists target in
+    OperationDetail { op_kind; source; target }
+  | OperationSum { source; target } ->
+    let source = variant_if_exists source in
+    let target = variant_if_exists target in
+    OperationSum { source; target }
+  | RepartitionSum s ->
+    let s = variant_if_exists s in
+    RepartitionSum s
+  | DeficitSum s ->
+    let s = variant_if_exists s in
+    DeficitSum s
 
 let duplication acc env =
   Variable.Map.fold (fun org dup acc ->
       match dup with
       | None -> acc
       | Some dup ->
-        let is_event = VarInfo.is_event (Variable.Map.find org acc.var_info) in
+        let vinfos = Variable.Map.find org acc.var_info in
+        let variant = origin_variant acc env vinfos.origin in
+        let origin =
+          VarInfo.OpposingVariant { target = env.target; origin = org; variant }
+        in
+        let acc =
+          { acc with
+            var_info =
+              Variable.Map.add dup { vinfos with origin } acc.var_info;
+          }
+        in
+        let is_event = VarInfo.is_event vinfos in
         if is_event
         then duplicate_event acc env ~org ~dup
         else duplicate_value acc env ~org ~dup)
@@ -292,7 +352,6 @@ let save_pertinent_set acc ~(target : Variable.t) =
     copies = Variable.Map.empty;
     pertinence_sets = Variable.Map.add target pset acc.pertinence_sets
   }
-
 
 let resolve_one_target acc ~(target : Variable.t) (user_substs : user_substitutions)
   (cumulatives : Variable.t Variable.Map.t)  =

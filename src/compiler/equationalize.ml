@@ -228,11 +228,12 @@ let register_value t ~(act : Condition.t) ~(dest : Variable.t) (expr : expr) =
   in
   { t with value_eqs; }
 
-let register_opposition t ~(on : Variable.t) ~(target : Variable.t) (expr : expr) =
+let register_opposition t ~(on : Variable.t) ~(target : Variable.t)
+    (subst : Opposition.user_substitution) =
   let oppositions =
     Variable.Map.update target (function
-        | None -> Some (Variable.Map.singleton on expr)
-        | Some opps -> Some (Variable.Map.add on expr opps))
+        | None -> Some (Variable.Map.singleton on subst)
+        | Some opps -> Some (Variable.Map.add on subst opps))
       t.oppositions
   in
   { t with oppositions }
@@ -366,8 +367,10 @@ let convert_repartitions t =
                         let part, opposed = part in
                         let t =
                           List.fold_left (fun t Repartition.{ opp_value; opp_target } ->
+                              let delta = R.(opp_value - part) in
                               let expr = EMult (EConst (LRational opp_value), EVar src) in
-                              register_opposition t ~on:ov ~target:opp_target expr)
+                              let subst = Opposition.{ expr; delta; condition; source = src } in
+                              register_opposition t ~on:ov ~target:opp_target subst)
                             t opposed
                         in
                         let expr = EMult (EConst (LRational part), EVar src) in
