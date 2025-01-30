@@ -13,7 +13,7 @@ type result = {
   opp_var_info : VarInfo.collection;
   opp_value_eqs : aggregate_eqs;
   opp_event_eqs : expr Variable.Map.t;
-  opp_pertinence_sets : ProgramInfo.pertinence_set Variable.Map.t;
+  opp_relevance_sets : ProgramInfo.relevance_set Variable.Map.t;
 }
 
 type copies = Variable.t option Variable.Map.t
@@ -24,7 +24,7 @@ type acc = {
   event_eqs : expr Variable.Map.t;
   copies : copies;
   events : Variable.Set.t;
-  pertinence_sets : ProgramInfo.pertinence_set Variable.Map.t
+  relevance_sets : ProgramInfo.relevance_set Variable.Map.t
 }
 
 type env = {
@@ -328,16 +328,19 @@ let duplication acc env =
         else duplicate_value acc env ~org ~dup)
     acc.copies acc
 
-let save_pertinent_set acc ~(target : Variable.t) =
+let save_relevant_set ~opposable acc ~(target : Variable.t) =
   (* acc.copies should contain every explored variables during
      consequent discoveries. We just go and use that. *)
   let pset = ProgramInfo.{
     endpoint =
       (match Variable.Map.find_opt target acc.copies with
-      | None | Some None ->
-        Errors.raise_error "(internal) No opposing variant for opposability target"
+       | None | Some None ->
+         if opposable then
+           Errors.raise_error "(internal) No opposing variant for opposability target"
+         else
+           target
       | Some (Some var) -> var);
-    pertinent_vars =
+    relevant_vars =
       Variable.Map.fold (fun org dup set ->
           let pv =
             match dup with
@@ -350,17 +353,17 @@ let save_pertinent_set acc ~(target : Variable.t) =
   in
   { acc with
     copies = Variable.Map.empty;
-    pertinence_sets = Variable.Map.add target pset acc.pertinence_sets
+    relevance_sets = Variable.Map.add target pset acc.relevance_sets
   }
 
-let resolve_one_target acc ~(target : Variable.t) (user_substs : user_substitutions)
+let resolve_one_target ~opposable acc ~(target : Variable.t) (user_substs : user_substitutions)
   (cumulatives : Variable.t Variable.Map.t)  =
   let env = { target; user_substs; cumulatives; maybes = Variable.Map.empty } in
   let acc, is_consequent = compute_consequents acc env target in
-  if not is_consequent then Errors.raise_error "Useless opposition";
+  if not is_consequent && opposable then Errors.raise_error "Useless opposition";
   let acc = events_consequents acc env in
   let acc = duplication acc env in
-  save_pertinent_set acc ~target
+  save_relevant_set ~opposable acc ~target
 
 let resolve (var_info : VarInfo.collection) (value_eqs : aggregate_eqs)
     (event_eqs : expr Variable.Map.t) (oppositions : user_substitutions Variable.Map.t)
@@ -369,16 +372,34 @@ let resolve (var_info : VarInfo.collection) (value_eqs : aggregate_eqs)
     var_info; value_eqs; event_eqs;
     copies = Variable.Map.empty;
     events = Variable.Set.empty;
-    pertinence_sets = Variable.Map.empty;
+    relevance_sets = Variable.Map.empty;
   }
   in
   let acc =
     Variable.Map.fold (fun target substs acc ->
-        resolve_one_target acc ~target substs cumulatives)
+        resolve_one_target ~opposable:true acc ~target substs cumulatives)
       oppositions acc
+  in
+  (* Now adding non opposable varinfos *)
+  let acc =
+    Variable.Map.fold (fun v t acc ->
+        match VarInfo.is_original_partner t with
+        | None -> acc
+        | Some _ ->
+          if Variable.Map.mem v oppositions
+          then acc
+          else
+            resolve_one_target
+              ~opposable:false
+              acc
+              ~target:v
+              Variable.Map.empty
+              cumulatives
+      )
+      var_info acc
   in
   { opp_var_info = acc.var_info;
     opp_value_eqs = acc.value_eqs;
     opp_event_eqs = acc.event_eqs;
-    opp_pertinence_sets = acc.pertinence_sets;
+    opp_relevance_sets = acc.relevance_sets;
   }

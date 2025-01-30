@@ -1,7 +1,7 @@
-type pertinence_set = {
+type relevance_set = {
   endpoint : Variable.t;
   (* final receiving partner *)
-  pertinent_vars : Variable.Set.t;
+  relevant_vars : Variable.Set.t;
   (* minimal set of variable needed to explain computation *)
 }
 
@@ -11,7 +11,7 @@ type t = {
   contexts : Context.world;
   compounds : Variable.Set.t Variable.Map.t;
   constants : Literal.t Variable.Map.t;
-  pertinence_sets : pertinence_set Variable.Map.t;
+  relevance_sets : relevance_set Variable.Map.t;
 }
 
 let print_variable infos fmt (v : Variable.t) =

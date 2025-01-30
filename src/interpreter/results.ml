@@ -277,10 +277,10 @@ let filter_of_norm_mode (info : ProgramInfo.t) (mode : norm_mode) =
   match mode with
   | Canonical -> canonical_filter
   | OpposedTo target ->
-    match Variable.Map.find_opt target info.pertinence_sets with
+    match Variable.Map.find_opt target info.relevance_sets with
     | None -> canonical_filter
     | Some ps ->
-      fun (v : Variable.t) -> Variable.Set.mem v ps.pertinent_vars
+      fun (v : Variable.t) -> Variable.Set.mem v ps.relevant_vars
 
 let merge_valuations (info : ProgramInfo.t) ~(filter : Variable.t -> bool)
     (val1 : value_presence Variable.Map.t) (val2 : value_presence Variable.Map.t) =

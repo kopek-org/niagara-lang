@@ -520,7 +520,7 @@ let convert_deficits t =
     t.deficits_vars t
 
 let resolve_oppositions (t : t) =
-  let Opposition.{ opp_var_info; opp_value_eqs; opp_event_eqs; opp_pertinence_sets } =
+  let Opposition.{ opp_var_info; opp_value_eqs; opp_event_eqs; opp_relevance_sets } =
     Opposition.resolve t.pinfos.var_info t.value_eqs t.event_eqs
       t.oppositions t.cumulation_vars
   in
@@ -528,7 +528,7 @@ let resolve_oppositions (t : t) =
     pinfos =
       { t.pinfos with
         var_info = opp_var_info;
-        pertinence_sets = opp_pertinence_sets
+        relevance_sets = opp_relevance_sets
       };
     value_eqs = opp_value_eqs;
     event_eqs = opp_event_eqs;

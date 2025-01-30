@@ -248,7 +248,7 @@ let print_program (type a) fmt (p : a program) =
         contexts = Context.empty_world;
         compounds = Variable.Map.empty;
         constants = Variable.Map.empty;
-        pertinence_sets = Variable.Map.empty;
+        relevance_sets = Variable.Map.empty;
       }
       in
       Format.pp_print_list (print_declaration dummy_infos) fmt decls

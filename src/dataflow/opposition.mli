@@ -11,7 +11,7 @@ type result = {
   opp_var_info : VarInfo.collection;
   opp_value_eqs : Equ.aggregate_eqs;
   opp_event_eqs : Equ.expr Variable.Map.t;
-  opp_pertinence_sets : ProgramInfo.pertinence_set Variable.Map.t;
+  opp_relevance_sets : ProgramInfo.relevance_set Variable.Map.t;
 }
 
 val resolve

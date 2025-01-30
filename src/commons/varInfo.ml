@@ -51,6 +51,11 @@ let is_partner t =
 
 let is_event t = t.kind = Event
 
+let is_original_partner t =
+  match t.kind, t.origin with
+  | ReceivingPartner, Named s -> Some s
+  | _ -> None
+
 let rec get_name coll v =
   match Variable.Map.find_opt v coll with
   | None -> None

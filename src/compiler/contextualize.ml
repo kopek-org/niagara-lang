@@ -411,7 +411,7 @@ end = struct
       contexts = t.contexts;
       compounds = t.compounds;
       constants = t.constants;
-      pertinence_sets = Variable.Map.empty;
+      relevance_sets = Variable.Map.empty;
     }
     in
     Contextualized (infos, List.rev t.program_decls)
