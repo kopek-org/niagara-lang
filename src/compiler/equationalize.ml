@@ -359,12 +359,12 @@ let convert_repartitions t =
                   group_productions
                     ~produce:(List.fold_left_map (fun t ({ condition; part; _ }
                                                          : Repartition.opposable_part Repartition.share) ->
+                        let part, opposed = part in
                         let t, ov = create_var_from t dest (fun i ->
                             { i with
-                              origin = OperationDetail { op_kind = Quotepart; source = src; target = dest }
+                              origin = OperationDetail { op_kind = Quotepart part; source = src; target = dest }
                             })
                         in
-                        let part, opposed = part in
                         let t =
                           List.fold_left (fun t Repartition.{ opp_value; opp_target } ->
                               let delta = R.(opp_value - part) in

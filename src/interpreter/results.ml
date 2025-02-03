@@ -197,7 +197,7 @@ let build_result_layout (pinfos : ProgramInfo.t) =
               }), variants
         | OperationDetail { op_kind; source; target } ->
           (match op_kind with
-           | Quotepart | Bonus ->
+           | Quotepart  _ | Bonus ->
              update_detail_of source (fun l ->
                  { l with reps = Variable.Map.update target (function
                        | None -> Some (Variable.Set.singleton v)

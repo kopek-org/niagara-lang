@@ -256,8 +256,13 @@ let duplicate_value acc env ~(org : Variable.t) ~(dup : Variable.t) =
   let value_eqs = Variable.Map.add dup dup_aggr acc.value_eqs in
   { acc with value_eqs }
 
-let origin_variant acc env (vorigin : VarInfo.origin) =
-  let convert_rep (source : Variable.t) (rep : Condition.t R.Map.t) =
+let origin_variant acc env (var : Variable.t) (vorigin : VarInfo.origin) =
+  let convert_part p =
+    match Variable.Map.find_opt var env.user_substs with
+    | None -> p
+    | Some subst -> R.(p + subst.delta)
+  in
+  let convert_reps (source : Variable.t) (rep : Condition.t R.Map.t) =
     let relevant_substs =
       Variable.Map.filter (fun _ subst -> Variable.equal source subst.source)
         env.user_substs
@@ -287,10 +292,10 @@ let origin_variant acc env (vorigin : VarInfo.origin) =
   | OperationDetail { op_kind; source; target } ->
     let op_kind =
       match op_kind with
-      | Quotepart -> VarInfo.Quotepart
+      | Quotepart p -> VarInfo.Quotepart (convert_part p)
       | Bonus -> Bonus
-      | Default rep -> Default (convert_rep source rep)
-      | Deficit rep -> Deficit (convert_rep source rep)
+      | Default rep -> Default (convert_reps source rep)
+      | Deficit rep -> Deficit (convert_reps source rep)
     in
     let source = variant_if_exists source in
     let target = variant_if_exists target in
@@ -312,7 +317,7 @@ let duplication acc env =
       | None -> acc
       | Some dup ->
         let vinfos = Variable.Map.find org acc.var_info in
-        let variant = origin_variant acc env vinfos.origin in
+        let variant = origin_variant acc env org vinfos.origin in
         let origin =
           VarInfo.OpposingVariant { target = env.target; origin = org; variant }
         in

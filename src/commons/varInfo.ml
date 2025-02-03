@@ -1,6 +1,6 @@
 
 type op_kind =
-  | Quotepart
+  | Quotepart of R.t
   | Bonus
   | Default of Condition.t R.Map.t
   | Deficit of Condition.t R.Map.t
@@ -91,7 +91,7 @@ let print fmt t =
   | OperationDetail { source; target; op_kind } ->
     fprintf fmt "[%d->%d]%s" (Variable.uid source) (Variable.uid target)
       (match op_kind with
-       | Quotepart -> "%"
+       | Quotepart _ -> "%"
        | Bonus -> "$"
        | Default _ -> "?"
        | Deficit _ -> "!")

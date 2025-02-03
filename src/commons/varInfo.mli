@@ -1,6 +1,6 @@
 
 type op_kind =
-  | Quotepart
+  | Quotepart of R.t
   | Bonus
   | Default of Condition.t R.Map.t
   | Deficit of Condition.t R.Map.t
