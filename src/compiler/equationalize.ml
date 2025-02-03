@@ -106,7 +106,10 @@ let create_cumulation t v =
     create_var_from t v (fun i ->
       { i with
         origin = Cumulative v;
-        kind = Intermediary;
+        kind = match i.kind with
+          | ParameterInput _
+          | PoolInput _ -> Intermediary
+          | k -> k
       })
   in
   let cumulation_vars =

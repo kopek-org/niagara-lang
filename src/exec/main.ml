@@ -40,9 +40,18 @@ let result_pov_term =
   in
   Arg.(value & opt (some string) None & info ~doc ["for"])
 
+(** Set result point of view. *)
+let all_pov_term =
+  let open Cmdliner in
+  let doc =
+    "Show partners only results in their respective point of view"
+  in
+  Arg.(value & flag & info ~doc ["forall"])
+
 (** The main compilation function. It simply calls the main compilation
     pipepine with a parsing on file. *)
-let compile : string -> bool -> string option -> unit = fun path test res_pov ->
+let compile : string -> bool -> string option -> bool -> unit =
+  fun path test res_pov all_pov ->
   let src_program = Grammar.ParserMain.parse_program path in
   let p, l = Compiler.Compile.compile src_program in
   (* let filter = Compiler.GenDot.{ *)
@@ -51,7 +60,7 @@ let compile : string -> bool -> string option -> unit = fun path test res_pov ->
   (* } *)
   (* in *)
   (* Compiler.GenDot.dot_of_program p filter; *)
-  if test then Testing.test_stdin p l res_pov
+  if test then Testing.test_stdin p l res_pov all_pov
 
 (** [a -+ b] composes the terms [a] and [b] but ignores the
     [a] result. *)
@@ -69,7 +78,7 @@ let main () =
   let cmd = Cmd.v info (Term.(
       setup_log_term -+
       gnu_style_term -+
-      ((const compile) $ source_term $ test_flag_term $ result_pov_term)
+      ((const compile) $ source_term $ test_flag_term $ result_pov_term $ all_pov_term)
       )
   ) in
   let code = Cmd.eval cmd in

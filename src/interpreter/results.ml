@@ -266,7 +266,8 @@ open Execution
 
 type norm_mode =
   | Canonical
-  | OpposedTo of Variable.t
+  | SquashAllButPartners
+  | PartnerView of Variable.t
 
 let filter_of_norm_mode (info : ProgramInfo.t) (mode : norm_mode) =
   let canonical_filter v =
@@ -274,9 +275,38 @@ let filter_of_norm_mode (info : ProgramInfo.t) (mode : norm_mode) =
     | OpposingVariant _ -> false
     | _ -> true
   in
+  let only_partners_filter =
+    let partners =
+      Variable.Map.fold (fun v vinfos partners ->
+          match vinfos.origin, vinfos.kind with
+          | OpposingVariant { origin; target; variant; _ }, _ ->
+            let own_partner =
+              match variant with
+              | LabelOfPartner { partner; label = _ } ->
+                Variable.equal target partner
+              | Cumulative s ->
+                (match (Variable.Map.find s info.var_info).origin with
+                 | Named _ -> Variable.equal s target
+                 | LabelOfPartner { partner; label = _ } ->
+                   Variable.equal partner target
+                 | _ -> false
+                )
+              | _ -> Variable.equal origin target
+            in
+            if own_partner then
+              Variable.Set.add v (Variable.Set.remove origin partners)
+            else partners
+          | _, (ProvidingPartner | ReceivingPartner) ->
+            Variable.Set.add v partners
+          | _ -> partners)
+        info.var_info Variable.Set.empty
+    in
+    fun v -> Variable.Set.mem v partners
+  in
   match mode with
   | Canonical -> canonical_filter
-  | OpposedTo target ->
+  | SquashAllButPartners -> only_partners_filter
+  | PartnerView target ->
     match Variable.Map.find_opt target info.relevance_sets with
     | None -> canonical_filter
     | Some ps ->
@@ -360,10 +390,7 @@ let normalize_layout (info : ProgramInfo.t) (mode : norm_mode) (layout : results
     in
     let reps = filter_map item.reps in
     let defaults = filter_map item.defaults in
-    { item with
-      reps;
-      defaults
-    }
+    { item with reps; defaults }
   in
   let layout, promotions =
     Variable.Map.fold (fun v item (nlayout, promotions) ->

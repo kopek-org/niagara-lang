@@ -58,7 +58,7 @@ let convert_line (p : Equ.program) (input : string) (amount : string) =
   in
   Option.map (fun v -> v, amount) var
 
-let test_stdin (p : Equ.program) (l : Equ.limits) (for_partner : string option) =
+let test_stdin (p : Equ.program) (l : Equ.limits) (for_partner : string option) (for_all : bool) =
   Format.printf "Awaiting inputs:@.";
   let raw_inputs = Testlex.parse stdin in
   let inputs =
@@ -72,12 +72,13 @@ let test_stdin (p : Equ.program) (l : Equ.limits) (for_partner : string option) 
       raw_inputs
   in
   let norm_mode =
-    match for_partner with
-    | None -> Results.Canonical
-    | Some s ->
-      match find_partner p.infos.var_info s with
-      | None -> Errors.raise_error "Unable to find partner %s" s
-      | Some v -> Results.OpposedTo v
+    if for_all then Results.SquashAllButPartners else
+      match for_partner with
+      | None -> Results.Canonical
+      | Some s ->
+        match find_partner p.infos.var_info s with
+        | None -> Errors.raise_error "Unable to find partner %s" s
+        | Some v -> Results.PartnerView v
   in
   let outputs = Interpreter.Execution.compute_input_lines p l inputs in
   Interpreter.Printer.print_intepreter_outputs

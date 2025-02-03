@@ -70,3 +70,21 @@
          
        
      
+  $ OCAMLRUNPARAM=b niagara --test ../examples/opposition.nga --forall <<EOF
+  > 1: rbd += 100000$
+  > EOF
+  Awaiting inputs:
+  ### OUTPUTS ###
+  1: ++ no events:
+       - distrib { 4240000., 4240000. }:
+         - distrib[frais] { 240000., 240000. }:
+         
+       - prod { 4608000., 4608000. }:
+         - prod[residuel] { 4608000., 4608000. }:
+         
+       - sofica @sofica { 1288000., 1288000. }:
+         - sofica[recup] @sofica { 1200000., 1200000. }:
+         - sofica[residuel] @sofica { 88000., 88000. }:
+         
+       
+     
