@@ -51,3 +51,7 @@ val normalize_valuations :
 val normalize_layout :
   ProgramInfo.t -> norm_mode -> results_layout  -> results_layout
 (* filter items and sub-items following the given normalization mode *)
+
+
+val sort_layout : VarInfo.collection -> results_layout -> (Variable.t * top_item) list
+(* sort items *)
