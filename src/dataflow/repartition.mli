@@ -5,6 +5,7 @@ type opposable_part = R.t * opposed_part list
 type part_or_def = Part of opposable_part | Default | Deficit
 
 type 'a share = {
+  label : string option;
   dest : Variable.t;
   part : 'a;
   condition : Condition.t;

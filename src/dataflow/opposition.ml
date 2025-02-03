@@ -289,7 +289,7 @@ let origin_variant acc env (var : Variable.t) (vorigin : VarInfo.origin) =
   | Peeking _ | RisingEvent _ | ContextSpecialized _
   | ConditionExistential -> vorigin
   | OpposingVariant { variant; _ } -> variant
-  | OperationDetail { op_kind; source; target } ->
+  | OperationDetail { label; op_kind; source; target } ->
     let op_kind =
       match op_kind with
       | Quotepart p -> VarInfo.Quotepart (convert_part p)
@@ -299,7 +299,7 @@ let origin_variant acc env (var : Variable.t) (vorigin : VarInfo.origin) =
     in
     let source = variant_if_exists source in
     let target = variant_if_exists target in
-    OperationDetail { op_kind; source; target }
+    OperationDetail { label; op_kind; source; target }
   | OperationSum { source; target } ->
     let source = variant_if_exists source in
     let target = variant_if_exists target in

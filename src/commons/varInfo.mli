@@ -13,7 +13,12 @@ type origin =
   | Peeking of Variable.t
   | RisingEvent of Variable.t
   | ContextSpecialized of { origin : Variable.t; context : Context.Group.t }
-  | OperationDetail of { op_kind : op_kind; source : Variable.t; target : Variable.t }
+  | OperationDetail of {
+      label : string option;
+      op_kind : op_kind;
+      source : Variable.t;
+      target : Variable.t
+    }
   | OperationSum of { source : Variable.t; target : Variable.t }
   | RepartitionSum of Variable.t
   | DeficitSum of Variable.t

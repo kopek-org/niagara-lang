@@ -6,6 +6,7 @@ type opposable_part = R.t * opposed_part list
 type part_or_def = Part of opposable_part | Default | Deficit
 
 type 'a share = {
+  label : string option;
   dest : Variable.t;
   part : 'a;
   condition : Condition.t;
@@ -151,7 +152,7 @@ let resolve_fullness (rep : part_or_def t) =
         let condition =
           R.Map.fold (fun _p -> Condition.disj) ds Condition.never
         in
-        let share = { dest = def_share.dest; condition; part = ds } in
+        let share = { label = def_share.label; dest = def_share.dest; condition; part = ds } in
         parts, share::defs
       )
       (parts, []) defs.local_defaults
@@ -164,7 +165,7 @@ let resolve_fullness (rep : part_or_def t) =
       let condition =
         R.Map.fold (fun _p -> Condition.disj) ds Condition.never
       in
-      let gd_share = { dest = share.dest; condition; part = ds } in
+      let gd_share = { label = share.label; dest = share.dest; condition; part = ds } in
       parts, Some gd_share
   in
   let parts, deficit =
@@ -175,14 +176,14 @@ let resolve_fullness (rep : part_or_def t) =
       let condition =
         R.Map.fold (fun _p -> Condition.disj) ds Condition.never
       in
-      let deficit_share = { dest = share.dest; condition; part = ds } in
+      let deficit_share = { label = share.label; dest = share.dest; condition; part = ds } in
       parts, Some deficit_share
   in
   check_fullness parts;
   { parts =
-      List.filter_map (fun { part; dest; condition } ->
+      List.filter_map (fun { label; part; dest; condition } ->
           match part with
-          | Part part -> Some { part; dest; condition }
+          | Part part -> Some { label; part; dest; condition }
           | _ -> None)
         rep;
     defaults = (Option.to_list global_default) @ local_defaults;

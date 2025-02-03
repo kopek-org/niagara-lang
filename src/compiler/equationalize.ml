@@ -17,13 +17,20 @@ type result = {
 
 module Acc = struct
 
+type flat_op = {
+  flat_label : string option;
+  flat_expr : expr;
+  flat_src : Variable.t;
+  flat_cond : Condition.t;
+}
+
 type t = {
   pinfos : ProgramInfo.t;
   used_variables : Variable.Set.t;
   ctx_derivations : Variable.t Context.Group.Map.t Variable.Map.t;
   event_eqs : expr Variable.Map.t;
   repartitions : Repartition.eqs; (* src key *)
-  flat_eqs : (Variable.t * expr * Condition.t) list Variable.Map.t; (* dest key *)
+  flat_eqs : flat_op list Variable.Map.t; (* dest key *)
   value_eqs : aggregate_eqs; (* dest key *)
   cumulation_vars : Variable.t Variable.Map.t;
   deficits_vars : (Variable.t * Condition.t) list Variable.Map.t;
@@ -162,9 +169,9 @@ let lift_event t (event : expr) (kind : artefact_event) =
     let t = register_event t v event in
     t, v
 
-let register_part t ~(act : Condition.t) ~(src : Variable.t)
+let register_part t ~(label : string option) ~(act : Condition.t) ~(src : Variable.t)
     ~(dest : Variable.t) (part : Repartition.part_or_def) =
-  let share = Repartition.{ dest; part; condition = act } in
+  let share = Repartition.{ label; dest; part; condition = act } in
   let repartitions =
     Variable.Map.update src (function
         | None -> Some [ share ]
@@ -189,12 +196,19 @@ let register_deficit t ~(act : Condition.t) ~(provider : Variable.t)
     ~(pool : Variable.t) =
   register_part t ~act ~src:pool ~dest:provider Deficit
 
-let register_flat t ~(act : Condition.t) ~(src : Variable.t) ~(dest : Variable.t)
-    (expr : expr) =
+let register_flat ~(label : string option) t ~(act : Condition.t) ~(src : Variable.t)
+    ~(dest : Variable.t) (expr : expr) =
+  let flat = {
+    flat_label = label;
+    flat_src = src;
+    flat_expr = expr;
+    flat_cond = act;
+  }
+  in
   let flat_eqs =
     Variable.Map.update dest (function
-        | None -> Some [src, expr, act]
-        | Some rs -> Some ((src, expr, act)::rs))
+        | None -> Some [ flat ]
+        | Some rs -> Some (flat::rs))
       t.flat_eqs
   in
   { t with flat_eqs; }
@@ -357,12 +371,13 @@ let convert_repartitions t =
             Variable.Map.fold (fun dest shares (t, vars) ->
                 let t, (pvar, pcond) =
                   group_productions
-                    ~produce:(List.fold_left_map (fun t ({ condition; part; _ }
+                    ~produce:(List.fold_left_map (fun t ({ label; condition; part; dest = _ }
                                                          : Repartition.opposable_part Repartition.share) ->
                         let part, opposed = part in
                         let t, ov = create_var_from t dest (fun i ->
                             { i with
-                              origin = OperationDetail { op_kind = Quotepart part; source = src; target = dest }
+                              origin = OperationDetail
+                                  { label; op_kind = Quotepart part; source = src; target = dest }
                             })
                         in
                         let t =
@@ -401,11 +416,12 @@ let convert_repartitions t =
   in
   let conv_defaults t src reps_var def_shares =
     List.fold_left
-      (fun t ({ dest; condition; part }
+      (fun t ({ label; dest; condition; part }
               : Repartition.unified_parts Repartition.share) ->
         let t, ov = create_var_from t dest (fun i ->
             { i with
               origin = OperationDetail {
+                  label;
                   op_kind = Default part;
                   source = src;
                   target = dest }
@@ -420,10 +436,11 @@ let convert_repartitions t =
       (def_share : Repartition.unified_parts Repartition.share option) =
     match def_share with
     | None -> t
-    | Some { dest; condition; part } ->
+    | Some { label; dest; condition; part } ->
       let t, ov = create_var_from t dest (fun i ->
           { i with
             origin = OperationDetail {
+                label;
                 op_kind = Deficit part;
                 source = dest;
                 target = src }
@@ -443,29 +460,30 @@ let convert_repartitions t =
 let convert_flats t =
   Variable.Map.fold (fun dest flats t ->
       let grouped_flats =
-        List.fold_left (fun gs (src, e, c) ->
-            Variable.Map.update src (function
-                | None -> Some [e,c]
-                | Some fs -> Some ((e,c)::fs))
+        List.fold_left (fun gs flat ->
+            Variable.Map.update flat.flat_src (function
+                | None -> Some [flat]
+                | Some fs -> Some (flat::fs))
               gs)
           Variable.Map.empty flats
       in
       Variable.Map.fold (fun src flats t ->
           let t, (pvar, pcond) =
             group_productions
-              ~produce:(List.fold_left_map (fun t (expr, act) ->
+              ~produce:(List.fold_left_map (fun t flat ->
                   let t, ldest =
                     create_var_from t dest (fun i ->
                         { i with
                           origin = OperationDetail {
+                              label = flat.flat_label;
                               op_kind = Bonus;
                               source = src;
                               target = dest };
                           kind = Intermediary
                         })
                   in
-                  let t = register_value t ~act ~dest:ldest expr in
-                  t, (ldest, act)))
+                  let t = register_value t ~act:flat.flat_cond ~dest:ldest flat.flat_expr in
+                  t, (ldest, flat.flat_cond)))
               ~aggr_var:(fun t -> create_var_from t dest (fun i ->
                   { i with
                     origin = OperationSum { source = src; target = dest }
@@ -689,7 +707,7 @@ let rec translate_event acc (eexpr : Ast.contextualized Ast.event_expr) =
     acc, EAnd(e1, e2)
   | EventDisj _ -> assert false
 
-let translate_redistribution acc ~(ctx : Context.Group.t) ~(act : Condition.t)
+let translate_redistribution ~(label : string option) acc ~(ctx : Context.Group.t) ~(act : Condition.t)
     ~(src : Variable.t) ~(dest : Ast.contextualized_variable)
     (redist : Ast.contextualized Ast.redistribution) =
   let proj = resolve_projection_context acc ~context:ctx ~refinement:(snd dest) in
@@ -719,11 +737,11 @@ let translate_redistribution acc ~(ctx : Context.Group.t) ~(act : Condition.t)
           acc, (opp_towards, opp_part))
         acc opp
     in
-    Acc.register_redist acc ~act ~src ~dest part opps
+    Acc.register_redist ~label acc ~act ~src ~dest part opps
   | Flat f ->
     let acc, (e, _) = translate_formula ~ctx ~view:AtInstant acc f in
-    Acc.register_flat acc ~act ~src ~dest e
-  | Default -> Acc.register_default acc ~act ~src ~dest
+    Acc.register_flat ~label acc ~act ~src ~dest e
+  | Default -> Acc.register_default ~label acc ~act ~src ~dest
 
 let translate_redist_w_dest acc ~(ctx : Context.Group.t) ~(act : Condition.t)
     ~(src : Variable.t)
@@ -739,18 +757,18 @@ let translate_redist_w_dest acc ~(ctx : Context.Group.t) ~(act : Condition.t)
   in
   translate_redistribution ~ctx ~act ~src ~dest acc redist
 
-let rec translate_guarded_redist acc ~(ctx : Context.Group.t) ~(act : Condition.t)
-    ~(src : Variable.t) ~(def_dest : Ast.contextualized_variable option)
+let rec translate_guarded_redist ~(label : string option) acc ~(ctx : Context.Group.t)
+    ~(act : Condition.t) ~(src : Variable.t) ~(def_dest : Ast.contextualized_variable option)
     (gr : _ Ast.guarded_redistrib) =
   match gr with
   | Redists rs ->
-    List.fold_left (translate_redist_w_dest ~ctx ~act ~src ~def_dest) acc rs
+    List.fold_left (translate_redist_w_dest ~label ~ctx ~act ~src ~def_dest) acc rs
   | Whens gs ->
     List.fold_left (fun acc (cond, gr) ->
         let acc, condt, _ =
           translate_condition ~act ~on_raise:true acc cond
         in
-        translate_guarded_redist acc ~ctx ~act:condt ~src ~def_dest gr)
+        translate_guarded_redist ~label acc ~ctx ~act:condt ~src ~def_dest gr)
       acc gs
   | Branches { befores; afters } ->
     let acc, act =
@@ -758,7 +776,7 @@ let rec translate_guarded_redist acc ~(ctx : Context.Group.t) ~(act : Condition.
           let acc, condt, condf =
             translate_condition ~act ~on_raise:false acc cond
           in
-          translate_guarded_redist acc ~ctx ~act:condt ~src ~def_dest gr,
+          translate_guarded_redist ~label acc ~ctx ~act:condt ~src ~def_dest gr,
           condf)
         afters (acc, act)
     in
@@ -767,7 +785,7 @@ let rec translate_guarded_redist acc ~(ctx : Context.Group.t) ~(act : Condition.
         let acc, condt, condf =
           translate_condition ~act ~on_raise:false acc cond
         in
-        translate_guarded_redist acc ~ctx ~act:condf ~src ~def_dest gr,
+        translate_guarded_redist ~label acc ~ctx ~act:condf ~src ~def_dest gr,
         condt)
       (acc, act) befores
 
@@ -793,8 +811,8 @@ let translate_operation acc (o : Ast.ctx_operation_decl) =
   let source_local_shape = shape_of_ctx_var acc o.ctx_op_source in
   Context.shape_fold (fun acc ctx ->
       let acc, src = Acc.get_derivative_var acc (fst o.ctx_op_source) ctx in
-      translate_guarded_redist acc ~ctx ~act:Condition.always ~src
-        ~def_dest:o.ctx_op_default_dest o.ctx_op_guarded_redistrib)
+      translate_guarded_redist ~label:(Some o.ctx_op_label) acc ~ctx ~act:Condition.always
+        ~src ~def_dest:o.ctx_op_default_dest o.ctx_op_guarded_redistrib)
     acc source_local_shape
 
 let translate_default acc (d : Ast.ctx_default_decl) =
@@ -809,7 +827,7 @@ let translate_default acc (d : Ast.ctx_default_decl) =
         | ContextVar [dest] -> dest
         | _ -> Errors.raise_error "destination derivation should have been unique"
       in
-      Acc.register_default acc ~act:Condition.always ~src ~dest)
+      Acc.register_default ~label:None acc ~act:Condition.always ~src ~dest)
     acc source_local_shape
 
 let translate_deficit acc (d : Ast.ctx_deficit_decl) =
@@ -823,7 +841,7 @@ let translate_deficit acc (d : Ast.ctx_deficit_decl) =
   let pool_local_shape = shape_of_ctx_var acc d.ctx_deficit_pool in
   Context.shape_fold (fun acc ctx ->
       let acc, pool = Acc.get_derivative_var acc (fst d.ctx_deficit_pool) ctx in
-      Acc.register_deficit acc ~act:Condition.always ~provider ~pool)
+      Acc.register_deficit ~label:None acc ~act:Condition.always ~provider ~pool)
     acc pool_local_shape
 
 let translate_declaration acc (decl : Ast.contextualized Ast.declaration) =

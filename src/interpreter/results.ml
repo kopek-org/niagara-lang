@@ -195,7 +195,7 @@ let build_result_layout (pinfos : ProgramInfo.t) =
                   (VarInfo.get_any_name pinfos.var_info origin)
                   ^ "(" ^ (context_display pinfos.contexts context) ^ ")"
               }), variants
-        | OperationDetail { op_kind; source; target } ->
+        | OperationDetail { label = _; op_kind; source; target } ->
           (match op_kind with
            | Quotepart  _ | Bonus ->
              update_detail_of source (fun l ->
