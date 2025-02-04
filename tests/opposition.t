@@ -72,6 +72,34 @@
          
        
      
+  $ OCAMLRUNPARAM=b niagara --test ../examples/opposition.nga --for prod <<EOF
+  > 1: rbd += 100000$
+  > EOF
+  Awaiting inputs:
+  ### OUTPUTS ###
+  1: ++ no events:
+       - rbd { 400000., 400000. }:
+         160000. -> distrib
+         default 240000. -> rnc
+       - rnc { 240000., 240000. }:
+         240000. -> distrib[frais]
+       - distrib[frais] { 240000., 240000. }:
+       
+     ++ after event recup_frais :
+       - rbd { 9600000., 10000000. }:
+         3840000. -> distrib
+         default 5760000. -> rnc
+       - rnc { 5760000., 6000000. }:
+         default 5760000. -> rnpp
+       - rnpp { 5760000., 5760000. }:
+         1152000. -> sofica[recup]
+         default 4608000. -> prod[residuel]
+       - prod { 4608000., 4608000. }:
+         - prod[residuel] { 4608000., 4608000. }:
+         
+       - sofica[recup] { 1152000., 1152000. }:
+       
+     
   $ OCAMLRUNPARAM=b niagara --test ../examples/opposition.nga --forall <<EOF
   > 1: rbd += 50000$
   > 2: rbd += 50000$

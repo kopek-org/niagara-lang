@@ -31,7 +31,7 @@ type env = {
   target : Variable.t;
   user_substs : user_substitutions;
   cumulatives : Variable.t Variable.Map.t;
-  maybes : Condition.t Variable.Map.t;
+  maybes : Variable.Set.t;
 }
 
 let is_user_subst env var = Variable.Map.mem var env.user_substs
@@ -62,12 +62,11 @@ let add_condition_events acc (cond : Condition.t) =
 
 let maybes_are_certain acc env =
   let acc =
-    Variable.Map.fold (fun var cond acc ->
-        let acc = add_copy acc env var in
-        add_condition_events acc cond)
+    Variable.Set.fold (fun var acc ->
+        add_copy acc env var)
       env.maybes acc
   in
-  let env = { env with maybes = Variable.Map.empty } in
+  let env = { env with maybes = Variable.Set.empty } in
   acc, env
 
 let not_consequent acc env (var : Variable.t) =
@@ -112,12 +111,13 @@ let rec expr_consequents acc env (expr : expr) =
 and eq_consequents acc env (var : Variable.t) (eq : aggregation) =
   match eq with
   | One { eq_act; eq_expr } ->
-    let env = { env with maybes = Variable.Map.add var eq_act env.maybes } in
+    let env = { env with maybes = Variable.Set.add var env.maybes } in
+    let acc = add_condition_events acc eq_act in
     let acc, is_consequent, delays = expr_consequents acc env eq_expr in
     let acc, delay_consequent = compute_consequent_delays acc env delays in
     acc, is_consequent || delay_consequent
   | More vars ->
-    let env = { env with maybes = Variable.Map.add var Condition.always env.maybes } in
+    let env = { env with maybes = Variable.Set.add var env.maybes } in
     List.fold_left (fun (acc, aggr_is_consequent) (var, _) ->
         let acc, is_consequent = compute_consequents acc env var in
         acc, (aggr_is_consequent || is_consequent))
@@ -133,7 +133,7 @@ and compute_consequents acc env (var : Variable.t) =
   match Variable.Map.find_opt var acc.copies with
   | Some c -> acc, Option.is_some c
   | None ->
-    if Variable.Map.mem var env.maybes then
+    if Variable.Set.mem var env.maybes then
       acc, false
     else
       match Variable.Map.find_opt var acc.value_eqs with
@@ -358,12 +358,13 @@ let save_relevant_set ~opposable acc ~(target : Variable.t) =
   in
   { acc with
     copies = Variable.Map.empty;
+    events = Variable.Set.empty;
     relevance_sets = Variable.Map.add target pset acc.relevance_sets
   }
 
 let resolve_one_target ~opposable acc ~(target : Variable.t) (user_substs : user_substitutions)
   (cumulatives : Variable.t Variable.Map.t)  =
-  let env = { target; user_substs; cumulatives; maybes = Variable.Map.empty } in
+  let env = { target; user_substs; cumulatives; maybes = Variable.Set.empty } in
   let acc, is_consequent = compute_consequents acc env target in
   if not is_consequent && opposable then Errors.raise_error "Useless opposition";
   let acc = events_consequents acc env in
