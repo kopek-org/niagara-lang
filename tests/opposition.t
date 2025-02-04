@@ -33,7 +33,8 @@
        
      
   $ OCAMLRUNPARAM=b niagara --test ../examples/opposition.nga --for sofica <<EOF
-  > 1: rbd += 100000$
+  > 1: rbd += 78000$
+  > 2: rbd += 22000$
   > EOF
   Awaiting inputs:
   ### OUTPUTS ###
@@ -57,7 +58,8 @@
          - sofica[recup] @sofica { 1200000., 1200000. }:
          
        
-     ++ after event recup_sofica @sofica :
+     
+  2: ++ after event recup_sofica @sofica :
        - rbd { 2200000., 10000000. }:
          440000. -> distrib
          default 1760000. -> rnc @sofica
@@ -71,11 +73,12 @@
        
      
   $ OCAMLRUNPARAM=b niagara --test ../examples/opposition.nga --forall <<EOF
-  > 1: rbd += 100000$
+  > 1: rbd += 50000$
+  > 2: rbd += 50000$
   > EOF
   Awaiting inputs:
   ### OUTPUTS ###
-  1: ++ no events:
+  2: ++ no events:
        - distrib { 4240000., 4240000. }:
          - distrib[frais] { 240000., 240000. }:
          

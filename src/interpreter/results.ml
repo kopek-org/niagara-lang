@@ -267,7 +267,7 @@ open Execution
 type norm_mode =
   | Canonical
   | SquashAllButPartners
-  | PartnerView of Variable.t
+  | PartnerView of Variable.t * IntSet.t
 
 let filter_of_norm_mode (info : ProgramInfo.t) (mode : norm_mode) =
   let canonical_filter v =
@@ -303,14 +303,18 @@ let filter_of_norm_mode (info : ProgramInfo.t) (mode : norm_mode) =
     in
     fun v -> Variable.Set.mem v partners
   in
+  let all_lines _ = true in
+  let no_lines _ = false in
   match mode with
-  | Canonical -> canonical_filter
-  | SquashAllButPartners -> only_partners_filter
-  | PartnerView target ->
+  | Canonical -> canonical_filter, all_lines
+  | SquashAllButPartners -> only_partners_filter, no_lines
+  | PartnerView (target, keep_lines) ->
+    let line_filter i = IntSet.mem i keep_lines in
     match Variable.Map.find_opt target info.relevance_sets with
-    | None -> canonical_filter
+    | None -> canonical_filter, line_filter
     | Some ps ->
-      fun (v : Variable.t) -> Variable.Set.mem v ps.relevant_vars
+      (fun (v : Variable.t) -> Variable.Set.mem v ps.relevant_vars),
+      line_filter
 
 let merge_valuations (info : ProgramInfo.t) ~(filter : Variable.t -> bool)
     (val1 : value_presence Variable.Map.t) (val2 : value_presence Variable.Map.t) =
@@ -355,31 +359,80 @@ let try_step_merge (info : ProgramInfo.t) ~(filter : Variable.t -> bool)
   else
     None
 
+let force_step_merge (info : ProgramInfo.t) ~(filter : Variable.t -> bool)
+    (step1 : output_step) (step2 : output_step) =
+  let ev2 = Variable.Map.filter (fun v _ -> filter v) step2.step_events in
+  let step_valuations =
+    merge_valuations info ~filter step1.step_valuations step2.step_valuations
+  in
+  { step_valuations; step_events = ev2 }
+
 let normalize_valuations (info : ProgramInfo.t) (mode : norm_mode)
     (valuations : computation_outputs) : computation_outputs =
-  let filter = filter_of_norm_mode info mode in
-  InputLineMap.map (function
-      | ([] | [_]) as line -> line
-      | fstep::steps ->
-        let lstep, nsteps =
-          List.fold_left (fun (acc_step, nsteps) step ->
-              match try_step_merge info ~filter acc_step step with
-              | None -> step, acc_step :: nsteps
-              | Some merged -> merged, nsteps)
-            (fstep, []) steps
-        in
-        let lstep =
-          { step_events = Variable.Map.filter (fun v _ -> filter v) lstep.step_events;
-            step_valuations = Variable.Map.filter (fun v _ -> filter v)
-                lstep.step_valuations;
-          }
-        in
-        List.rev_append nsteps [lstep])
-    valuations
+  let var_filter, line_filter = filter_of_norm_mode info mode in
+  let filter_step step =
+    { step_events = Variable.Map.filter (fun v _ -> var_filter v)
+          step.step_events;
+      step_valuations = Variable.Map.filter (fun v _ -> var_filter v)
+          step.step_valuations;
+    }
+  in
+  let add_to_pending i pending step =
+    match pending with
+    | None -> Some (i, step)
+    | Some (_, pending) ->
+      Some (i, force_step_merge info ~filter:var_filter pending step)
+  in
+  let push_pending pending vals =
+    match pending with
+    | None -> vals
+    | Some (pi, pending) ->
+      InputLineMap.update pi (function
+          | Some _ ->
+            Errors.raise_error "(internal) cannot add squashed lines, \
+                                line already present"
+          | None -> Some [pending])
+        vals
+  in
+  let push_line i pending line vals =
+    let vals = push_pending pending vals in
+    InputLineMap.add i line vals
+  in
+  let pending, vals =
+    InputLineMap.fold (fun i line (pending, vals) ->
+        let squash = not (line_filter i) in
+        match line with
+        | [] -> pending, vals
+        | [step] ->
+          let step = filter_step step in
+          if squash then
+            add_to_pending i pending step, vals
+          else
+            None, push_line i pending [step] vals
+        | fstep::steps ->
+          if squash then
+            let pending =
+              List.fold_left (add_to_pending i) pending (fstep::steps)
+            in
+            pending, vals
+          else
+            let lstep, nsteps =
+              List.fold_left (fun (acc_step, nsteps) step ->
+                  match try_step_merge info ~filter:var_filter acc_step step with
+                  | None -> step, acc_step :: nsteps
+                  | Some merged -> merged, nsteps)
+                (fstep, []) steps
+            in
+            let lstep = filter_step lstep in
+            let line = List.rev_append nsteps [lstep] in
+            None, push_line i pending line vals)
+      valuations (None, InputLineMap.empty)
+  in
+  push_pending pending vals
 
 let normalize_layout (info : ProgramInfo.t) (mode : norm_mode) (layout : results_layout)
   : results_layout =
-  let filter = filter_of_norm_mode info mode in
+  let filter, _ = filter_of_norm_mode info mode in
   let filter_res_item item =
     let filter_map map =
       Variable.Map.filter_map (fun _d vs ->

@@ -33,7 +33,7 @@ type results_layout = top_item Variable.Map.t
 type norm_mode =
   | Canonical
   | SquashAllButPartners
-  | PartnerView of Variable.t
+  | PartnerView of Variable.t * IntSet.t
 (* Normalization form for computation valuations and result layout *)
 
 val build_result_layout : ProgramInfo.t -> results_layout

@@ -71,6 +71,9 @@ let test_stdin (p : Equ.program) (l : Equ.limits) (for_partner : string option) 
                                       the right context" i)
       raw_inputs
   in
+  let kept_lines =
+    IntMap.fold (fun i _ is -> IntSet.add i is) inputs IntSet.empty
+  in
   let norm_mode =
     if for_all then Results.SquashAllButPartners else
       match for_partner with
@@ -78,7 +81,7 @@ let test_stdin (p : Equ.program) (l : Equ.limits) (for_partner : string option) 
       | Some s ->
         match find_partner p.infos.var_info s with
         | None -> Errors.raise_error "Unable to find partner %s" s
-        | Some v -> Results.PartnerView v
+        | Some v -> Results.PartnerView (v, kept_lines)
   in
   let outputs = Interpreter.Execution.compute_input_lines p l inputs in
   Interpreter.Printer.print_intepreter_outputs
