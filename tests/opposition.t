@@ -19,11 +19,11 @@
          default 5760000. -> rnc
        - rnc { 5760000., 6000000. }:
          default 5760000. -> rnpp
+       - distrib { 3840000., 4240000. }:
+         
        - rnpp { 5760000., 5760000. }:
          1152000. -> sofica[recup]
          default 4608000. -> prod[residuel]
-       - distrib { 3840000., 4240000. }:
-         
        - prod { 4608000., 4608000. }:
          - prod[residuel] { 4608000., 4608000. }:
          

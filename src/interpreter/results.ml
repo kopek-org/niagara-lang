@@ -235,31 +235,31 @@ let build_result_layout (pinfos : ProgramInfo.t) =
   in
   variant_copy pinfos layout variants
 
-let sort_layout (infos : collection) (layout : results_layout) =
-  List.sort (fun (v1,_) (v2,_) ->
-      let i1 = Variable.Map.find v1 infos in
-      let i2 = Variable.Map.find v2 infos in
-      match i1.kind, i2.kind with
-      | (Event | Constant), _ | _, (Event | Constant) -> assert false
-      | ParameterInput _, ParameterInput _
-      | ProvidingPartner, ProvidingPartner
-      | PoolInput _, PoolInput _
-      | Intermediary, Intermediary
-      | ReceivingPartner, ReceivingPartner -> Variable.compare v1 v2
-      | ParameterInput _, _ -> -1
-      | _, ParameterInput _ -> 1
-      | ProvidingPartner, _ -> -1
-      | _, ProvidingPartner -> 1
-      | PoolInput _, _ -> -1
-      | _, PoolInput _ -> 1
-      | Intermediary, _ -> -1
-      | _, Intermediary -> 1)
-    (Variable.Map.bindings layout)
-  |> List.filter_map (fun (_,item) ->
-      match item with Super _ | Top _ -> Some item | Detail _ -> None)
+let sort_layout ~(graph : Variable.Graph.t) (layout : results_layout) =
+  let scc_index =
+    let _, scc = Variable.Graph.Topology.scc graph in
+    fun v -> try scc v with Not_found -> min_int
+  in
+  let max_index item =
+    match item with
+    | Top i | Detail i -> scc_index i.at_step
+    | Super { super_detail_items; super_item = _ } ->
+      Variable.Set.fold (fun v m -> max m (scc_index v))
+        super_detail_items 0
+  in
+  Variable.Map.fold (fun _ item l ->
+      match item with
+      | Detail _ -> l
+      | _ -> item::l)
+    layout []
+  |> List.sort (fun item1 item2 ->
+      let m1 = max_index item1 in
+      let m2 = max_index item2 in
+      compare m1 m2)
 
-let iter_layout (infos : collection) (layout : results_layout) f =
-  sort_layout infos layout |> List.iter f
+let iter_layout ~(graph : Variable.Graph.t) (layout : results_layout) =
+  let layout = sort_layout ~graph layout in
+  fun f -> List.iter f layout
 
 
 open Execution

@@ -412,6 +412,7 @@ end = struct
       compounds = t.compounds;
       constants = t.constants;
       relevance_sets = Variable.Map.empty;
+      dep_graph = Variable.Graph.empty;
     }
     in
     Contextualized (infos, List.rev t.program_decls)

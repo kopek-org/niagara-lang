@@ -93,7 +93,7 @@ let rec print_item ?(close=true) infos fmt layout step (item : Results.top_item)
     else false
 
 let print_step infos layout ~iter_vars fmt (step : output_step) =
-  iter_vars layout (fun (item : Results.top_item) ->
+  iter_vars (fun (item : Results.top_item) ->
       if print_item infos fmt layout step item then
         Format.pp_print_cut fmt ())
 
@@ -126,11 +126,11 @@ let event_flips (infos : VarInfo.collection) (past_state : bool Variable.Map.t)
 let print_intepreter_outputs (p : Dataflow.Equ.program) fmt (norm_mode : Results.norm_mode)
     (lines : computation_outputs) =
   let var_infos = p.infos.var_info in
-  let iter_vars = Results.iter_layout var_infos in
   let layout =
     Results.build_result_layout p.infos
     |> Results.normalize_layout p.infos norm_mode
   in
+  let iter_vars = Results.iter_layout ~graph:p.infos.dep_graph layout in
   let lines = Results.normalize_valuations p.infos norm_mode lines in
   let open Format in
   fprintf fmt "@[<v>### OUTPUTS ###@,";

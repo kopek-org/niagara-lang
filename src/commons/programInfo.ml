@@ -12,6 +12,7 @@ type t = {
   compounds : Variable.Set.t Variable.Map.t;
   constants : Literal.t Variable.Map.t;
   relevance_sets : relevance_set Variable.Map.t;
+  dep_graph : Variable.Graph.t;
 }
 
 let print_variable infos fmt (v : Variable.t) =

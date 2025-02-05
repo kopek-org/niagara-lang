@@ -249,6 +249,7 @@ let print_program (type a) fmt (p : a program) =
         compounds = Variable.Map.empty;
         constants = Variable.Map.empty;
         relevance_sets = Variable.Map.empty;
+        dep_graph = Variable.Graph.empty;
       }
       in
       Format.pp_print_list (print_declaration dummy_infos) fmt decls

@@ -38,8 +38,10 @@ type norm_mode =
 
 val build_result_layout : ProgramInfo.t -> results_layout
 
+val sort_layout : graph:Variable.Graph.t -> results_layout -> top_item list
+
 val iter_layout :
-  VarInfo.collection -> results_layout -> (top_item -> unit) -> unit
+  graph:Variable.Graph.t -> results_layout -> (top_item -> unit) -> unit
 (* iter on result items in a predefined order *)
 
 val normalize_valuations :

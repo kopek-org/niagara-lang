@@ -18,7 +18,6 @@ type acc = {
   aggr : aggregate_eqs;
   events : expr Variable.Map.t;
   memo : guarded_eq Variable.Map.t;
-  dep_graph : Variable.Graph.t;
  }
 
 let make_acc (pinfos : ProgramInfo.t) (aggr : aggregate_eqs)
@@ -27,7 +26,6 @@ let make_acc (pinfos : ProgramInfo.t) (aggr : aggregate_eqs)
   aggr;
   events;
   memo = Variable.Map.empty;
-  dep_graph = Variable.Graph.empty;
 }
 
 let find_vinfo t (v : Variable.t) =
@@ -51,7 +49,13 @@ let create_var_from t (ov : Variable.t) (build : VarInfo.t -> VarInfo.t) =
   t, v
 
 let add_dep acc from to_ =
-  { acc with dep_graph = Variable.Graph.add_edge acc.dep_graph to_ from }
+  { acc with
+    pinfos =
+      { acc.pinfos with
+        dep_graph =
+          Variable.Graph.add_edge acc.pinfos.dep_graph to_ from
+      }
+  }
 
 let add_deps acc from to_ =
   List.fold_left (fun acc from ->
@@ -344,7 +348,7 @@ and compute_one acc (v : Variable.t) =
       | Some eqs -> dispatch_eqs acc v eqs
 
 let order_eqs ~filter acc =
-  let scc = Variable.Graph.Topology.scc_list acc.dep_graph in
+  let scc = Variable.Graph.Topology.scc_list acc.pinfos.dep_graph in
   List.filter_map (fun vs ->
       match List.filter filter vs with
       | [] -> None
