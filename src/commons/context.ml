@@ -254,6 +254,7 @@ let domain_of_case world (case : case) =
 let add_domain =
   (* global counter for fresh identifiers *)
   let c = ref 0 in
+  let () = CompilerState.register_on_reset (fun () -> c := 0) in
   fun world (dom : string) (cases : string list) ->
     let domain = !c in
     let case_table, cases, domain_cases =

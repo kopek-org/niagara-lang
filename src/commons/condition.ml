@@ -14,6 +14,7 @@ module Make(H : Hashtbl.HashedType) = struct
   let hash_cons =
     let fresh =
       let i = ref (-1) in
+      CompilerState.register_on_reset (fun () -> i := -1);
       fun () -> incr i; !i
     in
     fun ht k ->
@@ -37,6 +38,7 @@ end = struct
   module Hash = Hashtbl.Make(H)
   let memo f =
     let ht = Hash.create 256 in
+    CompilerState.register_on_reset (fun () -> Hash.clear ht);
     let rec ff k =
       try Hash.find ht k with
       | Not_found ->
@@ -52,6 +54,7 @@ end = struct
     end)
   let memo2 f =
     let ht = Hash2.create 256 in
+    CompilerState.register_on_reset (fun () -> Hash2.clear ht);
     let rec ff k1 k2 =
       try Hash2.find ht (k1,k2) with
       | Not_found ->

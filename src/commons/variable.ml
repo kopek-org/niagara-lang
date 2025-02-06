@@ -24,6 +24,7 @@ type info = {
 
 let create =
   let c = ref 0 in
+  let () = CompilerState.register_on_reset (fun () -> c := 0) in
   fun () -> incr c; !c
 
 let uid v = v
@@ -32,6 +33,7 @@ let compare = Int.compare
 
 let unique_anon_name =
   let c = ref 0 in
+  let () = CompilerState.register_on_reset (fun () -> c := 0) in
   fun name ->
     let i = !c in incr c;
     name ^ "_" ^ string_of_int i
