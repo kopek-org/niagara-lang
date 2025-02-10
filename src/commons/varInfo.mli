@@ -24,6 +24,7 @@ type origin =
   | DeficitSum of Variable.t
   | ConditionExistential
   | OpposingVariant of { target : Variable.t; origin : Variable.t; variant : origin }
+  | OppositionDelta of { target : Variable.t }
 
 type kind =
   | ReceivingPartner

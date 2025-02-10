@@ -24,6 +24,7 @@ type origin =
   | DeficitSum of Variable.t
   | ConditionExistential
   | OpposingVariant of { target : Variable.t; origin : Variable.t; variant : origin }
+  | OppositionDelta of { target : Variable.t }
 
 type kind =
   | ReceivingPartner
@@ -79,6 +80,7 @@ let rec get_name coll v =
     | DeficitSum _ -> None
     | ConditionExistential -> None
     | OpposingVariant { origin; _ } -> get_name coll origin
+    | OppositionDelta _ -> None
 
 let print fmt t =
   let open Format in
@@ -108,6 +110,8 @@ let print fmt t =
     fprintf fmt "`E"
   | OpposingVariant { target; origin; variant = _ } ->
     fprintf fmt "%d<%d>" (Variable.uid origin) (Variable.uid target)
+  | OppositionDelta { target } ->
+    fprintf fmt "\u{0394}%d" (Variable.uid target)
 
 let get_any_name coll v =
   match get_name coll v with

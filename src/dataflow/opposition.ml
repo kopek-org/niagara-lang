@@ -287,7 +287,7 @@ let origin_variant acc env (var : Variable.t) (vorigin : VarInfo.origin) =
   match vorigin with
   | Named _ | LabelOfPartner _ | Cumulative _ | AnonEvent
   | Peeking _ | RisingEvent _ | ContextSpecialized _
-  | ConditionExistential -> vorigin
+  | ConditionExistential | OppositionDelta _ -> vorigin
   | OpposingVariant { variant; _ } -> variant
   | OperationDetail { label; op_kind; source; target } ->
     let op_kind =
@@ -333,6 +333,35 @@ let duplication acc env =
         else duplicate_value acc env ~org ~dup)
     acc.copies acc
 
+let add_delta acc env =
+  match Variable.Map.find_opt env.target acc.copies with
+  | None | Some None -> acc
+  | Some (Some opp) ->
+    let dv = Variable.create () in
+    let dvinfo = VarInfo.{
+      kind = Intermediary;
+      typ = TMoney;
+      origin = OppositionDelta { target = env.target };
+    }
+    in
+    let cdv = Variable.create () in
+    let cdvinfo = VarInfo.{
+      kind = Intermediary;
+      typ = TMoney;
+      origin = Cumulative dv;
+    }
+    in
+    let dve = EAdd (EVar opp, ENeg (EVar env.target)) in
+    let cdve = EAdd (EPre cdv, EVar dv) in
+    { acc with
+      var_info =
+        Variable.Map.add dv dvinfo acc.var_info
+        |> Variable.Map.add cdv cdvinfo;
+      value_eqs =
+        Variable.Map.add dv (One { eq_act = Condition.always; eq_expr = dve }) acc.value_eqs
+        |> Variable.Map.add cdv (One { eq_act = Condition.always; eq_expr = cdve });
+    }
+
 let save_relevant_set ~opposable acc ~(target : Variable.t) =
   (* acc.copies should contain every explored variables during
      consequent discoveries. We just go and use that. *)
@@ -369,6 +398,7 @@ let resolve_one_target ~opposable acc ~(target : Variable.t) (user_substs : user
   if not is_consequent && opposable then Errors.raise_error "Useless opposition";
   let acc = events_consequents acc env in
   let acc = duplication acc env in
+  let acc = add_delta acc env in
   save_relevant_set ~opposable acc ~target
 
 let resolve (var_info : VarInfo.collection) (value_eqs : aggregate_eqs)

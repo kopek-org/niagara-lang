@@ -12,6 +12,7 @@
        - distrib { 400000., 400000. }:
          - distrib[frais] { 240000., 240000. }:
          
+       - sofica delta { 16000., 16000. }:
        
      ++ after event recup_frais :
        - rbd { 9600000., 10000000. }:
@@ -30,6 +31,7 @@
        - sofica { 1152000., 1152000. }:
          - sofica[recup] { 1152000., 1152000. }:
          
+       - sofica delta { 120000., 136000. }:
        
      
   $ OCAMLRUNPARAM=b niagara --test ../examples/opposition.nga --for sofica <<EOF

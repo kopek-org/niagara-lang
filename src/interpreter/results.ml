@@ -228,6 +228,12 @@ let build_result_layout (pinfos : ProgramInfo.t) =
               | None -> Some (Variable.Map.singleton origin v)
               | Some vrt -> Some (Variable.Map.add origin v vrt))
             variants
+        | OppositionDelta { target } ->
+          update (fun l ->
+              { l with
+                display_name = (VarInfo.get_any_name pinfos.var_info target)^" delta";
+              }),
+          variants
         | RepartitionSum _ | DeficitSum _ | ConditionExistential
         | AnonEvent | Peeking _ | RisingEvent _ ->
           layout, variants)
@@ -335,7 +341,8 @@ let merge_valuations (info : ProgramInfo.t) ~(filter : Variable.t -> bool)
             | OperationSum _
             | RepartitionSum _
             | DeficitSum _
-            | ConditionExistential ->
+            | ConditionExistential
+            | OppositionDelta _ ->
               (match p1, p2 with
                | Present v1, Present v2 -> Present (Value.add v1 v2)
                | Absent, p | p, Absent -> p)
