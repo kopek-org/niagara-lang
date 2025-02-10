@@ -354,6 +354,10 @@ let add_delta acc env =
     let dve = EAdd (EVar opp, ENeg (EVar env.target)) in
     let cdve = EAdd (EPre cdv, EVar dv) in
     { acc with
+      copies =
+        (* hack to includes delta in relevant sets *)
+        Variable.Map.add dv None acc.copies
+        |> Variable.Map.add cdv None;
       var_info =
         Variable.Map.add dv dvinfo acc.var_info
         |> Variable.Map.add cdv cdvinfo;

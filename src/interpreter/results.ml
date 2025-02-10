@@ -296,15 +296,19 @@ let filter_of_norm_mode (info : ProgramInfo.t) (mode : norm_mode) =
                  | Named _ -> Variable.equal s target
                  | LabelOfPartner { partner; label = _ } ->
                    Variable.equal partner target
-                 | _ -> false
-                )
+                 | _ -> false)
               | _ -> Variable.equal origin target
             in
             if own_partner then
               Variable.Set.add v (Variable.Set.remove origin partners)
             else partners
+          | OppositionDelta _, _
           | _, (ProvidingPartner | ReceivingPartner) ->
             Variable.Set.add v partners
+          | Cumulative s, _ ->
+            (match (Variable.Map.find s info.var_info).origin with
+             | OppositionDelta _ -> Variable.Set.add v partners
+             | _ -> partners)
           | _ -> partners)
         info.var_info Variable.Set.empty
     in

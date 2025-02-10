@@ -59,6 +59,7 @@
        - sofica @sofica { 1200000., 1200000. }:
          - sofica[recup] @sofica { 1200000., 1200000. }:
          
+       - sofica delta { 312000., 312000. }:
        
      
   2: ++ after event recup_sofica @sofica :
@@ -72,6 +73,7 @@
        - sofica @sofica { 88000., 1288000. }:
          - sofica[residuel] @sofica { 88000., 88000. }:
          
+       - sofica delta { -176000., 136000. }:
        
      
   $ OCAMLRUNPARAM=b niagara --test ../examples/opposition.nga --for prod <<EOF
@@ -119,5 +121,6 @@
          - sofica[recup] @sofica { 1200000., 1200000. }:
          - sofica[residuel] @sofica { 88000., 88000. }:
          
+       - sofica delta { 136000., 136000. }:
        
      
