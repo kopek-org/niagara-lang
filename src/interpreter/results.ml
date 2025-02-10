@@ -277,8 +277,9 @@ type norm_mode =
 
 let filter_of_norm_mode (info : ProgramInfo.t) (mode : norm_mode) =
   let canonical_filter v =
-    match (Variable.Map.find v info.var_info).origin with
-    | OpposingVariant _ -> false
+    let vinfo = Variable.Map.find v info.var_info in
+    match vinfo.origin with
+    | OpposingVariant _ | Peeking  _ | RisingEvent _ -> false
     | _ -> true
   in
   let only_partners_filter =
@@ -319,7 +320,11 @@ let filter_of_norm_mode (info : ProgramInfo.t) (mode : norm_mode) =
     match Variable.Map.find_opt target info.relevance_sets with
     | None -> canonical_filter, line_filter
     | Some ps ->
-      (fun (v : Variable.t) -> Variable.Set.mem v ps.relevant_vars),
+      (fun (v : Variable.t) ->
+         let vinfo = Variable.Map.find v info.var_info in
+         match vinfo.origin with
+         | Peeking  _ | RisingEvent _ -> false
+         | _ -> Variable.Set.mem v ps.relevant_vars),
       line_filter
 
 let merge_valuations (info : ProgramInfo.t) ~(filter : Variable.t -> bool)
