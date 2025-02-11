@@ -278,7 +278,8 @@ let get_derivative_var t (v : Variable.t) (ctx : Context.Group.t) =
     match Variable.Map.find_opt v t.pinfos.var_shapes with
     | None -> ensure_cumulation t v, v
     | Some s ->
-      if Context.is_whole_shape s then ensure_cumulation t v, v else
+      if Context.is_whole_shape t.pinfos.contexts s
+      then ensure_cumulation t v, v else
         (* Fragile: Generating new variable for the given group without checking
            whever there is already one whose group overlap. This should not be an
            issue as the analysis should not produce such cases, but vulnerable
