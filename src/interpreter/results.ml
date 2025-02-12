@@ -143,7 +143,7 @@ let variant_copy (pinfos : ProgramInfo.t) layout
               | Some variant ->
                 let super_item = copy_item super_item variant in
                 let super_detail_items =
-                  Variable.Set.filter_map variant_opt super_detail_items
+                  Variable.Set.map variant_if_exists super_detail_items
                 in
                 Variable.Map.add variant (Super { super_item; super_detail_items }) layout,
                 Variable.Set.union details super_detail_items)
@@ -461,8 +461,8 @@ let normalize_layout (info : ProgramInfo.t) (mode : norm_mode) (layout : results
     let defaults = filter_map item.defaults in
     { item with reps; defaults }
   in
-  let layout, promotions =
-    Variable.Map.fold (fun v item (nlayout, promotions) ->
+  let layout, as_details =
+    Variable.Map.fold (fun v item (nlayout, details) ->
         match item with
         | Super { super_item; super_detail_items } ->
           if filter v then
@@ -472,28 +472,28 @@ let normalize_layout (info : ProgramInfo.t) (mode : norm_mode) (layout : results
                 super_detail_items = Variable.Set.filter filter super_detail_items;
               }
             in
-            (Variable.Map.add v item nlayout, promotions)
-          else
-            let promotions =
-              Variable.Set.union promotions
+            let details =
+              Variable.Set.union details
                 (Variable.Set.filter filter super_detail_items)
             in
-            nlayout, promotions
+            (Variable.Map.add v item nlayout, details)
+          else
+            nlayout, details
         | Top item ->
           if filter v then
             let item = filter_res_item item in
-            Variable.Map.add v (Top item) nlayout, promotions
-          else nlayout, promotions
+            Variable.Map.add v (Top item) nlayout, details
+          else nlayout, details
         | Detail item ->
           if filter v then
             let item = filter_res_item item in
-            Variable.Map.add v (Detail item) nlayout, promotions
-          else nlayout, promotions)
+            Variable.Map.add v (Detail item) nlayout, details
+          else nlayout, details)
       layout (Variable.Map.empty, Variable.Set.empty)
   in
-  Variable.Set.fold (fun v layout ->
-      Variable.Map.update v (function
-          | Some (Detail item) -> Some (Top item)
-          | item -> item)
-        layout)
-    promotions layout
+  Variable.Map.fold (fun v item layout ->
+      match item with
+      | Detail i when not (Variable.Set.mem v as_details) ->
+        Variable.Map.add v (Top i) layout
+      | _ -> layout)
+    layout layout
