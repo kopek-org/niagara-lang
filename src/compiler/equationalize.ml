@@ -98,9 +98,6 @@ let is_actor t (v : Variable.t) =
   | None -> false
   | Some i -> VarInfo.is_partner i
 
-let find_const_opt t (v : Variable.t) =
-  Variable.Map.find_opt v t.pinfos.constants
-
 let create_cumulation t v =
   let t, cv =
     create_var_from t v (fun i ->
@@ -120,7 +117,10 @@ let create_cumulation t v =
 let get_cumulation_var t (v : Variable.t) =
   match Variable.Map.find_opt v t.cumulation_vars with
   | Some v -> t, v
-  | None -> create_cumulation t v
+  | None ->
+    let vinfo = Variable.Map.find v t.pinfos.var_info in
+    if vinfo.kind = Constant then t, v else
+      create_cumulation t v
 
 let ensure_cumulation t (v : Variable.t) =
   fst @@ get_cumulation_var t v
@@ -556,7 +556,21 @@ let resolve_oppositions (t : t) =
     event_eqs = opp_event_eqs;
   }
 
+let convert_constants t =
+  let value_eqs =
+    Variable.Map.fold (fun c l vals ->
+        let eq = {
+          eq_act = Condition.always;
+          eq_expr = EConst l;
+        }
+        in
+        Variable.Map.add c (One eq) vals)
+      t.pinfos.constants t.value_eqs
+  in
+  { t with value_eqs }
+
 let produce_aggregated_eqs t =
+  let t = convert_constants t in
   let t = convert_repartitions t in
   let t = convert_flats t in
   let t = aggregate_derivations t in
@@ -676,20 +690,15 @@ let rec translate_formula acc ~(ctx : Context.Group.t) ~(view : flow_view)
   match f.formula_desc with
   | Literal l -> acc, (EConst l, Literal.type_of l)
   | Variable (v, proj) ->
-    begin match Acc.find_const_opt acc v with
-    | Some l ->
-      acc, (EConst l, Literal.type_of l)
-    | None ->
-      let t = Acc.type_of acc v in
-      let proj = resolve_projection_context acc ~context:ctx ~refinement:proj in
-      let acc, vs = Acc.derive_ctx_variables ~mode:Strict acc v proj in
-      let vs = match vs with
-        | ActorComp c -> [c.base]
-        | ContextVar vs -> vs
-      in
-      let acc, f = aggregate_vars acc ~view vs in
-      acc, (f, t)
-    end
+    let t = Acc.type_of acc v in
+    let proj = resolve_projection_context acc ~context:ctx ~refinement:proj in
+    let acc, vs = Acc.derive_ctx_variables ~mode:Strict acc v proj in
+    let vs = match vs with
+      | ActorComp c -> [c.base]
+      | ContextVar vs -> vs
+    in
+    let acc, f = aggregate_vars acc ~view vs in
+    acc, (f, t)
   | Binop (op, f1, f2) ->
     let acc, e1 = translate_formula ~ctx acc ~view f1 in
     let acc, e2 = translate_formula ~ctx acc ~view f2 in

@@ -234,9 +234,16 @@ let init_state (p : program) =
          if Condition.is_always eq_act then Some init_val else None)
       map
   in
+  let const_init vals =
+    Variable.Map.fold (fun c l vals ->
+        Variable.Map.add c (Present (literal_value l)) vals)
+      p.infos.constants vals
+  in
   {
     events = init_map p.act_eqs false;
-    valuations = init_map p.val_eqs (Present Value.zero);
+    valuations =
+      init_map p.val_eqs (Present Value.zero)
+      |> const_init;
     queue = [];
   }
 
