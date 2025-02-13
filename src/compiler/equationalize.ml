@@ -459,7 +459,14 @@ let convert_repartitions t =
       add_deficit_var t ~act:condition ~provider:dest ov
   in
   Variable.Map.fold (fun src rep t ->
-      let fullrep = Repartition.resolve_fullness rep in
+      let fullrep =
+        match Repartition.resolve_fullness rep with
+        | Ok fr -> fr
+        | Error err ->
+          Errors.raise_error "Error on repartition: %a"
+            (Repartition.pp_err ~src ~program_info:t.pinfos)
+            err
+      in
       let t, direct_rep = conv_shares t src fullrep.parts in
       let t = conv_defaults t src direct_rep fullrep.defaults in
       conv_deficit t src direct_rep fullrep.deficits)

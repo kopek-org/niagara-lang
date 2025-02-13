@@ -18,6 +18,10 @@ type eqs = part_or_def t Variable.Map.t
 
 type unified_parts = Condition.t R.Map.t
 
+type err =
+  | PoolNeedsDeficit of R.t
+  | PoolNeedsDefault of R.t option
+
 let add_upart (uni : unified_parts) (cond : Condition.t) (part : R.t) =
   R.Map.update part (function
       | None -> Some cond
@@ -125,18 +129,27 @@ let sort_shares (rep : part_or_def t) =
         parts, defs)
     (R.Map.empty, empty_defs) rep
 
-let check_fullness (rep : unified_parts) =
-  let parts_cond =
-    R.Map.fold (fun p pc cond ->
-        let cond = Condition.disj pc cond in
-        if R.(p < one) then Errors.raise_error "Pool needs default"
-        else if R.(p > one) then Errors.raise_error "Pool needs deficit"
-        else cond)
-      rep Condition.never
-  in
-  let rem_cond = Condition.(excluded always parts_cond) in
-  if not @@ Condition.is_never rem_cond then
-    Errors.raise_error "Pool needs default"
+let check_fullness (rep : unified_parts) : (unit, err) Result.t =
+  let exception Stop of err in
+  try (
+    let parts_cond =
+      R.Map.fold (fun p pc cond ->
+          let cond = Condition.disj pc cond in
+          if R.(p < one)
+          then raise (Stop (PoolNeedsDefault (Some p)))
+          else if R.(p > one)
+          then raise (Stop (PoolNeedsDeficit p))
+          else cond)
+        rep Condition.never
+    in
+    let rem_cond = Condition.(excluded always parts_cond) in
+    if not @@ Condition.is_never rem_cond then
+      Error (PoolNeedsDefault None)
+    else
+      Ok ()
+  )
+  with
+  | Stop err -> Error err
 
 type fullness_result = {
   parts : opposable_part t;
@@ -179,13 +192,32 @@ let resolve_fullness (rep : part_or_def t) =
       let deficit_share = { label = share.label; dest = share.dest; condition; part = ds } in
       parts, Some deficit_share
   in
-  check_fullness parts;
-  { parts =
-      List.filter_map (fun { label; part; dest; condition } ->
-          match part with
-          | Part part -> Some { label; part; dest; condition }
-          | _ -> None)
-        rep;
-    defaults = (Option.to_list global_default) @ local_defaults;
-    deficits = deficit;
-  }
+  match check_fullness parts with
+  | Ok () ->
+    Ok {
+      parts =
+        List.filter_map (fun { label; part; dest; condition } ->
+            match part with
+            | Part part -> Some { label; part; dest; condition }
+            | _ -> None)
+          rep;
+      defaults = (Option.to_list global_default) @ local_defaults;
+      deficits = deficit;
+    }
+  | Error e -> Error e
+
+let pp_r fmt r =
+  Format.pp_print_float fmt ((R.to_float r) *. 100.)
+
+let pp_err ~src ~program_info fmt = function
+  | PoolNeedsDeficit r ->
+    Format.fprintf fmt "Pool %S is too high (%a%%), needs a deficit"
+      (VarInfo.get_any_name program_info.ProgramInfo.var_info src)
+      pp_r r
+  | PoolNeedsDefault (Some r) ->
+    Format.fprintf fmt "Pool %S is too low (%a%%), needs a default"
+      (VarInfo.get_any_name program_info.ProgramInfo.var_info src)
+      pp_r r
+  | PoolNeedsDefault None ->
+    Format.fprintf fmt "Pool %S needs a default"
+      (VarInfo.get_any_name program_info.ProgramInfo.var_info src)
