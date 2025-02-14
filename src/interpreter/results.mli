@@ -30,10 +30,20 @@ type top_item =
 
 type results_layout = top_item Variable.Map.t
 
+type line_squashing =
+  | MeldInNext
+  | SquashSteps
+  | AllSteps
+
 type norm_mode =
   | Canonical
   | SquashAllButPartners
-  | PartnerView of Variable.t * IntSet.t
+  | Explain of {
+      for_partner : Variable.t;
+      lines : line_squashing IntMap.t;
+      repartitions : bool;
+      partner_display : bool;
+    }
 (* Normalization form for computation valuations and result layout *)
 
 val build_result_layout : ProgramInfo.t -> results_layout

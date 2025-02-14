@@ -380,6 +380,7 @@ let convert_repartitions t =
                         let part, opposed = part in
                         let t, ov = create_var_from t dest (fun i ->
                             { i with
+                              kind = Intermediary;
                               origin = OperationDetail
                                   { label; op_kind = Quotepart part; source = src; target = dest }
                             })
@@ -397,6 +398,7 @@ let convert_repartitions t =
                         t, (ov, condition)))
                     ~aggr_var:(fun t -> create_var_from t dest (fun i ->
                         { i with
+                          kind = Intermediary;
                           origin = OperationSum { source = src; target = dest }
                         }))
                     t shares
@@ -424,6 +426,7 @@ let convert_repartitions t =
               : Repartition.unified_parts Repartition.share) ->
         let t, ov = create_var_from t dest (fun i ->
             { i with
+              kind = Intermediary;
               origin = OperationDetail {
                   label;
                   op_kind = Default part;
@@ -443,6 +446,7 @@ let convert_repartitions t =
     | Some { label; dest; condition; part } ->
       let t, ov = create_var_from t dest (fun i ->
           { i with
+            kind = Intermediary;
             origin = OperationDetail {
                 label;
                 op_kind = Deficit part;
@@ -490,6 +494,7 @@ let convert_flats t =
                   t, (ldest, flat.flat_cond)))
               ~aggr_var:(fun t -> create_var_from t dest (fun i ->
                   { i with
+                    kind = Intermediary;
                     origin = OperationSum { source = src; target = dest }
                   }))
               t flats
@@ -534,6 +539,7 @@ let convert_deficits t =
           ~aggr_var:(fun t ->
               create_var_from t provider (fun i ->
               { i with
+                kind = Intermediary;
                 origin = DeficitSum provider
               }))
           t dvars

@@ -63,16 +63,18 @@ let test_stdin (p : Equ.program) (l : Equ.limits) (for_partner : string option) 
   let raw_inputs = Testlex.parse stdin in
   let inputs =
     IntMap.mapi (fun i (input, amount) ->
-      match convert_line p input amount with
+        match convert_line p input amount with
         | Some (input_variable, input_value) ->
           Execution.{ input_variable; input_value }
-        | None -> Errors.raise_error "Unable to find variable for \
-                                      input %d. Make sure you state \
-                                      the right context" i)
+        | None ->
+          Errors.raise_error
+            "Unable to find variable for \
+             input %d. Make sure you state \
+             the right context" i)
       raw_inputs
   in
-  let kept_lines =
-    IntMap.fold (fun i _ is -> IntSet.add i is) inputs IntSet.empty
+  let lines =
+    IntMap.fold (fun i _ is -> IntMap.add i Results.AllSteps is) inputs IntMap.empty
   in
   let norm_mode =
     if for_all then Results.SquashAllButPartners else
@@ -81,7 +83,12 @@ let test_stdin (p : Equ.program) (l : Equ.limits) (for_partner : string option) 
       | Some s ->
         match find_partner p.infos.var_info s with
         | None -> Errors.raise_error "Unable to find partner %s" s
-        | Some v -> Results.PartnerView (v, kept_lines)
+        | Some for_partner ->
+          Results.Explain {
+            for_partner; lines;
+            repartitions = true;
+            partner_display = true;
+          }
   in
   let outputs = Interpreter.Execution.compute_input_lines p l inputs in
   Interpreter.Printer.print_intepreter_outputs
