@@ -355,31 +355,33 @@ let merge_valuations (info : ProgramInfo.t) ~(filter : Variable.t -> bool)
     (val1 : value_presence Variable.Map.t) (val2 : value_presence Variable.Map.t) =
   Variable.Map.merge (fun v p1 p2 ->
       if filter v then
-        match p1, p2 with
-        | None, None -> None
-        | Some p, None | None, Some p -> Some p
-        | Some p1, Some p2 ->
-          let rec merge_on_org vorigin =
-            match vorigin with
-            | Cumulative _ -> p2
-            | Named _
-            | LabelOfPartner _
-            | Peeking _
-            | ContextSpecialized _
-            | OperationDetail _
-            | OperationSum _
-            | RepartitionSum _
-            | DeficitSum _
-            | ConditionExistential
-            | OppositionDelta _ ->
-              (match p1, p2 with
-               | Present v1, Present v2 -> Present (Value.add v1 v2)
-               | Absent, p | p, Absent -> p)
-            | OpposingVariant { origin = _; target = _; variant } ->
-              merge_on_org variant
-            | AnonEvent | RisingEvent _ -> assert false
-          in
-          Some (merge_on_org (Variable.Map.find v info.var_info).origin)
+        let vinfo = Variable.Map.find v info.var_info in
+        if vinfo.kind = Constant then p2 else
+          match p1, p2 with
+          | None, None -> None
+          | Some p, None | None, Some p -> Some p
+          | Some p1, Some p2 ->
+            let rec merge_on_org vorigin =
+              match vorigin with
+              | Cumulative _ -> p2
+              | Named _
+              | LabelOfPartner _
+              | Peeking _
+              | ContextSpecialized _
+              | OperationDetail _
+              | OperationSum _
+              | RepartitionSum _
+              | DeficitSum _
+              | ConditionExistential
+              | OppositionDelta _ ->
+                (match p1, p2 with
+                 | Present v1, Present v2 -> Present (Value.add v1 v2)
+                 | Absent, p | p, Absent -> p)
+              | OpposingVariant { origin = _; target = _; variant } ->
+                merge_on_org variant
+              | AnonEvent | RisingEvent _ -> assert false
+            in
+            Some (merge_on_org vinfo.origin)
       else None)
       val1 val2
 
