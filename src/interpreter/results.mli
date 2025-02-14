@@ -30,10 +30,22 @@ type top_item =
 
 type results_layout = top_item Variable.Map.t
 
+type line_squashing =
+  | MeldInNext  (* Whole line is absorbed into the next displayed
+                   line, defaulting to the very last one *)
+  | SquashSteps (* Keep the line, but merge all steps *)
+  | AllSteps (* Keep everything relevant *)
+(* Define squashing behavior for an output line *)
+
 type norm_mode =
   | Canonical
   | SquashAllButPartners
-  | PartnerView of Variable.t * IntSet.t
+  | Explain of {
+      for_partner : Variable.t;
+      lines : line_squashing IntMap.t; (* Each line its own policy *)
+      repartitions : bool;
+      partner_display : bool;
+    }
 (* Normalization form for computation valuations and result layout *)
 
 val build_result_layout : ProgramInfo.t -> results_layout

@@ -285,9 +285,10 @@ let origin_variant acc env (var : Variable.t) (vorigin : VarInfo.origin) =
     | Some (Some var) -> var
   in
   match vorigin with
-  | Named _ | LabelOfPartner _ | Cumulative _ | AnonEvent
-  | Peeking _ | RisingEvent _ | ContextSpecialized _
+  | Named _ | LabelOfPartner _ | AnonEvent | Peeking _
+  | RisingEvent _ | ContextSpecialized _
   | ConditionExistential | OppositionDelta _ -> vorigin
+  | Cumulative v -> Cumulative (variant_if_exists v)
   | OpposingVariant { variant; _ } -> variant
   | OperationDetail { label; op_kind; source; target } ->
     let op_kind =

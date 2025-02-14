@@ -270,10 +270,20 @@ let iter_layout ~(graph : Variable.Graph.t) (layout : results_layout) =
 
 open Execution
 
+type line_squashing =
+  | MeldInNext
+  | SquashSteps
+  | AllSteps
+
 type norm_mode =
   | Canonical
   | SquashAllButPartners
-  | PartnerView of Variable.t * IntSet.t
+  | Explain of {
+      for_partner : Variable.t;
+      lines : line_squashing IntMap.t;
+      repartitions : bool;
+      partner_display : bool;
+    }
 
 let filter_of_norm_mode (info : ProgramInfo.t) (mode : norm_mode) =
   let canonical_filter v =
@@ -282,24 +292,20 @@ let filter_of_norm_mode (info : ProgramInfo.t) (mode : norm_mode) =
     | OpposingVariant _ | Peeking  _ | RisingEvent _ -> false
     | _ -> true
   in
-  let only_partners_filter =
+  let only_partners_filter () =
     let partners =
       Variable.Map.fold (fun v vinfos partners ->
           match vinfos.origin, vinfos.kind with
-          | OpposingVariant { origin; target; variant; _ }, _ ->
-            let own_partner =
-              match variant with
+          | OpposingVariant { origin; target; _ }, _ ->
+            let org_info = Variable.Map.find origin info.var_info in
+            let rec own_partner org vinfo =
+              match vinfo.origin with
               | LabelOfPartner { partner; label = _ } ->
                 Variable.equal target partner
-              | Cumulative s ->
-                (match (Variable.Map.find s info.var_info).origin with
-                 | Named _ -> Variable.equal s target
-                 | LabelOfPartner { partner; label = _ } ->
-                   Variable.equal partner target
-                 | _ -> false)
-              | _ -> Variable.equal origin target
+              | Cumulative s -> own_partner s (Variable.Map.find s info.var_info)
+              | _ -> Variable.equal org target
             in
-            if own_partner then
+            if own_partner origin org_info then
               Variable.Set.add v (Variable.Set.remove origin partners)
             else partners
           | OppositionDelta _, _
@@ -314,22 +320,36 @@ let filter_of_norm_mode (info : ProgramInfo.t) (mode : norm_mode) =
     in
     fun v -> Variable.Set.mem v partners
   in
-  let all_lines _ = true in
-  let no_lines _ = false in
+  let all_lines _ = AllSteps in
+  let no_lines _ = MeldInNext in
   match mode with
   | Canonical -> canonical_filter, all_lines
-  | SquashAllButPartners -> only_partners_filter, no_lines
-  | PartnerView (target, keep_lines) ->
-    let line_filter i = IntSet.mem i keep_lines in
-    match Variable.Map.find_opt target info.relevance_sets with
+  | SquashAllButPartners -> only_partners_filter (), no_lines
+  | Explain { for_partner; lines; repartitions; partner_display } ->
+    let line_filter i =
+      match IntMap.find_opt i lines with
+      | Some s -> s
+      | None -> MeldInNext
+    in
+    match Variable.Map.find_opt for_partner info.relevance_sets with
     | None -> canonical_filter, line_filter
     | Some ps ->
-      (fun (v : Variable.t) ->
-         let vinfo = Variable.Map.find v info.var_info in
-         match vinfo.origin with
-         | Peeking  _ | RisingEvent _ -> false
-         | _ -> Variable.Set.mem v ps.relevant_vars),
-      line_filter
+      let rec org_check v =
+        let vinfo = Variable.Map.find v info.var_info in
+        let rec variant_check variant =
+          match variant with
+          | Peeking  _ | RisingEvent _ -> false
+          | OpposingVariant { variant; _ } -> variant_check variant
+          | RepartitionSum _ | DeficitSum _
+          | OperationDetail _ | OperationSum _ ->
+            repartitions && Variable.Set.mem v ps.relevant_vars
+          | Cumulative v -> org_check v
+          | _ -> Variable.Set.mem v ps.relevant_vars
+        in
+        if not partner_display && VarInfo.is_partner vinfo then false
+        else variant_check vinfo.origin
+      in
+      org_check, line_filter
 
 let merge_valuations (info : ProgramInfo.t) ~(filter : Variable.t -> bool)
     (val1 : value_presence Variable.Map.t) (val2 : value_presence Variable.Map.t) =
@@ -416,17 +436,17 @@ let normalize_valuations (info : ProgramInfo.t) (mode : norm_mode)
   in
   let pending, vals =
     InputLineMap.fold (fun i line (pending, vals) ->
-        let squash = not (line_filter i) in
+        let squashing = line_filter i in
         match line with
         | [] -> pending, vals
         | [step] ->
           let step = filter_step step in
-          if squash then
+          if squashing = MeldInNext then
             add_to_pending i pending step, vals
           else
             None, push_line i pending [step] vals
         | fstep::steps ->
-          if squash then
+          if squashing <> AllSteps then
             let pending =
               List.fold_left (add_to_pending i) pending (fstep::steps)
             in
@@ -463,37 +483,41 @@ let normalize_layout (info : ProgramInfo.t) (mode : norm_mode) (layout : results
   in
   let layout, as_details =
     Variable.Map.fold (fun v item (nlayout, details) ->
-        match item with
-        | Super { super_item; super_detail_items } ->
-          if filter v then
+        let show = filter v in
+        let nlayout, details =
+          match item with
+          | Super { super_item; super_detail_items } ->
             let super_item = filter_res_item super_item in
-            let item = Super {
+            let item =
+              Super {
                 super_item;
                 super_detail_items = Variable.Set.filter filter super_detail_items;
               }
             in
             let details =
+              if show then
               Variable.Set.union details
                 (Variable.Set.filter filter super_detail_items)
+              else details
             in
             (Variable.Map.add v item nlayout, details)
-          else
-            nlayout, details
-        | Top item ->
-          if filter v then
+          | Top item ->
             let item = filter_res_item item in
             Variable.Map.add v (Top item) nlayout, details
-          else nlayout, details
-        | Detail item ->
-          if filter v then
+          | Detail item ->
             let item = filter_res_item item in
             Variable.Map.add v (Detail item) nlayout, details
-          else nlayout, details)
+        in
+        if show then nlayout, details else
+          nlayout, Variable.Set.add v details)
       layout (Variable.Map.empty, Variable.Set.empty)
   in
   Variable.Map.fold (fun v item layout ->
       match item with
       | Detail i when not (Variable.Set.mem v as_details) ->
         Variable.Map.add v (Top i) layout
+      | Top i | Super { super_item = i; _ }
+        when Variable.Set.mem v as_details ->
+        Variable.Map.add v (Detail i) layout
       | _ -> layout)
     layout layout
