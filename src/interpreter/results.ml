@@ -432,38 +432,56 @@ let normalize_valuations (info : ProgramInfo.t) (mode : norm_mode)
           | None -> Some [pending])
         vals
   in
+  let pending_event_equal ~filter pending step =
+    match pending with
+    | None -> false
+    | Some (_, pstep) ->
+      let ev1 = Variable.Map.filter (fun v _ -> filter v) pstep.step_events in
+      let ev2 = Variable.Map.filter (fun v _ -> filter v) step.step_events in
+      Variable.Map.equal (=) ev1 ev2
+  in
   let push_line i pending line vals =
     let vals = push_pending pending vals in
     InputLineMap.add i line vals
   in
+  let try_merge_rev_step step steps =
+    match steps with
+    | [] -> [step]
+    | lstep::steps ->
+      match try_step_merge info ~filter:var_filter lstep step with
+      | None -> step::lstep::steps
+      | Some mstep -> mstep::steps
+  in
+  let line_steps ~i ~squashing pending line =
+    let rec aux lsteps pending line =
+      match line with
+      | [] -> lsteps, pending
+      | [step] ->
+        let step = filter_step step in
+        if squashing = MeldInNext then
+          lsteps, add_to_pending i pending step
+        else
+          let lsteps = try_merge_rev_step step lsteps in
+          lsteps, pending
+      | step::steps ->
+        if squashing <> AllSteps then
+          let pending = add_to_pending i pending step in
+          aux lsteps pending steps
+        else if pending_event_equal ~filter:var_filter pending step then
+          aux lsteps (add_to_pending i pending step) steps
+        else
+          let lsteps = try_merge_rev_step step lsteps in
+          aux lsteps pending steps
+    in
+    let lsteps, pending = aux [] pending line in
+    List.rev lsteps, pending
+  in
   let pending, vals =
     InputLineMap.fold (fun i line (pending, vals) ->
         let squashing = line_filter i in
-        match line with
-        | [] -> pending, vals
-        | [step] ->
-          let step = filter_step step in
-          if squashing = MeldInNext then
-            add_to_pending i pending step, vals
-          else
-            None, push_line i pending [step] vals
-        | fstep::steps ->
-          if squashing <> AllSteps then
-            let pending =
-              List.fold_left (add_to_pending i) pending (fstep::steps)
-            in
-            pending, vals
-          else
-            let lstep, nsteps =
-              List.fold_left (fun (acc_step, nsteps) step ->
-                  match try_step_merge info ~filter:var_filter acc_step step with
-                  | None -> step, acc_step :: nsteps
-                  | Some merged -> merged, nsteps)
-                (fstep, []) steps
-            in
-            let lstep = filter_step lstep in
-            let line = List.rev_append nsteps [lstep] in
-            None, push_line i pending line vals)
+        let line_steps, pending = line_steps ~i ~squashing pending line in
+        if squashing = MeldInNext then pending, vals else
+          None, push_line i pending line_steps vals)
       valuations (None, InputLineMap.empty)
   in
   push_pending pending vals
