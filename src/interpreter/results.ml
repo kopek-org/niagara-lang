@@ -184,7 +184,8 @@ let build_result_layout (pinfos : ProgramInfo.t) =
               { l with
                 display_name =
                   (VarInfo.get_any_name pinfos.var_info partner)
-                  ^ "[" ^ label ^ "]"
+                  ^ "[" ^ label ^ "]";
+                provider = infos.kind = ProvidingPartner;
               }), variants
         | Cumulative step ->
           update_detail_of step (fun l -> { l with cumulated = Some v }) layout, variants
