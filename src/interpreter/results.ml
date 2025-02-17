@@ -352,39 +352,43 @@ let filter_of_norm_mode (info : ProgramInfo.t) (mode : norm_mode) =
       in
       org_check, line_filter
 
-let merge_valuations (info : ProgramInfo.t) ~(filter : Variable.t -> bool)
+(* We don't filter valuations because it causes more problems than it
+   solves. Only events may be filtered out for now. The actual filter
+   test function should mainly be used to construct the layout, which
+   ultimatly decides what is displayed or not.
+*)
+
+let merge_valuations (info : ProgramInfo.t)
     (val1 : value_presence Variable.Map.t) (val2 : value_presence Variable.Map.t) =
   Variable.Map.merge (fun v p1 p2 ->
-      if filter v then
-        let vinfo = Variable.Map.find v info.var_info in
-        if vinfo.kind = Constant then p2 else
-          match p1, p2 with
-          | None, None -> None
-          | Some p, None | None, Some p -> Some p
-          | Some p1, Some p2 ->
-            let rec merge_on_org vorigin =
-              match vorigin with
-              | Cumulative _ -> p2
-              | Named _
-              | LabelOfPartner _
-              | Peeking _
-              | ContextSpecialized _
-              | OperationDetail _
-              | OperationSum _
-              | RepartitionSum _
-              | DeficitSum _
-              | ConditionExistential
-              | OppositionDelta _ ->
-                (match p1, p2 with
-                 | Present v1, Present v2 -> Present (Value.add v1 v2)
-                 | Absent, p | p, Absent -> p)
-              | OpposingVariant { origin = _; target = _; variant } ->
-                merge_on_org variant
-              | AnonEvent | RisingEvent _ -> assert false
-            in
-            Some (merge_on_org vinfo.origin)
-      else None)
-      val1 val2
+      let vinfo = Variable.Map.find v info.var_info in
+      if vinfo.kind = Constant then p2 else
+        match p1, p2 with
+        | None, None -> None
+        | Some p, None | None, Some p -> Some p
+        | Some p1, Some p2 ->
+          let rec merge_on_org vorigin =
+            match vorigin with
+            | Cumulative _ -> p2
+            | Named _
+            | LabelOfPartner _
+            | Peeking _
+            | ContextSpecialized _
+            | OperationDetail _
+            | OperationSum _
+            | RepartitionSum _
+            | DeficitSum _
+            | ConditionExistential
+            | OppositionDelta _ ->
+              (match p1, p2 with
+               | Present v1, Present v2 -> Present (Value.add v1 v2)
+               | Absent, p | p, Absent -> p)
+            | OpposingVariant { origin = _; target = _; variant } ->
+              merge_on_org variant
+            | AnonEvent | RisingEvent _ -> assert false
+          in
+          Some (merge_on_org vinfo.origin))
+    val1 val2
 
 let try_step_merge (info : ProgramInfo.t) ~(filter : Variable.t -> bool)
     (step1 : output_step) (step2 : output_step) =
@@ -392,7 +396,7 @@ let try_step_merge (info : ProgramInfo.t) ~(filter : Variable.t -> bool)
   let ev2 = Variable.Map.filter (fun v _ -> filter v) step2.step_events in
   if Variable.Map.equal (=) ev1 ev2 then
     let step_valuations =
-      merge_valuations info ~filter step1.step_valuations step2.step_valuations
+      merge_valuations info step1.step_valuations step2.step_valuations
     in
     Some { step_valuations; step_events = ev2 }
   else
@@ -402,7 +406,7 @@ let force_step_merge (info : ProgramInfo.t) ~(filter : Variable.t -> bool)
     (step1 : output_step) (step2 : output_step) =
   let ev2 = Variable.Map.filter (fun v _ -> filter v) step2.step_events in
   let step_valuations =
-    merge_valuations info ~filter step1.step_valuations step2.step_valuations
+    merge_valuations info step1.step_valuations step2.step_valuations
   in
   { step_valuations; step_events = ev2 }
 
@@ -410,15 +414,14 @@ let normalize_valuations (info : ProgramInfo.t) (mode : norm_mode)
     (valuations : computation_outputs) : computation_outputs =
   let var_filter, line_filter = filter_of_norm_mode info mode in
   let filter_step step =
-    { step_events = Variable.Map.filter (fun v _ -> var_filter v)
+    { step with
+      step_events = Variable.Map.filter (fun v _ -> var_filter v)
           step.step_events;
-      step_valuations = Variable.Map.filter (fun v _ -> var_filter v)
-          step.step_valuations;
     }
   in
   let add_to_pending i pending step =
     match pending with
-    | None -> Some (i, step)
+    | None -> Some (i, filter_step step)
     | Some (_, pending) ->
       Some (i, force_step_merge info ~filter:var_filter pending step)
   in
@@ -433,49 +436,39 @@ let normalize_valuations (info : ProgramInfo.t) (mode : norm_mode)
           | None -> Some [pending])
         vals
   in
-  let pending_event_equal ~filter pending step =
-    match pending with
-    | None -> false
-    | Some (_, pstep) ->
-      let ev1 = Variable.Map.filter (fun v _ -> filter v) pstep.step_events in
-      let ev2 = Variable.Map.filter (fun v _ -> filter v) step.step_events in
-      Variable.Map.equal (=) ev1 ev2
-  in
   let push_line i pending line vals =
     let vals = push_pending pending vals in
-    InputLineMap.add i line vals
+    if line = [] then vals else
+      InputLineMap.add i line vals
   in
   let try_merge_rev_step step steps =
     match steps with
-    | [] -> [step]
+    | [] -> [filter_step step]
     | lstep::steps ->
       match try_step_merge info ~filter:var_filter lstep step with
-      | None -> step::lstep::steps
+      | None -> (filter_step step)::lstep::steps
       | Some mstep -> mstep::steps
   in
   let line_steps ~i ~squashing pending line =
-    let rec aux lsteps pending line =
-      match line with
-      | [] -> lsteps, pending
-      | [step] ->
-        let step = filter_step step in
-        if squashing = MeldInNext then
-          lsteps, add_to_pending i pending step
-        else
-          let lsteps = try_merge_rev_step step lsteps in
-          lsteps, pending
-      | step::steps ->
-        if squashing <> AllSteps then
-          let pending = add_to_pending i pending step in
-          aux lsteps pending steps
-        else if pending_event_equal ~filter:var_filter pending step then
-          aux lsteps (add_to_pending i pending step) steps
-        else
-          let lsteps = try_merge_rev_step step lsteps in
-          aux lsteps pending steps
-    in
-    let lsteps, pending = aux [] pending line in
-    List.rev lsteps, pending
+    match squashing with
+    | MeldInNext ->
+      let pending = List.fold_left (add_to_pending i) pending line in
+      [], pending
+    | SquashSteps ->
+      let lsteps =
+        match line with
+       | [] -> []
+       | fstep::steps ->
+         [ List.fold_left (fun mstep step ->
+               force_step_merge info ~filter:var_filter mstep step)
+               (filter_step fstep) steps ]
+      in
+      lsteps, pending
+    | AllSteps ->
+      let rsteps =
+        List.fold_left (fun rsteps step -> try_merge_rev_step step rsteps) [] line
+      in
+      List.rev rsteps, pending
   in
   let pending, vals =
     InputLineMap.fold (fun i line (pending, vals) ->
