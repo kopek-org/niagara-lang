@@ -74,5 +74,5 @@ let print fmt (v : t) =
 
 let human_print fmt (v : t) =
   match v with
-  | VRat r -> R.print_as_dec_repr fmt r
+  | VRat r -> R.print_dec_approx fmt r
 
