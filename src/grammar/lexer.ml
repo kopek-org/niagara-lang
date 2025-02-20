@@ -3,7 +3,7 @@ open Parser
 
 let unknown_token_error lexbuf =
   Errors.raise_error "Parsing error"
-    ~with_pos:(Pos.from_lexbuf lexbuf)
+    ~with_pos:(Pos.Text.from_lexbuf lexbuf)
     ~span:"unknown token"
 
 let keywords =
@@ -140,7 +140,7 @@ let rec code ~is_in_text lexbuf =
   | eof ->
     if is_in_text
     then Errors.raise_error "Unclosed code section at end of file"
-        ~with_pos:(Pos.from_lexbuf lexbuf)
+        ~with_pos:(Pos.Text.from_lexbuf lexbuf)
     else EOF
   | _ -> unknown_token_error lexbuf
 

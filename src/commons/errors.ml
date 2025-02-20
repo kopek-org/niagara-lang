@@ -1,7 +1,7 @@
 include Logs
 
 let loc_tag : Pos.t Tag.def =
-  Tag.def "loc" ~doc:"Error location" Pos.pp
+  Tag.def "loc" ~doc:"Error location" Pos.Text.pp
 
 type kind =
   | Primary
@@ -61,7 +61,7 @@ let hint : ?loc:Pos.t -> ('a, Format.formatter, unit, detail) format4 -> 'a =
 
 let raise_error ?with_pos ?span fmt =
   let k s = err (fun m -> m "@[%a%a%a@]"
-      Fmt.(option (Pos.pp ++ any ":@\n")) with_pos
+      Fmt.(option (Pos.Text.pp ++ any ":@\n")) with_pos
       Fmt.(option (Fmt.string ++ any "@\n")) span
       Fmt.text s
     );

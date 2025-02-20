@@ -1,7 +1,7 @@
 %{
 open Surface.Ast
 
-let pos (start, stop) = Pos.make ~start ~stop
+let pos (start, stop) = Pos.Text.make ~start ~stop
 %}
 
 %token OPERATION QUOTEPART BONUS SUR ASSIETTE ANS MOIS ENTREE LBRA RBRA DEFAUT
@@ -68,14 +68,14 @@ simple_expr:
 }
 | QUOTEPART RESTE d = destinataire? {
   let start, stop = $startpos, $endpos in
-  redistribution ~loc:(Pos.make ~start ~stop) Default, d
+  redistribution ~loc:(pos (start, stop)) Default, d
 }
 | BONUS f = formula d = destinataire? {
   redistribution ~loc:f.formula_loc (Flat f), d
 }
 | RETROCESSION f = formula SUR h = holder d = destinataire?
   { let start, stop = $startpos(f), $endpos(h) in
-    redistribution ~loc:(Pos.make ~start ~stop) (Retrocession (f, h)), d
+    redistribution ~loc:(pos (start,stop)) (Retrocession (f, h)), d
   }
 
 simple_exprs:

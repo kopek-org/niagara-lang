@@ -1,20 +1,25 @@
 
+type t = ..
 
-(* This is a simple implementation that will do the job for the time being. *)
-type t =
-  | Dummy
-  | Loc of {
-    start_line : int;
-    start_column : int;
-    stop_line : int;
-    stop_column : int;
-  } 
+type t += Dummy
 
 let dummy : t = Dummy
 
+module Text = struct
+
+(* This is a simple implementation that will do the job for the time being. *)
+type text = {
+  start_line : int;
+  start_column : int;
+  stop_line : int;
+  stop_column : int;
+}
+
+type t += TextLoc of text
+
 let make : start:Lexing.position -> stop:Lexing.position -> t =
   fun ~start ~stop ->
-    Loc {
+    TextLoc {
       start_line = start.pos_lnum;
       start_column = start.pos_cnum - start.pos_bol;
       stop_line = stop.pos_lnum;
@@ -34,18 +39,19 @@ let gnu_style, set_gnu_style =
 
 let pp : t Fmt.t = fun ppf pos ->
   match pos with
-  | Dummy -> 
-    ()
-  | Loc { start_line; start_column; stop_line; stop_column } ->
+  | Dummy -> ()
+  | TextLoc { start_line; start_column; stop_line; stop_column } ->
     begin match gnu_style () with
     | true ->
       Fmt.text_loc ppf ((start_line, start_column), (stop_line, stop_column))
     | false ->
       if start_line = stop_line then
-        Fmt.pf ppf "line@ %d,@ characters@ %d-%d" 
+        Fmt.pf ppf "line@ %d,@ characters@ %d-%d"
           start_line start_column stop_column
       else
-        Fmt.pf ppf "line@ %d,@ character@ %d@ to@ line@ %d,@ character %d" 
+        Fmt.pf ppf "line@ %d,@ character@ %d@ to@ line@ %d,@ character %d"
           start_line start_column stop_line stop_column
     end
-    
+  | _ -> failwith "Not a textual location"
+
+end
