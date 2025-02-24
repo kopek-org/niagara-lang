@@ -1,71 +1,40 @@
+type t =
+  | Internal of string
+  | Parsing of { loc : Pos.t option; msg : string }
+  | User of { locs : Pos.t list; msg : string }
+
+val print_raw : Format.formatter -> t -> unit
+
 (** This modules adds log related operations based on {!Logs}. *)
 
 include module type of Logs with type 'a Tag.def = 'a Logs.Tag.def
 
 (** {1 Types & Tags} *)
 
-(** Position meta data tag. *)
-val loc_tag : Pos.t Tag.def
-
-(** Kind of additional messages. *)
-type kind =
-  | Primary   (** Primary error source. *)
-  | Secondary (** Secondary error source. *)
-  | Note      (** An explanation. *)
-  | Hint      (** A hint on how to resolve the problem. *)
-
 (** Additional message informations. *)
 type info = private {
-  kind : kind;
-  loc : Pos.t;
-  msg : string;
+  kind : t;
 }
 
 (** Meta data tag for additionnal messages.loc
 
     @warning They are stored in reverse order. *)
-val infos_tag : info list Tag.def
+val infos_tag : info Tag.def
 
-(** {1 Meta data combinators}*)
+val raise_internal_error :
+  ('a, Format.formatter, unit, unit, unit, 'b) format6 -> 'a
 
-(** A convenient carrier type for meta data combinators. *)
-type detail
+val raise_parsing_error : ?loc:Pos.t -> string -> 'a
 
-(** Converts details into a tag set usable in logs. *)
-val pack : detail list -> Tag.set
-
-(** Syntactic shortcut for {!pack}. *)
-val ( !! ) : detail list -> Tag.set
-
-(** [loc p] creates a meta data with the given position. *)
-val loc : Pos.t -> detail
-
-(** [primary ~loc fmt] creates a primary additional message according to [fmt]
-    and [loc]. *)
-val primary : ?loc:Pos.t -> ('a, Format.formatter, unit, detail) format4 -> 'a
-
-(** [secondary ~loc fmt] creates a primary additional message according to [fmt]
-    and [loc]. *)
-val secondary : ?loc:Pos.t -> ('a, Format.formatter, unit, detail) format4 -> 'a
-
-(** [note ~loc fmt] creates a primary additional message according to [fmt]
-    and [loc]. *)
-val note : ?loc:Pos.t -> ('a, Format.formatter, unit, detail) format4 -> 'a
-
-(** [hint ~loc fmt] creates a primary additional message according to [fmt]
-    and [loc]. *)
-val hint : ?loc:Pos.t -> ('a, Format.formatter, unit, detail) format4 -> 'a
-
-(** Initializes logs with the given reporter, if any. Default reporter uses
-    standard output/error. *)
-val init : ?reporter:Logs.reporter -> unit -> unit
+(** Initializes logs. Reporter uses
+    standard output/error. For CLI use. *)
+val cli_reporting_init : unit -> unit
 
 (** {1. Legacy} *)
 
 (** Legacy function to report errors.
 
   @deprecated *)
+
 val raise_error :
-  ?with_pos:Pos.t ->
-  ?span:string ->
-  ('a, Format.formatter, unit, unit, unit, 'b) format6 -> 'a
+  ?locs:Pos.t list -> ('a, Format.formatter, unit, unit, unit, 'b) format6 -> 'a

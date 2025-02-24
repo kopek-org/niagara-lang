@@ -52,7 +52,7 @@ let make (pinfos : ProgramInfo.t) = {
 
 let find_vinfo t (v : Variable.t) =
   match Variable.Map.find_opt v t.pinfos.var_info with
-  | None -> Errors.raise_error "(internal) variable %d info not found" (Variable.uid v)
+  | None -> Errors.raise_internal_error "Variable %d info not found" (Variable.uid v)
   | Some i -> i
 
 let bind_vinfo t (v : Variable.t) (info : VarInfo.t) =
@@ -91,7 +91,7 @@ let contexts t = t.pinfos.contexts
 let type_of t v =
   match Variable.Map.find_opt v t.pinfos.var_info with
   | Some vinfo -> vinfo.typ
-  | None -> Errors.raise_error "(internal) Cannot find type of variable"
+  | None -> Errors.raise_internal_error "Cannot find type of variable"
 
 let is_actor t (v : Variable.t) =
   match Variable.Map.find_opt v t.pinfos.var_info with
@@ -222,7 +222,7 @@ let register_aggregation t ~(act : Condition.t) ~(dest : Variable.t) (v : Variab
         | None -> Some (More [v, act])
         | Some (More vars) -> Some (More ((v, act)::vars))
         | Some (One _) ->
-          Errors.raise_error "(internal) Cannot aggregate on valuation expression")
+          Errors.raise_internal_error "Cannot aggregate on valuation expression")
       t.value_eqs
   in
   { t with value_eqs }
@@ -232,15 +232,8 @@ let register_value t ~(act : Condition.t) ~(dest : Variable.t) (expr : expr) =
   let value_eqs =
     Variable.Map.update dest (function
         | None -> Some (One ge)
-        | Some ag ->
-          Variable.Map.iter (fun v _ ->
-              Format.eprintf "%a@\n" (FormatEqu.print_var_with_info t.pinfos) v)
-            t.pinfos.var_info;
-          Format.eprintf "var %d: %a (%s)@."
-                    (Variable.uid dest)
-                    FormatEqu.print_expr expr
-                    (match ag with One _ -> "one" | More _ -> "more");
-          Errors.raise_error "(internal) Cannot register valuation on aggregation")
+        | Some _ ->
+          Errors.raise_internal_error "Cannot register valuation on aggregation")
       t.value_eqs
   in
   { t with value_eqs; }
@@ -639,7 +632,7 @@ let var_view acc (view : flow_view) (v : Variable.t) =
    according to the context. In this case, it refers to their sum. *)
 let aggregate_vars acc ~view (vars : Variable.t list) =
   match vars with
-  | [] -> Errors.raise_error "(internal) should have found derivative vars"
+  | [] -> Errors.raise_internal_error "Should have found derivative vars"
   | v::vs ->
     let acc, v = var_view acc view v in
     List.fold_left (fun (acc, e) v ->
@@ -742,7 +735,7 @@ let translate_redistribution ~(label : string option) acc ~(ctx : Context.Group.
     match dest with
     | ActorComp c -> c.base
     | ContextVar [v] -> v
-    | _ -> Errors.raise_error "(internal) Destination context inapplicable"
+    | _ -> Errors.raise_internal_error "Destination context inapplicable"
   in
   match redist.redistribution_desc with
   | Part (f, opp) ->

@@ -35,13 +35,13 @@ let update_event (s : state) (evt : Variable.t) (b : bool) =
 let find_valuation (s : state) (v : Variable.t) =
   match Variable.Map.find_opt v s.valuations with
   | None | Some Absent ->
-    Errors.raise_error "(internal) Unable to find valuation for var %d"
+    Errors.raise_internal_error "Unable to find valuation for var %d"
       (Variable.uid v)
   | Some (Present v) -> v
 
 let rec find_valuation_in (s : state) (vs : Variable.t list) =
   match vs with
-  | [] -> Errors.raise_error "(internal) Unable to find a valuation in vars"
+  | [] -> Errors.raise_internal_error "Unable to find a valuation in vars"
   | v::vs ->
     match Variable.Map.find_opt v s.valuations with
     | Some (Present v) -> v
@@ -50,13 +50,13 @@ let rec find_valuation_in (s : state) (vs : Variable.t list) =
 let find_truth (s : state) (v : Variable.t) =
   match Variable.Map.find_opt v s.events with
   | None ->
-    Errors.raise_error "(internal) Unable to find truth for event %d"
+    Errors.raise_internal_error "Unable to find truth for event %d"
       (Variable.uid v)
   | Some b -> b
 
 let rec find_truth_in (s : state) (vs : Variable.t list) =
   match vs with
-  | [] -> Errors.raise_error "(internal) Unable to find a truth in events"
+  | [] -> Errors.raise_internal_error "Unable to find a truth in events"
   | v::vs ->
     match Variable.Map.find_opt v s.events with
     | Some b -> b
@@ -137,7 +137,7 @@ let rec valuate (s : state) (e : expr) =
   | EInv e -> Value.inv (valuate s e)
   | EMerge vs -> find_valuation_in s vs
   | ENot _ | EAnd _ | EGe _ ->
-    Errors.raise_error "(internal) Tried to valuate@ %a,@, which it not a value"
+    Errors.raise_internal_error "Tried to valuate@ %a,@, which it not a value"
       FormatEqu.print_expr e
 
 let rec check (s : state) (e : expr) =
@@ -149,7 +149,7 @@ let rec check (s : state) (e : expr) =
   | EGe (e1, e2) -> not Value.(lt (valuate s e1) (valuate s e2))
   | EMerge vs -> find_truth_in s vs
   | EConst _ | EAdd _ | EMult _ | ENeg _ | EInv _ ->
-    Errors.raise_error "(internal) Tried to check@ %a,@, which is not an event"
+    Errors.raise_internal_error "Tried to check@ %a,@, which is not an event"
       FormatEqu.print_expr e
 
 let compute_events (p : program) (s : state) =
@@ -163,7 +163,7 @@ let compute_value (s : state) (cond_state : cond_state)
     ({ eq_act; eq_expr } : guarded_eq) =
   match Condition.satisfies cond_state eq_act with
   | MaySat ->
-    Errors.raise_error "(internal) Unable to check activation, missing var value"
+    Errors.raise_internal_error "Unable to check activation, missing var value"
   | Unsat -> Absent
   | Sat -> Present (valuate s eq_expr)
 

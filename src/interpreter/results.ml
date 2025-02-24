@@ -431,8 +431,8 @@ let normalize_valuations (info : ProgramInfo.t) (mode : norm_mode)
     | Some (pi, pending) ->
       InputLineMap.update pi (function
           | Some _ ->
-            Errors.raise_error "(internal) cannot add squashed lines, \
-                                line already present"
+            Errors.raise_internal_error
+              "Cannot add squashed lines, line already present"
           | None -> Some [pending])
         vals
   in
@@ -457,11 +457,11 @@ let normalize_valuations (info : ProgramInfo.t) (mode : norm_mode)
     | SquashSteps ->
       let lsteps =
         match line with
-       | [] -> []
-       | fstep::steps ->
-         [ List.fold_left (fun mstep step ->
-               force_step_merge info ~filter:var_filter mstep step)
-               (filter_step fstep) steps ]
+        | [] -> []
+        | fstep::steps ->
+          [ List.fold_left (fun mstep step ->
+                force_step_merge info ~filter:var_filter mstep step)
+                (filter_step fstep) steps ]
       in
       lsteps, pending
     | AllSteps ->

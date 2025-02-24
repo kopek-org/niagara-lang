@@ -1,73 +1,64 @@
+
+(* raw error *)
+type t =
+  | Internal of string
+  | Parsing of { loc : Pos.t option; msg : string }
+  | User of { locs : Pos.t list; msg : string }
+
+let print_raw fmt t =
+  match t with
+  | Internal msg -> Format.fprintf fmt "(internal) %s" msg
+  | Parsing { loc; msg } ->
+    Format.fprintf fmt "Parsing error%a:@\n%s"
+      Fmt.(option (any ", " ++ Pos.Text.pp)) loc
+      msg
+  | User { locs = _; msg } ->
+    Format.pp_print_string fmt msg
+
 include Logs
 
-let loc_tag : Pos.t Tag.def =
-  Tag.def "loc" ~doc:"Error location" Pos.Text.pp
-
-type kind =
-  | Primary
-  | Secondary
-  | Note
-  | Hint
-
-(* let kind_to_string : kind -> string = function
-  | Primary -> "primary"
-  | Secondary -> "secondary"
-  | Note -> "note"
-  | Hint -> "hint" *)
-
 type info = {
-  kind : kind;
-  loc : Pos.t;
-  msg : string;
+  kind : t;
 }
 
-(* keeps info in reverse order *)
-let infos_tag : info list Tag.def =
-  Tag.def "packed" ~doc:"Packed log message"
-    (fun ppf _ -> Fmt.pf ppf "<infos>")
+let infos_tag : info Tag.def =
+  Tag.def "error_info" ~doc:"Error information" Fmt.nop
 
-type detail = Tag.set -> Tag.set
+let info_err kind = Tag.(add infos_tag { kind } empty)
 
-let pack : detail list -> Tag.set = fun details ->
-  List.fold_right (fun f -> f) details Tag.empty
+let log_error fmt t =
+  err (fun m -> m fmt ~tags:(info_err t));
+  assert false
 
-let ( !! ) = pack
-
-let loc : Pos.t -> detail = Tag.add loc_tag
-
-let detail :
-  ?loc:Pos.t -> kind -> ('a, Format.formatter, unit, detail) format4 -> 'a =
-  fun ?(loc = Pos.dummy) kind fmt ->
-    let k msg = fun tags ->
-      let infos = match Tag.find infos_tag tags with
-        | None -> []
-        | Some infos -> infos in
-      Tag.add infos_tag ({kind; loc; msg} :: infos) tags in
-    Fmt.kstr k fmt
-
-let primary :
-  ?loc:Pos.t -> ('a, Format.formatter, unit, detail) format4 -> 'a =
-  fun ?loc fmt -> detail ?loc Primary fmt
-
-let secondary :
-  ?loc:Pos.t -> ('a, Format.formatter, unit, detail) format4 -> 'a =
-  fun ?loc fmt -> detail ?loc Secondary fmt
-
-let note : ?loc:Pos.t -> ('a, Format.formatter, unit, detail) format4 -> 'a =
-  fun ?loc fmt -> detail ?loc Note fmt
-
-let hint : ?loc:Pos.t -> ('a, Format.formatter, unit, detail) format4 -> 'a =
-  fun ?loc fmt -> detail ?loc Hint fmt
-
-let raise_error ?with_pos ?span fmt =
-  let k s = err (fun m -> m "@[%a%a%a@]"
-      Fmt.(option (Pos.Text.pp ++ any ":@\n")) with_pos
-      Fmt.(option (Fmt.string ++ any "@\n")) span
-      Fmt.text s
-    );
-    failwith "error" in
+let raise_internal_error fmt =
+  let k s =
+    log_error "Internal error" (Internal s)
+  in
   Fmt.kstr k fmt
 
-let init : ?reporter:Logs.reporter -> unit -> unit =
-  fun ?(reporter = Logs_fmt.reporter ()) () ->
-    set_reporter reporter
+let raise_parsing_error ?loc msg =
+  log_error "Parsing error" (Parsing { loc; msg })
+
+let raise_error ?(locs = []) fmt =
+  let k msg = log_error "Usage error" (User { locs; msg }) in
+  Fmt.kstr k fmt
+
+let cli_reporting_init () =
+  let ppf = Format.err_formatter in
+  let report _src _level ~over _k msgf =
+    let k _ = over (); exit 50 in
+    let with_infos _headers tags k ppf fmt =
+      let infos =
+        match tags with
+        | None -> None
+        | Some tags -> Logs.Tag.find infos_tag tags
+      in
+      match infos with
+      | None -> Format.kfprintf k ppf ("Unknown error: " ^^ fmt ^^ "@.")
+      | Some { kind } ->
+        Format.fprintf ppf "%a@." print_raw kind;
+        Format.ikfprintf k ppf fmt
+    in
+    msgf @@ (fun ?header ?tags fmt -> with_infos header tags k ppf fmt)
+  in
+  set_reporter { Logs.report }

@@ -140,7 +140,7 @@ end = struct
   let register_input t (name : string) (typ : ValueType.t) (kind : input_kind) =
     match kind with
     | Attributable ->
-      if typ <> ValueType.TMoney then Errors.raise_error "(internal) Wrong type for pool";
+      if typ <> ValueType.TMoney then Errors.raise_internal_error "Wrong type for pool";
       let info = VarInfo.{
         origin = Named name;
         typ;
@@ -239,7 +239,7 @@ end = struct
     | Some (RefActor (BaseActor a)) ->
       (match way with Upstream -> a.upstream | Downstream -> a.downstream)
     | Some (RefActor (Label _)) ->
-      Errors.raise_error "(internal) actor name %s should not exists" name
+      Errors.raise_internal_error "Actor name %s should not exists" name
     | Some (RefPool _) ->
       Errors.raise_error "Variable %s should be identified as pool" name
     | None -> Errors.raise_error "Unknown identifier %s" name
@@ -256,7 +256,7 @@ end = struct
       | Some (RefActor (BaseActor a)) ->
         (match way with Downstream -> a.downstream | Upstream -> a.upstream)
       | Some _ ->
-        Errors.raise_error "(internal) %s should have been recognized as actor" name
+        Errors.raise_internal_error "'%s' should have been recognized as actor" name
     in
     let lname = name^"$"^label in
     match StrMap.find_opt lname t.var_table with
@@ -282,8 +282,8 @@ end = struct
         Errors.raise_error "Cannot use label same label %s on both ways" label;
       t, v
     | Some _ ->
-      Errors.raise_error "(internal) %s[%s] should have been recognized as a \
-                          labeled actor"
+      Errors.raise_internal_error "'%s[%s]' should have been recognized as a \
+                                   labeled actor"
         name label
 
   let add_var_constraint t (v : Variable.t)

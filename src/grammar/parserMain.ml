@@ -8,9 +8,8 @@ let fail checkpoint =
   match checkpoint with
   | I.HandlingError env ->
     let start, stop = I.positions env in
-    Format.eprintf "On state %d@." (I.current_state_number env);
-    Errors.raise_error "Parsing error" ~with_pos:(Pos.Text.make ~start ~stop)
-      ~span:(ParserErrors.message (I.current_state_number env))
+    Errors.raise_parsing_error ~loc:(Pos.Text.make ~start ~stop)
+      (ParserErrors.message (I.current_state_number env))
   | _ -> assert false
 
 let parse_lexbuf :

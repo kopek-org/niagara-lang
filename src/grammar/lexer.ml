@@ -2,9 +2,7 @@ open Sedlexing
 open Parser
 
 let unknown_token_error lexbuf =
-  Errors.raise_error "Parsing error"
-    ~with_pos:(Pos.Text.from_lexbuf lexbuf)
-    ~span:"unknown token"
+  Errors.raise_parsing_error ~loc:(Pos.Text.from_lexbuf lexbuf) "unknown token"
 
 let keywords =
   [
@@ -139,8 +137,8 @@ let rec code ~is_in_text lexbuf =
     else unknown_token_error lexbuf
   | eof ->
     if is_in_text
-    then Errors.raise_error "Unclosed code section at end of file"
-        ~with_pos:(Pos.Text.from_lexbuf lexbuf)
+    then Errors.raise_parsing_error "Unclosed code section at end of file"
+        ~loc:(Pos.Text.from_lexbuf lexbuf)
     else EOF
   | _ -> unknown_token_error lexbuf
 

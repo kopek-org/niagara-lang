@@ -377,7 +377,7 @@ let save_relevant_set ~opposable acc ~(target : Variable.t) =
       (match Variable.Map.find_opt target acc.copies with
        | None | Some None ->
          if opposable then
-           Errors.raise_error "(internal) No opposing variant for opposability target"
+           Errors.raise_internal_error "No opposing variant for opposability target"
          else
            target
       | Some (Some var) -> var);

@@ -26,7 +26,7 @@ type acc = {
 
 let is_input acc (v : Variable.t) =
   match Variable.Map.find_opt v acc.info with
-  | None -> Errors.raise_error "(internal) No info for var %d" (Variable.uid v)
+  | None -> Errors.raise_internal_error "No info for var %d" (Variable.uid v)
   | Some i -> VarInfo.is_input i
 
 let add_limits acc (v : Variable.t) (l : threshold list) =
