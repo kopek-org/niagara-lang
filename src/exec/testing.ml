@@ -54,7 +54,7 @@ let convert_line (p : Equ.program) (input : string) (amount : string) =
     | None ->
       try Literal.LInteger (Z.of_string amount) with
       | Invalid_argument _ ->
-        Errors.raise_error "%s is not a valid amount" amount
+        Report.raise_error "%s is not a valid amount" amount
   in
   Option.map (fun v -> v, amount) var
 
@@ -67,7 +67,7 @@ let test_stdin (p : Equ.program) (l : Equ.limits) (for_partner : string option) 
         | Some (input_variable, input_value) ->
           Execution.{ input_variable; input_value }
         | None ->
-          Errors.raise_error
+          Report.raise_error
             "Unable to find variable for \
              input %d. Make sure you state \
              the right context" i)
@@ -82,7 +82,7 @@ let test_stdin (p : Equ.program) (l : Equ.limits) (for_partner : string option) 
       | None -> Results.Canonical
       | Some s ->
         match find_partner p.infos.var_info s with
-        | None -> Errors.raise_error "Unable to find partner %s" s
+        | None -> Report.raise_error "Unable to find partner %s" s
         | Some for_partner ->
           Results.Explain {
             for_partner; lines;

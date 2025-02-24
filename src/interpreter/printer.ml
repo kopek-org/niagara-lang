@@ -39,7 +39,7 @@ let rec print_item ?(close=true) infos fmt layout step (item : Results.top_item)
                   match VarInfo.get_name infos dest with
                   | Some name -> name
                   | None ->
-                    Errors.raise_internal_error
+                    Report.raise_internal_error
                       "Unable to find suitable name for repartition \
                        destination variable"
               in

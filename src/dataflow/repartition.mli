@@ -23,15 +23,6 @@ type fullness_result = {
   deficits : unified_parts share option;
 }
 
-type err =
-  | PoolNeedsDeficit of R.t
-  | PoolNeedsDefault of R.t option
+type err = ImperfectSum of R.t
 
 val resolve_fullness : part_or_def t -> (fullness_result, err) Result.t
-
-val pp_err :
-  src:Variable.t
-  -> program_info:ProgramInfo.t
-  -> Format.formatter
-  -> err
-  -> unit

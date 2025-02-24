@@ -8,7 +8,7 @@ let fail checkpoint =
   match checkpoint with
   | I.HandlingError env ->
     let start, stop = I.positions env in
-    Errors.raise_parsing_error ~loc:(Pos.Text.make ~start ~stop)
+    Report.raise_parsing_error ~loc:(Pos.Text.make ~start ~stop)
       (ParserErrors.message (I.current_state_number env))
   | _ -> assert false
 

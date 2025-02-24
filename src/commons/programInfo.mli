@@ -15,6 +15,8 @@ type t = {
   dep_graph : Variable.Graph.t;
 }
 
+val dummy : t
+
 val print_variable : t -> Format.formatter -> Variable.t -> unit
 
 val print_ctx_variable : t -> Format.formatter -> Variable.t * Context.Group.t -> unit

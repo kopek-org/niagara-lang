@@ -86,6 +86,32 @@ module Group = struct
 
 end
 
+type error =
+  | UnknownDomain of string
+  | UnknownCase of string
+  | AlreadyDeclDomain of string
+  | AlreadyDeclCase of string
+  | OverlapInShape
+  | PartialProjection
+
+(* exception to avoid recursive module dependency on errors *)
+exception Error of error
+
+let print_error fmt err =
+  match err with
+  | UnknownDomain s ->
+    Format.fprintf fmt "Unknown domain %s" s
+  | UnknownCase s ->
+    Format.fprintf fmt "Unknown case %s" s
+  | AlreadyDeclDomain s ->
+    Format.fprintf fmt "Domain %s already declared" s
+  | AlreadyDeclCase s ->
+    Format.fprintf fmt "Case %s already declared" s
+  | OverlapInShape ->
+    Format.fprintf fmt "Overlapping groups in shape definition"
+  | PartialProjection ->
+    Format.fprintf fmt "Incompatible projection"
+
 type domain_info = {
   domain_name : string;
   domain_cases : CaseSet.t;
@@ -145,7 +171,7 @@ let are_disjoint_groups (groups : Group.t list) =
 
 let shape_of_groups (groups : Group.t list) =
   if not (are_disjoint_groups groups) then
-    Errors.raise_error "Overlapping groups in shape definition";
+    raise (Error OverlapInShape);
   groups
 
 let is_any_projection world (g : Group.t) = Group.equal g (any_projection world)
@@ -158,7 +184,7 @@ let shape_filter_projection (s : shape) (p : Group.t) =
       let i = Group.inter g p in
       if Group.is_empty i then None
       else if Group.equal i g then Some i
-      else Errors.raise_error "Incompatible projection")
+      else raise (Error PartialProjection))
     s
 
 let shape_clip (s1 : shape) (s2 : shape) =
@@ -208,12 +234,12 @@ let shape_fold (f : 'a -> Group.t -> 'a) (acc : 'a) (s : shape) =
 let find_domain world (dom : string) =
   match StrMap.find_opt dom world.domain_table with
   | Some d -> d
-  | None -> Errors.raise_error "Unknown domain %s" dom
+  | None -> raise (Error (UnknownDomain dom))
 
 let find_case world (case : string) =
   match StrMap.find_opt case world.case_table with
   | Some d -> d
-  | None -> Errors.raise_error "Unknown case %s" case
+  | None -> raise (Error (UnknownCase case))
 
 let case_is_in_domain world (case : case) (dom : domain) =
   (DomainMap.find dom world.domains).domain_cases |> CaseSet.mem case
@@ -263,7 +289,7 @@ let add_domain =
     let case_table, cases, domain_cases =
       List.fold_left (fun (ct, cs, dc) case_name ->
           if StrMap.mem case_name ct then
-            Errors.raise_error "Case %s already declared" case_name;
+            raise (Error (AlreadyDeclCase case_name));
           let i = !c in
           incr c;
           StrMap.add case_name i ct,
@@ -274,7 +300,7 @@ let add_domain =
     in
     let domain_table =
       if StrMap.mem dom world.domain_table then
-        Errors.raise_error "Domain %s already declared" dom;
+        raise (Error (AlreadyDeclDomain dom));
       StrMap.add dom domain world.domain_table
     in
     let group_repr_size =

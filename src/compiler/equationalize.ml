@@ -52,7 +52,7 @@ let make (pinfos : ProgramInfo.t) = {
 
 let find_vinfo t (v : Variable.t) =
   match Variable.Map.find_opt v t.pinfos.var_info with
-  | None -> Errors.raise_internal_error "Variable %d info not found" (Variable.uid v)
+  | None -> Report.raise_internal_error "Variable %d info not found" (Variable.uid v)
   | Some i -> i
 
 let bind_vinfo t (v : Variable.t) (info : VarInfo.t) =
@@ -91,7 +91,7 @@ let contexts t = t.pinfos.contexts
 let type_of t v =
   match Variable.Map.find_opt v t.pinfos.var_info with
   | Some vinfo -> vinfo.typ
-  | None -> Errors.raise_internal_error "Cannot find type of variable"
+  | None -> Report.raise_internal_error "Cannot find type of variable"
 
 let is_actor t (v : Variable.t) =
   match Variable.Map.find_opt v t.pinfos.var_info with
@@ -138,7 +138,7 @@ let flag_variable_usage t (v : Variable.t) =
 let var_shape t (v : Variable.t) =
   match Variable.Map.find_opt v t.pinfos.var_shapes with
   | Some shape -> shape
-  | None -> Errors.raise_error "No shape for var %d" (Variable.uid v)
+  | None -> Report.raise_error "No shape for var %d" (Variable.uid v)
 
 let register_event t (v : Variable.t) (e : expr) =
   { t with event_eqs = Variable.Map.add v e t.event_eqs }
@@ -222,7 +222,7 @@ let register_aggregation t ~(act : Condition.t) ~(dest : Variable.t) (v : Variab
         | None -> Some (More [v, act])
         | Some (More vars) -> Some (More ((v, act)::vars))
         | Some (One _) ->
-          Errors.raise_internal_error "Cannot aggregate on valuation expression")
+          Report.raise_internal_error "Cannot aggregate on valuation expression")
       t.value_eqs
   in
   { t with value_eqs }
@@ -233,7 +233,7 @@ let register_value t ~(act : Condition.t) ~(dest : Variable.t) (expr : expr) =
     Variable.Map.update dest (function
         | None -> Some (One ge)
         | Some _ ->
-          Errors.raise_internal_error "Cannot register valuation on aggregation")
+          Report.raise_internal_error "Cannot register valuation on aggregation")
       t.value_eqs
   in
   { t with value_eqs; }
@@ -455,10 +455,8 @@ let convert_repartitions t =
       let fullrep =
         match Repartition.resolve_fullness rep with
         | Ok fr -> fr
-        | Error err ->
-          Errors.raise_error "Error on repartition: %a"
-            (Repartition.pp_err ~src ~program_info:t.pinfos)
-            err
+        | Error (ImperfectSum p) ->
+          Report.raise_repartition_error t.pinfos src p
       in
       let t, direct_rep = conv_shares t src fullrep.parts in
       let t = conv_defaults t src direct_rep fullrep.defaults in
@@ -632,7 +630,7 @@ let var_view acc (view : flow_view) (v : Variable.t) =
    according to the context. In this case, it refers to their sum. *)
 let aggregate_vars acc ~view (vars : Variable.t list) =
   match vars with
-  | [] -> Errors.raise_internal_error "Should have found derivative vars"
+  | [] -> Report.raise_internal_error "Should have found derivative vars"
   | v::vs ->
     let acc, v = var_view acc view v in
     List.fold_left (fun (acc, e) v ->
@@ -680,7 +678,7 @@ let translate_binop (op : Ast.binop)
     | Mult, TRational, TDuration
     | Div, TDuration, TInteger
     | Div, TDuration, TRational -> ValueType.TDuration
-    | _ -> Errors.raise_error "Mismatching types for binop"
+    | _ -> Report.raise_error "Mismatching types for binop"
   in
   let expr =
     match op with
@@ -735,7 +733,7 @@ let translate_redistribution ~(label : string option) acc ~(ctx : Context.Group.
     match dest with
     | ActorComp c -> c.base
     | ContextVar [v] -> v
-    | _ -> Errors.raise_internal_error "Destination context inapplicable"
+    | _ -> Report.raise_internal_error "Destination context inapplicable"
   in
   match redist.redistribution_desc with
   | Part (f, opp) ->
@@ -743,7 +741,7 @@ let translate_redistribution ~(label : string option) acc ~(ctx : Context.Group.
     let part =
       match reduce_to_r partf with
       | Some p -> p
-      | None -> Errors.raise_error "Non-constant quotepart"
+      | None -> Report.raise_error "Non-constant quotepart"
     in
     let acc, opps =
       List.fold_left_map (fun acc (Ast.VarOpp { opp_towards; opp_value; _ }) ->
@@ -751,7 +749,7 @@ let translate_redistribution ~(label : string option) acc ~(ctx : Context.Group.
           let opp_part =
             match reduce_to_r partf with
             | Some p -> p
-            | None -> Errors.raise_error "Non-constant quotepart"
+            | None -> Report.raise_error "Non-constant quotepart"
           in
           acc, (opp_towards, opp_part))
         acc opp
@@ -772,7 +770,7 @@ let translate_redist_w_dest acc ~(ctx : Context.Group.t) ~(act : Condition.t)
     | Some _, Some dest (* TODO warning *)
     | None, Some dest -> dest
     | Some default, None -> default
-    | None, None -> Errors.raise_error "No destination for repartition"
+    | None, None -> Report.raise_error "No destination for repartition"
   in
   translate_redistribution ~ctx ~act ~src ~dest acc redist
 
@@ -844,7 +842,7 @@ let translate_default acc (d : Ast.ctx_default_decl) =
       let dest = match dest with
         | ActorComp c -> c.base
         | ContextVar [dest] -> dest
-        | _ -> Errors.raise_error "destination derivation should have been unique"
+        | _ -> Report.raise_error "destination derivation should have been unique"
       in
       Acc.register_default ~label:None acc ~act:Condition.always ~src ~dest)
     acc source_local_shape
@@ -854,7 +852,7 @@ let translate_deficit acc (d : Ast.ctx_deficit_decl) =
     let prov, prov_ctx = d.ctx_deficit_provider in
     let acc, prov = Acc.derive_ctx_variables ~mode:Strict acc prov prov_ctx in
     acc, match prov with
-    | ContextVar _ -> Errors.raise_error "Deficit handler can only be an actor"
+    | ContextVar _ -> Report.raise_error "Deficit handler can only be an actor"
     | ActorComp { base; _ } -> base
   in
   let pool_local_shape = shape_of_ctx_var acc d.ctx_deficit_pool in

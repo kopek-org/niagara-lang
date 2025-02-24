@@ -1,9 +1,10 @@
-type t =
+type error =
   | Internal of string
   | Parsing of { loc : Pos.t option; msg : string }
+  | Repartition of { pool : Variable.t; rep : R.t }
   | User of { locs : Pos.t list; msg : string }
 
-val print_raw : Format.formatter -> t -> unit
+val print_error : ProgramInfo.t -> Format.formatter -> error -> unit
 
 (** This modules adds log related operations based on {!Logs}. *)
 
@@ -13,7 +14,8 @@ include module type of Logs with type 'a Tag.def = 'a Logs.Tag.def
 
 (** Additional message informations. *)
 type info = private {
-  kind : t;
+  pinfo : ProgramInfo.t;
+  kind : error;
 }
 
 (** Meta data tag for additionnal messages.loc
@@ -25,6 +27,8 @@ val raise_internal_error :
   ('a, Format.formatter, unit, unit, unit, 'b) format6 -> 'a
 
 val raise_parsing_error : ?loc:Pos.t -> string -> 'a
+
+val raise_repartition_error : ProgramInfo.t -> Variable.t -> R.t -> 'a
 
 (** Initializes logs. Reporter uses
     standard output/error. For CLI use. *)

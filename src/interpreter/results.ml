@@ -431,7 +431,7 @@ let normalize_valuations (info : ProgramInfo.t) (mode : norm_mode)
     | Some (pi, pending) ->
       InputLineMap.update pi (function
           | Some _ ->
-            Errors.raise_internal_error
+            Report.raise_internal_error
               "Cannot add squashed lines, line already present"
           | None -> Some [pending])
         vals

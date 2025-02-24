@@ -242,17 +242,7 @@ let print_program (type a) fmt (p : a program) =
   Format.pp_open_vbox fmt 0;
   begin match p with
     | Source decls ->
-      let dummy_infos = ProgramInfo.{
-        var_info = Variable.Map.empty;
-        var_shapes = Variable.Map.empty;
-        contexts = Context.empty_world;
-        compounds = Variable.Map.empty;
-        constants = Variable.Map.empty;
-        relevance_sets = Variable.Map.empty;
-        dep_graph = Variable.Graph.empty;
-      }
-      in
-      Format.pp_print_list (print_declaration dummy_infos) fmt decls
+      Format.pp_print_list (print_declaration ProgramInfo.dummy) fmt decls
     | Contextualized (infos, decls) ->
       ProgramInfo.print_var_contexts infos fmt ();
       print_constants infos fmt ();

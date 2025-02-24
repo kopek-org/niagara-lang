@@ -41,6 +41,18 @@ module Group : sig
 
 end
 
+type error =
+  | UnknownDomain of string
+  | UnknownCase of string
+  | AlreadyDeclDomain of string
+  | AlreadyDeclCase of string
+  | OverlapInShape
+  | PartialProjection
+
+exception Error of error
+
+val print_error : Format.formatter -> error -> unit
+
 (** A shape is a set of disjoint groups that represents the various
     aggregation of points in the context space. The space is not necessarily
     present in its entirety. *)

@@ -2,7 +2,7 @@
 let setup_log style_renderer level =
   Fmt_tty.setup_std_outputs ?style_renderer ();
   Logs.set_level level;
-  Errors.cli_reporting_init ()
+  Report.cli_reporting_init ()
 
 (** Setup logging {!Cmdliner} term. *)
 let setup_log_term =

@@ -8,7 +8,7 @@ let no_existence = {
 
 let generate_addition (exprs : expr list) =
   match exprs with
-  | [] -> Errors.raise_internal_error "Cannot generate addition on empty set"
+  | [] -> Report.raise_internal_error "Cannot generate addition on empty set"
   | h::t ->
     List.fold_left (fun a e -> Equ.(EAdd (a, e)))
       h t
@@ -30,7 +30,7 @@ let make_acc (pinfos : ProgramInfo.t) (aggr : aggregate_eqs)
 
 let find_vinfo t (v : Variable.t) =
   match Variable.Map.find_opt v t.pinfos.var_info with
-  | None -> Errors.raise_internal_error "Variable %d info not found" (Variable.uid v)
+  | None -> Report.raise_internal_error "Variable %d info not found" (Variable.uid v)
   | Some i -> i
 
 let bind_vinfo t (v : Variable.t) (info : VarInfo.t) =
@@ -268,7 +268,7 @@ let rec propagate_expr acc (dest : Variable.t) (act : Condition.t) (expr : expr)
   | EAnd (e1, e2) -> sub_expr_2 e1 e2 (fun e1 e2 -> EAnd (e1, e2))
   | EGe (e1, e2) -> sub_expr_2 e1 e2 (fun e1 e2 -> EGe (e1, e2))
   | EMerge _ ->
-    Errors.raise_internal_error "Merge expression produced before it should"
+    Report.raise_internal_error "Merge expression produced before it should"
 
 and affect_eq acc (dest : Variable.t) (eq : guarded_eq) =
   let res = propagate_expr acc dest eq.eq_act eq.eq_expr in
@@ -312,7 +312,7 @@ let order_eqs ~filter acc =
       match List.filter filter vs with
       | [] -> None
       | [v] -> Some v
-      | _scc -> Errors.raise_internal_error "Cyclic equations")
+      | _scc -> Report.raise_internal_error "Cyclic equations")
     scc
 
 let compute (pinfos : ProgramInfo.t) (ag_eqs : aggregate_eqs)

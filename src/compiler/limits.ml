@@ -26,7 +26,7 @@ type acc = {
 
 let is_input acc (v : Variable.t) =
   match Variable.Map.find_opt v acc.info with
-  | None -> Errors.raise_internal_error "No info for var %d" (Variable.uid v)
+  | None -> Report.raise_internal_error "No info for var %d" (Variable.uid v)
   | Some i -> VarInfo.is_input i
 
 let add_limits acc (v : Variable.t) (l : threshold list) =
@@ -151,7 +151,7 @@ and var_val acc (v : Variable.t) =
         let acc, va = expr_val acc ge in
         add_val acc v va, va
       | None ->
-        Errors.raise_error
+        Report.raise_error
           "Unable to compute value for variable %d, equation not \
            found"
           (Variable.uid v)
@@ -202,7 +202,7 @@ let rec linear_of_expr (e : expr) =
     let factor =
       match l1.factor, l2.factor with
       | Some _, Some _ ->
-        Errors.raise_error "Non-linear values are not allowed"
+        Report.raise_error "Non-linear values are not allowed"
       | None, None -> None
       | Some (v,f), None ->
         (match l2.const with None -> Some (v,f) | Some c -> Some (v, EMult(c,f)))
@@ -239,7 +239,7 @@ let threshold_of_linears (cond : Condition.t) (l1 : linear) (l2 : linear) =
     Format.eprintf "{v%d}%a = {v%d}%a@."
       (Variable.uid v1) FormatEqu.print_expr e1
       (Variable.uid v2) FormatEqu.print_expr e2;
-    Errors.raise_error "Unable to properly solve limits with factors on both sides"
+    Report.raise_error "Unable to properly solve limits with factors on both sides"
   | Some (var, f), None -> with_const var f Raising (const l1.const l2.const)
   | None, Some (var, f) -> with_const var f Falling (const l2.const l1.const)
 

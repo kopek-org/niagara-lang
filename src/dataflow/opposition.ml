@@ -377,7 +377,7 @@ let save_relevant_set ~opposable acc ~(target : Variable.t) =
       (match Variable.Map.find_opt target acc.copies with
        | None | Some None ->
          if opposable then
-           Errors.raise_internal_error "No opposing variant for opposability target"
+           Report.raise_internal_error "No opposing variant for opposability target"
          else
            target
       | Some (Some var) -> var);
@@ -402,7 +402,7 @@ let resolve_one_target ~opposable acc ~(target : Variable.t) (user_substs : user
   (cumulatives : Variable.t Variable.Map.t)  =
   let env = { target; user_substs; cumulatives; maybes = Variable.Set.empty } in
   let acc, is_consequent = compute_consequents acc env target in
-  if not is_consequent && opposable then Errors.raise_error "Useless opposition";
+  if not is_consequent && opposable then Report.raise_error "Useless opposition";
   let acc = events_consequents acc env in
   let acc = duplication acc env in
   let acc = add_delta acc env in

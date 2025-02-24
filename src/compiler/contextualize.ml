@@ -105,7 +105,7 @@ end = struct
     let var_table =
       StrMap.update name (function
           | None -> Some vref
-          | Some _ -> Errors.raise_error "Name %s already registered" name)
+          | Some _ -> Report.raise_error "Name %s already registered" name)
         t.var_table
     in
     { t with var_table }
@@ -140,7 +140,7 @@ end = struct
   let register_input t (name : string) (typ : ValueType.t) (kind : input_kind) =
     match kind with
     | Attributable ->
-      if typ <> ValueType.TMoney then Errors.raise_internal_error "Wrong type for pool";
+      if typ <> ValueType.TMoney then Report.raise_internal_error "Wrong type for pool";
       let info = VarInfo.{
         origin = Named name;
         typ;
@@ -211,7 +211,7 @@ end = struct
     match StrMap.find_opt name t.var_table with
     | Some (RefPool v) -> Some v
     | None -> None
-    | Some _ -> Errors.raise_error "Identifier %s is not a pool" name
+    | Some _ -> Report.raise_error "Identifier %s is not a pool" name
 
   let find_actor ~(way : stream_way) t (name : string) =
     match StrMap.find_opt name t.var_table with
@@ -219,19 +219,19 @@ end = struct
         match ar with
         | Label (v, lway) ->
           if way <> lway then
-            Errors.raise_error "Labeled actor has wrong steam way";
+            Report.raise_error "Labeled actor has wrong steam way";
           v
         | BaseActor a ->
           (match way with Upstream -> a.upstream | Downstream -> a.downstream)
     end
-    | Some _ -> Errors.raise_error "Identifier %s is not an actor" name
-    | None -> Errors.raise_error "Unknown identifier %s" name
+    | Some _ -> Report.raise_error "Identifier %s is not an actor" name
+    | None -> Report.raise_error "Unknown identifier %s" name
 
   let find_event t (name : string) =
     match StrMap.find_opt name t.var_table with
     | Some (RefEvent v) -> v
-    | Some _ -> Errors.raise_error "Identifier %s is not an event" name
-    | None -> Errors.raise_error "Unknown identifier %s" name
+    | Some _ -> Report.raise_error "Identifier %s is not an event" name
+    | None -> Report.raise_error "Unknown identifier %s" name
 
   let find_misc_var ~(way : stream_way) t (name : string) =
     match StrMap.find_opt name t.var_table with
@@ -239,10 +239,10 @@ end = struct
     | Some (RefActor (BaseActor a)) ->
       (match way with Upstream -> a.upstream | Downstream -> a.downstream)
     | Some (RefActor (Label _)) ->
-      Errors.raise_internal_error "Actor name %s should not exists" name
+      Report.raise_internal_error "Actor name %s should not exists" name
     | Some (RefPool _) ->
-      Errors.raise_error "Variable %s should be identified as pool" name
-    | None -> Errors.raise_error "Unknown identifier %s" name
+      Report.raise_error "Variable %s should be identified as pool" name
+    | None -> Report.raise_error "Unknown identifier %s" name
 
   let register_context_domain t (domain_name : string) (cases_names : string list) =
     { t with
@@ -252,11 +252,11 @@ end = struct
   let register_actor_label ~(way:stream_way) t (name : string) (label : string) =
     let base_actor =
       match StrMap.find_opt name t.var_table with
-      | None -> Errors.raise_error "Unknown actor %s" name
+      | None -> Report.raise_error "Unknown actor %s" name
       | Some (RefActor (BaseActor a)) ->
         (match way with Downstream -> a.downstream | Upstream -> a.upstream)
       | Some _ ->
-        Errors.raise_internal_error "'%s' should have been recognized as actor" name
+        Report.raise_internal_error "'%s' should have been recognized as actor" name
     in
     let lname = name^"$"^label in
     match StrMap.find_opt lname t.var_table with
@@ -279,10 +279,10 @@ end = struct
       t, vl
     | Some (RefActor (Label (v, lway))) ->
       if way <> lway then
-        Errors.raise_error "Cannot use label same label %s on both ways" label;
+        Report.raise_error "Cannot use label same label %s on both ways" label;
       t, v
     | Some _ ->
-      Errors.raise_internal_error "'%s[%s]' should have been recognized as a \
+      Report.raise_internal_error "'%s[%s]' should have been recognized as a \
                                    labeled actor"
         name label
 
@@ -395,7 +395,7 @@ end = struct
         Variable.Set.empty dests
     in
     if Variable.Set.mem src tdeps then
-      Errors.raise_error "Cyclic repartition";
+      Report.raise_error "Cyclic repartition";
     let deps =
       Variable.Map.update src (function
           | None -> Some tdeps
@@ -436,7 +436,7 @@ let projection_of_context_selector acc (ctx : context list) =
                 let case = Context.find_case contexts c in
                 if Context.case_is_in_domain contexts case domain
                 then Context.CaseSet.add case cases
-                else Errors.raise_error "Case %s do not belong in domain %s" c dom)
+                else Report.raise_error "Case %s do not belong in domain %s" c dom)
               Context.CaseSet.empty cases
           in
           Context.DomainMap.update domain (function
@@ -502,7 +502,7 @@ let register_input acc (i : input_decl) =
 let destination acc (flow : holder) =
   let acc, (v, proj) = find_holder acc flow in
   if not @@ Context.is_any_projection (Acc.contexts acc) proj then
-    Errors.raise_error "Forbidden context refinement on destination";
+    Report.raise_error "Forbidden context refinement on destination";
   acc, (v, proj)
 
 let destination_opt acc (flow : holder option) =
@@ -572,7 +572,7 @@ let opposable acc ~(on_proj : Context.Group.t)
   in
   let opp_towards =
     match opp_towards.actor_desc with
-    | LabeledActor _ -> Errors.raise_error "Opposition target must be a partner without label"
+    | LabeledActor _ -> Report.raise_error "Opposition target must be a partner without label"
     | PlainActor s -> Acc.find_actor acc ~way:Downstream s
   in
   acc, VarOpp { opp_value; opp_provider; opp_towards }
@@ -645,7 +645,7 @@ let rec guarded_redist acc (redist : source guarded_redistrib) ~(on_proj : Conte
 let operation acc (op : operation_decl) =
   let acc, (src, src_proj) = find_holder_as_source acc op.op_source in
   if not @@ Context.is_any_projection (Acc.contexts acc) src_proj then
-    Errors.raise_error "Forbidden refinment on source of operation";
+    Report.raise_error "Forbidden refinment on source of operation";
   let on_proj =
     projection_of_context_selector acc op.op_context
   in
@@ -682,7 +682,7 @@ let constant acc (c : const_decl) =
   let t = Literal.type_of c.const_value in
   Acc.register_const acc c.const_name t c.const_value
 
-let advance _acc (_a : advance_decl) = Errors.raise_error "no more advance"
+let advance _acc (_a : advance_decl) = Report.raise_error "no more advance"
 
 let declaration acc (decl : source declaration) =
   match decl with

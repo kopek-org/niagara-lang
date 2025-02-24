@@ -15,6 +15,16 @@ type t = {
   dep_graph : Variable.Graph.t;
 }
 
+let dummy = {
+  var_info = Variable.Map.empty;
+  var_shapes = Variable.Map.empty;
+  contexts = Context.empty_world;
+  compounds = Variable.Map.empty;
+  constants = Variable.Map.empty;
+  relevance_sets = Variable.Map.empty;
+  dep_graph = Variable.Graph.empty;
+}
+
 let print_variable infos fmt (v : Variable.t) =
   match VarInfo.get_name infos.var_info v with
   | Some name ->

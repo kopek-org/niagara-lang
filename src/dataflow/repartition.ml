@@ -18,9 +18,7 @@ type eqs = part_or_def t Variable.Map.t
 
 type unified_parts = Condition.t R.Map.t
 
-type err =
-  | PoolNeedsDeficit of R.t
-  | PoolNeedsDefault of R.t option
+type err = ImperfectSum of R.t
 
 let add_upart (uni : unified_parts) (cond : Condition.t) (part : R.t) =
   R.Map.update part (function
@@ -100,7 +98,7 @@ let sort_shares (rep : part_or_def t) =
             deficit =
               match defs.deficit with
               | None -> Some share
-              | Some _ -> Errors.raise_error "Cannot have several deficits for a pool"
+              | Some _ -> Report.raise_error "Cannot have several deficits for a pool"
           }
         in
         parts, defs
@@ -111,7 +109,7 @@ let sort_shares (rep : part_or_def t) =
               global_default =
                 match defs.global_default with
                 | None -> Some share
-                | Some _ -> Errors.raise_error "Cannot have several global defaults for a pool"
+                | Some _ -> Report.raise_error "Cannot have several global defaults for a pool"
             }
           else
             match
@@ -119,7 +117,7 @@ let sort_shares (rep : part_or_def t) =
                 (fun sh -> not @@ Condition.(is_never (conj share.condition sh.condition)))
                 defs.local_defaults
             with
-            | Some _ -> Errors.raise_error "Cannot have coexisiting local defaults for a pool"
+            | Some _ -> Report.raise_error "Cannot have coexisiting local defaults for a pool"
             | None ->
               { defs with local_defaults = share::defs.local_defaults }
         in
@@ -136,15 +134,15 @@ let check_fullness (rep : unified_parts) : (unit, err) Result.t =
       R.Map.fold (fun p pc cond ->
           let cond = Condition.disj pc cond in
           if R.(p < one)
-          then raise (Stop (PoolNeedsDefault (Some p)))
+          then raise (Stop (ImperfectSum p))
           else if R.(p > one)
-          then raise (Stop (PoolNeedsDeficit p))
+          then raise (Stop (ImperfectSum p))
           else cond)
         rep Condition.never
     in
     let rem_cond = Condition.(excluded always parts_cond) in
     if not @@ Condition.is_never rem_cond then
-      Error (PoolNeedsDefault None)
+      Error (ImperfectSum R.zero)
     else
       Ok ()
   )
@@ -205,19 +203,3 @@ let resolve_fullness (rep : part_or_def t) =
       deficits = deficit;
     }
   | Error e -> Error e
-
-let pp_r fmt r =
-  Format.pp_print_float fmt ((R.to_float r) *. 100.)
-
-let pp_err ~src ~program_info fmt = function
-  | PoolNeedsDeficit r ->
-    Format.fprintf fmt "Pool %S is too high (%a%%), needs a deficit"
-      (VarInfo.get_any_name program_info.ProgramInfo.var_info src)
-      pp_r r
-  | PoolNeedsDefault (Some r) ->
-    Format.fprintf fmt "Pool %S is too low (%a%%), needs a default"
-      (VarInfo.get_any_name program_info.ProgramInfo.var_info src)
-      pp_r r
-  | PoolNeedsDefault None ->
-    Format.fprintf fmt "Pool %S needs a default"
-      (VarInfo.get_any_name program_info.ProgramInfo.var_info src)
