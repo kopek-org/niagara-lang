@@ -1,12 +1,21 @@
+type id_kind =
+  | Any
+  | Event
+  | Partner
+
 type error =
   | Internal of string
   | Parsing of { loc : Pos.t option; msg : string }
   | Repartition of { pool : Variable.t; rep : R.t }
+  | MissingDestination
+  | UnknownIdentifier of { loc : Pos.t; id : string; kind : id_kind }
+  | MultipleDefRep of { pool : Variable.t }
+  | Typing of { loc : Pos.t }
   | User of { locs : Pos.t list; msg : string }
 
 let print_error (pinfo : ProgramInfo.t) fmt (err : error) =
   match err with
-  | Internal msg -> Format.fprintf fmt "(internal) %s" msg
+  | Internal msg -> Format.fprintf fmt "Internal error: %s" msg
   | Parsing { loc; msg } ->
     Format.fprintf fmt "Parsing error%a:@\n%s"
       Fmt.(option (any ", " ++ Pos.Text.pp)) loc
@@ -21,6 +30,19 @@ let print_error (pinfo : ProgramInfo.t) fmt (err : error) =
       Format.fprintf fmt "Pool %S is too low (%g%%), needs a default"
         (VarInfo.get_any_name pinfo.var_info pool)
         R.(to_float (rep * ~$100))
+  | MissingDestination ->
+    Format.fprintf fmt "No destination for repartition"
+  | UnknownIdentifier { loc; id; kind } ->
+    Format.fprintf fmt "Error, %a:@\nUnknown %sidentifier '%s'"
+      Pos.Text.pp loc
+      (match kind with Any -> "" | Event -> "event " | Partner -> "partner ")
+      id
+  | MultipleDefRep { pool } ->
+    Format.fprintf fmt "Error: Cannot have several deficit/default for pool '%s'"
+      (VarInfo.get_any_name pinfo.var_info pool)
+  | Typing { loc } ->
+    Format.fprintf fmt "Error, %a:@\nMismatching types for binop"
+      Pos.Text.pp loc
   | User { locs = _; msg } ->
     Format.pp_print_string fmt msg
 
@@ -51,6 +73,18 @@ let raise_parsing_error ?loc msg =
 
 let raise_repartition_error pinfo pool rep =
   log_error "Repartition error" pinfo (Repartition { pool; rep })
+
+let raise_missing_dest_error () =
+  log_error "Missing destination" ProgramInfo.dummy MissingDestination
+
+let raise_unknown_id_error ?(loc = Pos.dummy) id kind =
+  log_error "Unknown identifier" ProgramInfo.dummy (UnknownIdentifier { loc; id; kind })
+
+let raise_multiple_def_rep_error pinfo pool =
+  log_error "Multiple def rep error" pinfo (MultipleDefRep { pool })
+
+let raise_typing_error ?(loc = Pos.dummy) () =
+  log_error "Typing error" ProgramInfo.dummy (Typing { loc })
 
 let raise_error ?(locs = []) fmt =
   let k msg = log_error "Usage error" ProgramInfo.dummy (User { locs; msg }) in

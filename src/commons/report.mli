@@ -1,7 +1,16 @@
-type error =
+type id_kind =
+  | Any
+  | Event
+  | Partner
+
+type error = private
   | Internal of string
   | Parsing of { loc : Pos.t option; msg : string }
   | Repartition of { pool : Variable.t; rep : R.t }
+  | MissingDestination
+  | UnknownIdentifier of { loc : Pos.t; id : string; kind : id_kind }
+  | MultipleDefRep of { pool : Variable.t }
+  | Typing of { loc : Pos.t }
   | User of { locs : Pos.t list; msg : string }
 
 val print_error : ProgramInfo.t -> Format.formatter -> error -> unit
@@ -29,6 +38,14 @@ val raise_internal_error :
 val raise_parsing_error : ?loc:Pos.t -> string -> 'a
 
 val raise_repartition_error : ProgramInfo.t -> Variable.t -> R.t -> 'a
+
+val raise_multiple_def_rep_error : ProgramInfo.t -> Variable.t -> 'a
+
+val raise_missing_dest_error : unit -> 'a
+
+val raise_typing_error : ?loc:Pos.t -> unit -> 'a
+
+val raise_unknown_id_error : ?loc:Pos.t -> string -> id_kind -> 'a
 
 (** Initializes logs. Reporter uses
     standard output/error. For CLI use. *)

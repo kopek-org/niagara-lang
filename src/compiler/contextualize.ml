@@ -225,13 +225,13 @@ end = struct
           (match way with Upstream -> a.upstream | Downstream -> a.downstream)
     end
     | Some _ -> Report.raise_error "Identifier %s is not an actor" name
-    | None -> Report.raise_error "Unknown identifier %s" name
+    | None -> Report.(raise_unknown_id_error name Partner)
 
   let find_event t (name : string) =
     match StrMap.find_opt name t.var_table with
     | Some (RefEvent v) -> v
     | Some _ -> Report.raise_error "Identifier %s is not an event" name
-    | None -> Report.raise_error "Unknown identifier %s" name
+    | None -> Report.(raise_unknown_id_error name Event)
 
   let find_misc_var ~(way : stream_way) t (name : string) =
     match StrMap.find_opt name t.var_table with
@@ -242,7 +242,7 @@ end = struct
       Report.raise_internal_error "Actor name %s should not exists" name
     | Some (RefPool _) ->
       Report.raise_error "Variable %s should be identified as pool" name
-    | None -> Report.raise_error "Unknown identifier %s" name
+    | None -> Report.(raise_unknown_id_error name Any)
 
   let register_context_domain t (domain_name : string) (cases_names : string list) =
     { t with

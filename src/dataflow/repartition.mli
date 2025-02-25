@@ -23,6 +23,8 @@ type fullness_result = {
   deficits : unified_parts share option;
 }
 
-type err = ImperfectSum of R.t
+type err =
+  | ImperfectSum of R.t
+  | MultipleDefRep
 
 val resolve_fullness : part_or_def t -> (fullness_result, err) Result.t

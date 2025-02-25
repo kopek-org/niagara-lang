@@ -18,7 +18,11 @@ type eqs = part_or_def t Variable.Map.t
 
 type unified_parts = Condition.t R.Map.t
 
-type err = ImperfectSum of R.t
+type err =
+  | ImperfectSum of R.t
+  | MultipleDefRep
+
+exception Stop of err
 
 let add_upart (uni : unified_parts) (cond : Condition.t) (part : R.t) =
   R.Map.update part (function
@@ -98,7 +102,7 @@ let sort_shares (rep : part_or_def t) =
             deficit =
               match defs.deficit with
               | None -> Some share
-              | Some _ -> Report.raise_error "Cannot have several deficits for a pool"
+              | Some _ -> raise (Stop MultipleDefRep)
           }
         in
         parts, defs
@@ -109,7 +113,7 @@ let sort_shares (rep : part_or_def t) =
               global_default =
                 match defs.global_default with
                 | None -> Some share
-                | Some _ -> Report.raise_error "Cannot have several global defaults for a pool"
+                | Some _ -> raise (Stop MultipleDefRep)
             }
           else
             match
@@ -127,27 +131,21 @@ let sort_shares (rep : part_or_def t) =
         parts, defs)
     (R.Map.empty, empty_defs) rep
 
-let check_fullness (rep : unified_parts) : (unit, err) Result.t =
-  let exception Stop of err in
-  try (
-    let parts_cond =
-      R.Map.fold (fun p pc cond ->
-          let cond = Condition.disj pc cond in
-          if R.(p < one)
+let check_fullness (rep : unified_parts) : unit =
+  let parts_cond =
+    R.Map.fold (fun p pc cond ->
+        let cond = Condition.disj pc cond in
+        if R.(p < one)
           then raise (Stop (ImperfectSum p))
           else if R.(p > one)
           then raise (Stop (ImperfectSum p))
           else cond)
-        rep Condition.never
-    in
-    let rem_cond = Condition.(excluded always parts_cond) in
-    if not @@ Condition.is_never rem_cond then
-      Error (ImperfectSum R.zero)
-    else
-      Ok ()
-  )
-  with
-  | Stop err -> Error err
+      rep Condition.never
+  in
+  let rem_cond = Condition.(excluded always parts_cond) in
+  if not @@ Condition.is_never rem_cond then
+    raise (Stop (ImperfectSum R.zero))
+  else ()
 
 type fullness_result = {
   parts : opposable_part t;
@@ -155,7 +153,7 @@ type fullness_result = {
   deficits : unified_parts share option;
 }
 
-let resolve_fullness (rep : part_or_def t) =
+let resolve_fullness_exn (rep : part_or_def t) =
   let parts, defs = sort_shares rep in
   let parts, local_defaults =
     List.fold_left (fun (parts, defs) def_share ->
@@ -190,16 +188,18 @@ let resolve_fullness (rep : part_or_def t) =
       let deficit_share = { label = share.label; dest = share.dest; condition; part = ds } in
       parts, Some deficit_share
   in
-  match check_fullness parts with
-  | Ok () ->
-    Ok {
-      parts =
-        List.filter_map (fun { label; part; dest; condition } ->
-            match part with
-            | Part part -> Some { label; part; dest; condition }
-            | _ -> None)
-          rep;
-      defaults = (Option.to_list global_default) @ local_defaults;
-      deficits = deficit;
-    }
-  | Error e -> Error e
+  check_fullness parts;
+  {
+    parts =
+      List.filter_map (fun { label; part; dest; condition } ->
+          match part with
+          | Part part -> Some { label; part; dest; condition }
+          | _ -> None)
+        rep;
+    defaults = (Option.to_list global_default) @ local_defaults;
+    deficits = deficit;
+  }
+
+let resolve_fullness (rep : part_or_def t) =
+  try Ok (resolve_fullness_exn rep) with
+  | Stop err -> Error err

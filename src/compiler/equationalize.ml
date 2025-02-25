@@ -457,6 +457,8 @@ let convert_repartitions t =
         | Ok fr -> fr
         | Error (ImperfectSum p) ->
           Report.raise_repartition_error t.pinfos src p
+        | Error (MultipleDefRep) ->
+          Report.raise_multiple_def_rep_error t.pinfos src
       in
       let t, direct_rep = conv_shares t src fullrep.parts in
       let t = conv_defaults t src direct_rep fullrep.defaults in
@@ -678,7 +680,7 @@ let translate_binop (op : Ast.binop)
     | Mult, TRational, TDuration
     | Div, TDuration, TInteger
     | Div, TDuration, TRational -> ValueType.TDuration
-    | _ -> Report.raise_error "Mismatching types for binop"
+    | _ -> Report.raise_typing_error ()
   in
   let expr =
     match op with
@@ -770,7 +772,7 @@ let translate_redist_w_dest acc ~(ctx : Context.Group.t) ~(act : Condition.t)
     | Some _, Some dest (* TODO warning *)
     | None, Some dest -> dest
     | Some default, None -> default
-    | None, None -> Report.raise_error "No destination for repartition"
+    | None, None -> Report.raise_missing_dest_error ()
   in
   translate_redistribution ~ctx ~act ~src ~dest acc redist
 
