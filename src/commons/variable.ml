@@ -8,19 +8,30 @@ module G = Graph.Persistent.Digraph.ConcreteBidirectionalLabeled(struct
     let hash v = v
   end)
     (struct
-      type t = bool Map.t
-      let compare = Map.compare (Stdlib.compare)
-      let default = Map.empty
+      type t = Set.t
+      let compare = Set.compare
+      let default = Set.empty
     end)
 
 module Graph = struct
   include G
   module Topology = Graph.Components.Make(G)
-end
 
-type info = {
-  var_name : string;
-}
+  (* ocamlgraph code with edge merging *)
+  let transitive_closure (g0 : G.t) : G.t =
+    let phi v g =
+      G.fold_succ_e
+        (fun (_, se, sv) g ->
+              G.fold_pred_e
+                (fun (pv, pe, _) g ->
+                   let me = Set.union pe se in
+                   G.add_edge_e g (pv, me, sv))
+                g v g)
+        g v g
+    in
+    G.fold_vertex phi g0 g0
+
+end
 
 let create =
   let c = ref 0 in

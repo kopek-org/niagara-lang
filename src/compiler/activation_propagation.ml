@@ -48,19 +48,19 @@ let create_var_from t (ov : Variable.t) (build : VarInfo.t -> VarInfo.t) =
   let t = bind_vinfo t v i in
   t, v
 
-let add_dep acc from to_ =
+let add_dep acc from events to_ =
   { acc with
     pinfos =
       { acc.pinfos with
         dep_graph =
-          Variable.Graph.add_edge acc.pinfos.dep_graph to_ from
+          Variable.Graph.add_edge_e acc.pinfos.dep_graph (to_, events, from)
       }
   }
 
-let add_deps acc from to_ =
+let add_deps acc from events to_ =
   List.fold_left (fun acc from ->
       List.fold_left (fun acc to_ ->
-          add_dep acc from to_)
+          add_dep acc from events to_)
         acc to_)
     acc from
 
@@ -104,8 +104,9 @@ let result_to_var { acc; form; cond; deps; rev_deps } (target : Variable.t) =
   in
   if Condition.is_never cond then acc, eq else
     let acc = add_eq acc target eq in
-    let acc = add_deps acc (Variable.Set.elements deps) [target] in
-    let acc = add_deps acc [target] (Variable.Set.elements rev_deps) in
+    let cond_evts = Condition.events_of cond in
+    let acc = add_deps acc (Variable.Set.elements deps) cond_evts [target] in
+    let acc = add_deps acc [target] cond_evts (Variable.Set.elements rev_deps) in
     acc, eq
 
 let rec add_to_groups (groups : ('a list * Condition.t) list)
@@ -173,8 +174,9 @@ let aggregate_exprs acc (exprs : (expr * Condition.t * Variable.Set.t * Variable
             let acc, fv = create_existential acc in
             let ge = { eq_expr = e; eq_act = gcond } in
             let acc = add_eq acc fv ge in
-            let acc = add_deps acc (Variable.Set.elements gdeps) [fv] in
-            let acc = add_deps acc [fv] (Variable.Set.elements grdeps) in
+            let evts = Condition.events_of gcond in
+            let acc = add_deps acc (Variable.Set.elements gdeps) evts [fv] in
+            let acc = add_deps acc [fv] evts (Variable.Set.elements grdeps) in
             acc, fv
           in
           acc, Variable.Set.add fv fvars)
@@ -205,8 +207,9 @@ let result_to_expr ({ acc; form; cond; deps; rev_deps } : expr_result) =
     let eq = { eq_expr = EMerge vars; eq_act = cond } in
     let acc, v = create_existential acc in
     let acc = add_eq acc v eq in
-    let acc = add_deps acc (Variable.Set.elements deps) [v] in
-    let acc = add_deps acc [v] (Variable.Set.elements rev_deps) in
+    let evts = Condition.events_of cond in
+    let acc = add_deps acc (Variable.Set.elements deps) evts [v] in
+    let acc = add_deps acc [v] evts (Variable.Set.elements rev_deps) in
     acc, EVar v, cond,Variable.Set.singleton v, Variable.Set.empty
 
 let rec propagate_expr acc (dest : Variable.t) (act : Condition.t) (expr : expr) =

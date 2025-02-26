@@ -29,3 +29,5 @@ type tree = private
   | Branch of { var : var; yes : tree; no : tree }
 
 val tree : t -> tree
+
+val events_of : t -> Variable.Set.t

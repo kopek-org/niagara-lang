@@ -282,3 +282,14 @@ let rec tree (t : t) =
   | T -> True
   | F -> False
   | Var (var, yes, no) -> Branch { var; yes = tree yes; no = tree no }
+
+let events_of (t : t) =
+  let rec aux evts t =
+    match get t with
+    | T | F -> evts
+    | Var (Event v, yes, no) ->
+      aux (aux (Variable.Set.add v evts) yes) no
+    | Var (Input _, yes, no) ->
+      aux (aux evts yes) no
+  in
+  aux Variable.Set.empty t
