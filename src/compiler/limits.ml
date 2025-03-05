@@ -5,9 +5,11 @@ type val_exprs =
   | Zero
   | Exprs of guarded_eq list
 
-exception CombinatoricLimit of int
+exception CombinatorialLimit of int
 
 let test_cartesian_limit vs1 vs2 =
+  (* arbitrary limit to the product of expression combinations. Value
+     found through the very tried method of "looks good enough" *)
   let limit = 1_000 in
   let c =
     match vs1, vs2 with
@@ -15,7 +17,7 @@ let test_cartesian_limit vs1 vs2 =
     | _ -> 0
   in
   if c > limit
-  then raise (CombinatoricLimit c)
+  then raise (CombinatorialLimit c)
   else ()
 
 let print_val_exprs fmt vl =
@@ -301,7 +303,7 @@ let rec expr_limits acc (evt : Variable.t) (e : guarded_eq) =
         test_cartesian_limit val1 val2;
         acc, Static (thresholds_of_vals val1 val2)
       with
-      | CombinatoricLimit _ -> acc, Dynamic
+      | CombinatorialLimit _ -> acc, Dynamic
     in
     add_limits acc evt thresholds
 
