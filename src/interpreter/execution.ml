@@ -153,7 +153,7 @@ let rec check (s : state) (e : expr) =
       FormatEqu.print_expr e
 
 let compute_events (p : program) (s : state) =
-  List.fold_left (fun s evt ->
+  Array.fold_left (fun s evt ->
       let { eq_act = _; eq_expr } = Variable.Map.find evt p.act_eqs in
       let b = check s eq_expr in
       update_event s evt b)
@@ -171,7 +171,7 @@ let compute_values (p : program) (s : state) (cond_state : cond_state)
     (input : Variable.t) (in_value : Value.t) =
   let s = value_inputs p s in
   let s = update_value s input (Present in_value) in
-  List.fold_left (fun s var ->
+  Array.fold_left (fun s var ->
       let eq = Variable.Map.find var p.val_eqs in
       let value = compute_value s cond_state eq in
       update_value s var value)

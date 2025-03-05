@@ -8,7 +8,7 @@ type val_exprs =
 exception CombinatoricLimit of int
 
 let test_cartesian_limit vs1 vs2 =
-  let limit = 100_000 in
+  let limit = 1_000 in
   let c =
     match vs1, vs2 with
     | Exprs l1, Exprs l2 -> List.length l1 * List.length l2

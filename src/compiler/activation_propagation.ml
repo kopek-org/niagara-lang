@@ -311,12 +311,12 @@ and compute_one acc (v : Variable.t) =
 
 let order_eqs ~filter acc =
   let scc = Variable.Graph.Topology.scc_list acc.pinfos.dep_graph in
-  List.filter_map (fun vs ->
+  Array.of_list (List.filter_map (fun vs ->
       match List.filter filter vs with
       | [] -> None
       | [v] -> Some v
       | _scc -> Report.raise_internal_error "Cyclic equations")
-    scc
+    scc)
 
 let compute (pinfos : ProgramInfo.t) (ag_eqs : aggregate_eqs)
     (act_eqs : expr Variable.Map.t) =

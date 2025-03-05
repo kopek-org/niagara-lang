@@ -56,7 +56,7 @@ let print_eqs infos fmt (p : program) =
   fprintf fmt "@[<v 2>Equations:@;";
   pp_print_list ~pp_sep:pp_print_cut
     (fun fmt v -> print_eq infos fmt v (Variable.Map.find_opt v p.val_eqs))
-    fmt p.val_order;
+    fmt (Array.to_list p.val_order);
   fprintf fmt "@;@]@."
 
 let print_inputs fmt (p : program) =
@@ -77,7 +77,7 @@ let print_events fmt (p : program) =
   pp_print_list ~pp_sep:pp_print_cut
     (fun fmt v ->
        print_eq p.infos fmt v (Variable.Map.find_opt v p.act_eqs))
-    fmt p.act_order;
+    fmt (Array.to_list p.act_order);
   fprintf fmt "@]@."
 
 let print_program fmt (p : program) =

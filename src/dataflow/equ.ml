@@ -26,9 +26,9 @@ type aggregate_eqs = aggregation Variable.Map.t
 type program = {
   infos : ProgramInfo.t;
   val_eqs : guarded_eq Variable.Map.t;
-  val_order : Variable.t list;
+  val_order : Variable.t Array.t;
   act_eqs : guarded_eq Variable.Map.t;
-  act_order : Variable.t list;
+  act_order : Variable.t Array.t;
 }
 
 type edge_way =
