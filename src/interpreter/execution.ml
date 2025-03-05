@@ -177,11 +177,117 @@ let compute_values (p : program) (s : state) (cond_state : cond_state)
       update_value s var value)
     s p.val_order
 
-let find_event_threshold (l : limits) (s : state) (cond_state : cond_state) =
-  Variable.Map.fold (fun _ e_thres min_threshold ->
+type linear = Compiler.Limits.linear = {
+  factor : (Variable.t * expr) option;
+  const : expr option;
+}
+
+let rec expr_threshold_linear (p : program) (cond_state : cond_state) (expr : expr) =
+  match expr with
+  | EConst _ | EPre _ -> { factor = None; const = Some expr }
+  | EVar v ->
+    begin
+      match Variable.Map.find_opt v p.val_eqs with
+      | None -> (* Should be input *)
+        { factor = Some (v, EConst (LRational R.one)); const = None }
+      | Some { eq_expr; eq_act = _ } ->
+        expr_threshold_linear p cond_state eq_expr
+    end
+  | ENeg expr ->
+    let { factor; const } = expr_threshold_linear p cond_state expr in
+    { factor = Option.map (fun (v, e) -> v, ENeg e) factor;
+      const = Option.map (fun e -> ENeg e) const;
+    }
+  | EInv expr ->
+    let { factor; const } = expr_threshold_linear p cond_state expr in
+    { factor = Option.map (fun (v, e) -> v, EInv e) factor;
+      const = Option.map (fun e -> EInv e) const;
+    }
+  | EAdd (e1, e2) ->
+    let l1 = expr_threshold_linear p cond_state e1 in
+    let l2 = expr_threshold_linear p cond_state e2 in
+    let factor =
+      match l1.factor, l2.factor with
+      | f, None | None, f -> f
+      | Some (v1,f1), Some (v2,f2) ->
+        if not (Variable.equal v1 v2) then
+          (Format.eprintf "two var factors for %a@." FormatEqu.print_expr expr;
+           assert false)
+        else
+        Some (v1, EAdd (f1, f2))
+    in
+    let const =
+      match l1.const, l2.const with
+      | c, None | None, c -> c
+      | Some c1, Some c2 -> Some (EAdd (c1,c2))
+    in
+    { factor; const }
+  | EMult (e1, e2) ->
+    let l1 = expr_threshold_linear p cond_state e1 in
+    let l2 = expr_threshold_linear p cond_state e2 in
+    let factor =
+      match l1.factor, l2.factor with
+      | Some _, Some _ ->
+        Report.raise_error "Non-linear values are not allowed"
+      | None, None -> None
+      | Some (v,f), None ->
+        (match l2.const with None -> Some (v,f) | Some c -> Some (v, EMult(c,f)))
+      | None, Some (v,f) ->
+        (match l1.const with None -> Some (v,f) | Some c -> Some (v, EMult(c,f)))
+    in
+    let const =
+      match l1.const, l2.const with
+      | _, None | None, _ -> None
+      | Some c1, Some c2 -> Some (EMult (c1,c2))
+    in
+    { factor; const }
+  | EMerge vl ->
+    let le =
+      List.find_map (fun v ->
+          match Variable.Map.find_opt v p.val_eqs with
+        | None -> (* Should be input *)
+          Some { factor = Some (v, expr); const = None }
+        | Some { eq_expr; eq_act } ->
+          match Condition.satisfies cond_state eq_act with
+          | Sat -> Some (expr_threshold_linear p cond_state eq_expr)
+          | Unsat -> None
+          | MaySat -> assert false)
+        vl
+    in
+    begin match le with
+    | Some le -> le
+    | None -> assert false (* should be unreachable *)
+    end
+  | ENot _ | EAnd (_, _) | EGe (_, _) -> assert false
+
+let rec dyn_event_thresholds (p : program) (cond_state : cond_state) (evt_expr : expr) =
+  match evt_expr with
+  | EConst _ | ENeg _ | EInv _ | EAdd _ | EMult _ | EMerge [] -> assert false
+  | EVar _ | EPre _ | EMerge _ -> []
+  | ENot expr -> dyn_event_thresholds p cond_state expr
+  | EAnd (e1, e2) ->
+    dyn_event_thresholds p cond_state e1
+    @ dyn_event_thresholds p cond_state e2
+  | EGe (e1, e2) ->
+    let l1 = expr_threshold_linear p cond_state e1 in
+    let l2 = expr_threshold_linear p cond_state e2 in
+    Option.to_list @@
+    Compiler.Limits.threshold_of_linears Condition.always l1 l2
+
+let compute_dyn_threshold (p : program) (cond_state : cond_state) (evt : Variable.t) =
+  match Variable.Map.find_opt evt p.act_eqs with
+  | None -> []
+  | Some { eq_act; eq_expr } ->
+    match Condition.satisfies cond_state eq_act with
+    | Unsat -> []
+    | MaySat -> assert false
+    | Sat -> dyn_event_thresholds p cond_state eq_expr
+
+let find_event_threshold (p : program) (l : limits) (s : state) (cond_state : cond_state) =
+  Variable.Map.fold (fun evt e_thres min_threshold ->
       let thres_l =
         match e_thres with
-        | Dynamic -> Report.raise_internal_error "TODO dynamic threshold compuation"
+        | Dynamic -> compute_dyn_threshold p cond_state evt
         | Static thres_l -> thres_l
       in
       let thres_values =
@@ -206,7 +312,7 @@ let compute_action (p : program) (l : limits) (s : state) (action : action) =
   | PoolRep (var, value) ->
     let cond_state = Variable.Map.add var true s.events in
     let s, value =
-      match find_event_threshold l s cond_state with
+      match find_event_threshold p l s cond_state with
       | None -> s, value
       | Some threshold ->
         if Value.lt threshold value then
