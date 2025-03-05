@@ -179,6 +179,11 @@ let compute_values (p : program) (s : state) (cond_state : cond_state)
 
 let find_event_threshold (l : limits) (s : state) (cond_state : cond_state) =
   Variable.Map.fold (fun _ e_thres min_threshold ->
+      let thres_l =
+        match e_thres with
+        | Dynamic -> Report.raise_internal_error "TODO dynamic threshold compuation"
+        | Static thres_l -> thres_l
+      in
       let thres_values =
         List.filter_map (fun thres ->
             match compute_value s cond_state thres.value with
@@ -188,7 +193,7 @@ let find_event_threshold (l : limits) (s : state) (cond_state : cond_state) =
               else if Value.is_negative v then None
               else if thres.edge = Falling then Some Value.one
               else None)
-          e_thres
+          thres_l
       in
       List.fold_left (fun m t ->
           match m with None -> Some t | Some m -> Some (Value.min m t))

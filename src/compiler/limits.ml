@@ -5,6 +5,19 @@ type val_exprs =
   | Zero
   | Exprs of guarded_eq list
 
+exception CombinatoricLimit of int
+
+let test_cartesian_limit vs1 vs2 =
+  let limit = 100_000 in
+  let c =
+    match vs1, vs2 with
+    | Exprs l1, Exprs l2 -> List.length l1 * List.length l2
+    | _ -> 0
+  in
+  if c > limit
+  then raise (CombinatoricLimit c)
+  else ()
+
 let print_val_exprs fmt vl =
   let open Format in
   match vl with
@@ -20,7 +33,7 @@ type acc = {
   info : VarInfo.collection;
   act_eqs : guarded_eq Variable.Map.t;
   val_eqs : guarded_eq Variable.Map.t;
-  lim_memo : threshold list Variable.Map.t;
+  lim_memo : threshold Variable.Map.t;
   val_memo : val_exprs Variable.Map.t;
 }
 
@@ -29,7 +42,7 @@ let is_input acc (v : Variable.t) =
   | None -> Report.raise_internal_error "No info for var %d" (Variable.uid v)
   | Some i -> VarInfo.is_input i
 
-let add_limits acc (v : Variable.t) (l : threshold list) =
+let add_limits acc (v : Variable.t) (l : threshold) =
   { acc with
     lim_memo = Variable.Map.add v l acc.lim_memo;
   }
@@ -77,6 +90,7 @@ let rec expr_val acc (e : guarded_eq) =
   | EAdd (e1, e2) ->
     let acc, vals1 = expr_val acc { e with eq_expr = e1 } in
     let acc, vals2 = expr_val acc { e with eq_expr = e2 } in
+    test_cartesian_limit vals1 vals2;
     let vals =
       match vals1, vals2 with
       | Zero, v | v, Zero -> v
@@ -100,6 +114,7 @@ let rec expr_val acc (e : guarded_eq) =
   | EMult (e1, e2) ->
     let acc, vals1 = expr_val acc { e with eq_expr = e1 } in
     let acc, vals2 = expr_val acc { e with eq_expr = e2 } in
+    test_cartesian_limit vals1 vals2;
     let vals =
       match vals1, vals2 with
       | Zero, _ | _, Zero -> Zero
@@ -245,6 +260,7 @@ let threshold_of_linears (cond : Condition.t) (l1 : linear) (l2 : linear) =
 
 let thresholds_of_vals (v1 : val_exprs) (v2 : val_exprs) =
   let no_val = { factor = None; const = None } in
+  test_cartesian_limit v1 v2;
   match v1, v2 with
   | Zero, Zero -> []
   | Exprs vs, Zero ->
@@ -278,9 +294,16 @@ let rec expr_limits acc (evt : Variable.t) (e : guarded_eq) =
     let acc = expr_limits acc evt { e with eq_expr = e1 } in
     expr_limits acc evt { e with eq_expr = e2 }
   | EGe (e1, e2) ->
-    let acc, val1 = expr_val acc { e with eq_expr = e1 } in
-    let acc, val2 = expr_val acc { e with eq_expr = e2 } in
-    add_limits acc evt (thresholds_of_vals val1 val2)
+    let acc, thresholds =
+      try
+        let acc, val1 = expr_val acc { e with eq_expr = e1 } in
+        let acc, val2 = expr_val acc { e with eq_expr = e2 } in
+        test_cartesian_limit val1 val2;
+        acc, Static (thresholds_of_vals val1 val2)
+      with
+      | CombinatoricLimit _ -> acc, Dynamic
+    in
+    add_limits acc evt thresholds
 
 let compute (p : program) =
   let acc = {
@@ -292,7 +315,8 @@ let compute (p : program) =
   }
   in
   let acc =
-    Variable.Map.fold (fun evt eq acc -> expr_limits acc evt eq)
+    Variable.Map.fold (fun evt eq acc ->
+        expr_limits acc evt eq)
       p.act_eqs acc
   in
   acc.lim_memo

@@ -80,7 +80,6 @@ let print_events fmt (p : program) =
     fmt p.act_order;
   fprintf fmt "@]@."
 
-
 let print_program fmt (p : program) =
   print_inputs fmt p;
   print_events fmt p;
@@ -92,17 +91,23 @@ let print_edge fmt (e : edge_way) =
   | Raising -> pp_print_string fmt "raising"
   | Falling -> pp_print_string fmt "falling"
 
-let print_threshold fmt (thres : threshold) =
+let print_static_threshold fmt (thres : static_threshold) =
   fprintf fmt "@[<hov 2>%a on i%d {%a}@ %a@]"
     print_edge thres.edge
     (Variable.uid thres.var)
     Condition.print thres.value.eq_act
     print_expr thres.value.eq_expr
 
-let print_evt_limits fmt evt (ls : threshold list) =
+let print_threshold fmt (thres : threshold) =
+  match thres with
+  | Static static_thres ->
+    pp_print_list ~pp_sep:pp_print_cut print_static_threshold fmt static_thres
+  | Dynamic -> pp_print_string fmt "dynamic"
+
+let print_evt_limits fmt evt (ls : threshold) =
   fprintf fmt "@[<hov 2>event %d:@ %a@,@]"
     (Variable.uid evt)
-    (pp_print_list ~pp_sep:pp_print_cut print_threshold) ls
+    print_threshold ls
 
 let print_limits fmt (limits : limits) =
   fprintf fmt "@[<v 2>Limits:@;";

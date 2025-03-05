@@ -35,10 +35,14 @@ type edge_way =
   | Raising
   | Falling
 
-type threshold = {
+type static_threshold = {
   var : Variable.t;
   edge : edge_way;
   value : guarded_eq;
 }
 
-type limits = threshold list Variable.Map.t
+type threshold =
+  | Static of static_threshold list
+  | Dynamic
+
+type limits = threshold Variable.Map.t
