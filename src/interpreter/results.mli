@@ -1,7 +1,5 @@
 type item_result_layout = {
   display_name : string;
-  provider : bool;
-  (* provided value item flag *)
   at_step : Variable.t;
   (* step value.
      canonical item variable, the one to look for in maps and for infos *)

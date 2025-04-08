@@ -22,6 +22,7 @@ type flat_op = {
   flat_expr : expr;
   flat_src : Variable.t;
   flat_cond : Condition.t;
+  flat_trigger : Variable.t option;
 }
 
 type t = {
@@ -199,13 +200,15 @@ let register_deficit t ~(act : Condition.t) ~(provider : Variable.t)
     ~(pool : Variable.t) =
   register_part t ~act ~src:pool ~dest:provider Deficit
 
-let register_flat ~(label : string option) t ~(act : Condition.t) ~(src : Variable.t)
+let register_flat ~(trigger : Variable.t option) ~(label : string option) t
+    ~(act : Condition.t) ~(src : Variable.t)
     ~(dest : Variable.t) (expr : expr) =
   let flat = {
     flat_label = label;
     flat_src = src;
     flat_expr = expr;
     flat_cond = act;
+    flat_trigger = trigger;
   }
   in
   let flat_eqs =
@@ -466,6 +469,12 @@ let convert_repartitions t =
     t.repartitions t
 
 let convert_flats t =
+  let vars_of_expr e =
+    let vs = vars_of_expr e in
+    Variable.Set.filter (fun v ->
+        (Variable.Map.find v t.pinfos.var_info).kind <> Constant)
+      vs
+  in
   Variable.Map.fold (fun dest flats t ->
       let grouped_flats =
         List.fold_left (fun gs flat ->
@@ -479,14 +488,35 @@ let convert_flats t =
           let t, (pvar, pcond) =
             group_productions
               ~produce:(List.fold_left_map (fun t flat ->
+                  let origin : VarInfo.origin =
+                    match flat.flat_trigger with
+                    | None -> OperationDetail {
+                        label = flat.flat_label;
+                        op_kind = Bonus (vars_of_expr flat.flat_expr);
+                        source = src;
+                        target = dest
+                      }
+                    | Some trigger -> TriggerOperation {
+                        label = flat.flat_label;
+                        trigger;
+                        source = src;
+                        target = dest;
+                        trigger_vars =
+                          match Variable.Map.find_opt trigger t.event_eqs with
+                          | None -> Variable.Set.empty
+                          | Some e ->
+                            Variable.Set.map (fun v ->
+                                match (Variable.Map.find v t.pinfos.var_info).origin with
+                                | Cumulative v -> v
+                                | _ -> v
+                              )
+                            (vars_of_expr e)
+                      }
+                  in
                   let t, ldest =
                     create_var_from t dest (fun i ->
                         { i with
-                          origin = OperationDetail {
-                              label = flat.flat_label;
-                              op_kind = Bonus;
-                              source = src;
-                              target = dest };
+                          origin;
                           kind = Intermediary
                         })
                   in
@@ -499,9 +529,7 @@ let convert_flats t =
                   }))
               t flats
           in
-          let t = register_aggregation t ~act:pcond ~dest pvar in
-          let t = register_aggregation t ~act:pcond ~dest:src pvar in
-          t)
+          register_aggregation t ~act:pcond ~dest pvar)
         grouped_flats t)
     t.flat_eqs t
 
@@ -726,7 +754,9 @@ let rec translate_event acc (eexpr : Ast.contextualized Ast.event_expr) =
     acc, EAnd(e1, e2)
   | EventDisj _ -> assert false
 
-let translate_redistribution ~(label : string option) acc ~(ctx : Context.Group.t) ~(act : Condition.t)
+let translate_redistribution ~(trigger : Variable.t option) ~(label : string option)
+    acc ~(ctx : Context.Group.t)
+    ~(act : Condition.t)
     ~(src : Variable.t) ~(dest : Ast.contextualized_variable)
     (redist : Ast.contextualized Ast.redistribution) =
   let proj = resolve_projection_context acc ~context:ctx ~refinement:(snd dest) in
@@ -759,10 +789,11 @@ let translate_redistribution ~(label : string option) acc ~(ctx : Context.Group.
     Acc.register_redist ~label acc ~act ~src ~dest part opps
   | Flat f ->
     let acc, (e, _) = translate_formula ~ctx ~view:AtInstant acc f in
-    Acc.register_flat ~label acc ~act ~src ~dest e
+    Acc.register_flat ~trigger ~label acc ~act ~src ~dest e
   | Default -> Acc.register_default ~label acc ~act ~src ~dest
 
-let translate_redist_w_dest acc ~(ctx : Context.Group.t) ~(act : Condition.t)
+let translate_redist_w_dest ~(trigger : Variable.t option) acc
+    ~(ctx : Context.Group.t) ~(act : Condition.t)
     ~(src : Variable.t)
     ~(def_dest : Ast.contextualized_variable option)
     (WithVar (redist, dest) : Ast.contextualized Ast.redistrib_with_dest)
@@ -774,63 +805,63 @@ let translate_redist_w_dest acc ~(ctx : Context.Group.t) ~(act : Condition.t)
     | Some default, None -> default
     | None, None -> Report.raise_missing_dest_error ()
   in
-  translate_redistribution ~ctx ~act ~src ~dest acc redist
+  translate_redistribution ~trigger ~ctx ~act ~src ~dest acc redist
 
-let rec translate_guarded_redist ~(label : string option) acc ~(ctx : Context.Group.t)
-    ~(act : Condition.t) ~(src : Variable.t) ~(def_dest : Ast.contextualized_variable option)
+let translate_condition acc (cond : Ast.contextualized Ast.event_expr) =
+  let acc, eexpr = translate_event acc cond in
+  Acc.lift_event acc eexpr Generic
+
+let event_trigger acc (base_evt : Variable.t) =
+  let acc, prev_evt =
+    Acc.lift_event acc (EPre base_evt) (PreviousState base_evt)
+  in
+  Acc.lift_event acc (EAnd (ENot (EVar prev_evt), EVar base_evt))
+    (RaiseTest base_evt)
+
+let conds_of_event ~act (evt : Variable.t) =
+  let condt = Condition.(conj (of_event evt true) act) in
+  let condf = Condition.(conj (of_event evt false) act) in
+  condt, condf
+
+let rec translate_guarded_redist ~(trigger : Variable.t option) ~(label : string option)
+    acc ~(ctx : Context.Group.t)
+    ~(act : Condition.t) ~(src : Variable.t)
+    ~(def_dest : Ast.contextualized_variable option)
     (gr : _ Ast.guarded_redistrib) =
   match gr with
   | Redists rs ->
-    List.fold_left (translate_redist_w_dest ~label ~ctx ~act ~src ~def_dest) acc rs
+    List.fold_left (translate_redist_w_dest ~trigger ~label ~ctx ~act ~src ~def_dest)
+      acc rs
   | Whens gs ->
     List.fold_left (fun acc (cond, gr) ->
-        let acc, condt, _ =
-          translate_condition ~act ~on_raise:true acc cond
-        in
-        translate_guarded_redist ~label acc ~ctx ~act:condt ~src ~def_dest gr)
+        let acc, trigger = translate_condition acc cond in
+        let acc, evt = event_trigger acc trigger in
+        let condt, _ = conds_of_event ~act evt in
+        translate_guarded_redist ~trigger:(Some trigger) ~label acc ~ctx ~act:condt ~src ~def_dest gr)
       acc gs
   | Branches { befores; afters } ->
     let acc, act =
       List.fold_right (fun (cond, gr) (acc, act) ->
-          let acc, condt, condf =
-            translate_condition ~act ~on_raise:false acc cond
-          in
-          translate_guarded_redist ~label acc ~ctx ~act:condt ~src ~def_dest gr,
+          let acc, evt = translate_condition acc cond in
+          let condt, condf = conds_of_event ~act evt in
+          translate_guarded_redist ~trigger ~label acc ~ctx ~act:condt ~src ~def_dest gr,
           condf)
         afters (acc, act)
     in
     fst @@
     List.fold_left (fun (acc, act) (cond, gr) ->
-        let acc, condt, condf =
-          translate_condition ~act ~on_raise:false acc cond
-        in
-        translate_guarded_redist ~label acc ~ctx ~act:condf ~src ~def_dest gr,
+        let acc, evt = translate_condition acc cond in
+        let condt, condf = conds_of_event ~act evt in
+        translate_guarded_redist ~trigger ~label acc ~ctx ~act:condf ~src ~def_dest gr,
         condt)
       (acc, act) befores
-
-and translate_condition acc ~on_raise ~act
-    (cond : Ast.contextualized Ast.event_expr) =
-  let acc, eexpr = translate_event acc cond in
-  let acc, evt =
-    if on_raise then
-      let acc, base_evt = Acc.lift_event acc eexpr Generic in
-      let acc, prev_evt =
-        Acc.lift_event acc (EPre base_evt) (PreviousState base_evt)
-      in
-      Acc.lift_event acc (EAnd (ENot (EVar prev_evt), EVar base_evt))
-        (RaiseTest base_evt)
-    else
-      Acc.lift_event acc eexpr Generic
-  in
-  let condt = Condition.(conj (of_event evt true) act) in
-  let condf = Condition.(conj (of_event evt false) act) in
-  acc, condt, condf
 
 let translate_operation acc (o : Ast.ctx_operation_decl) =
   let source_local_shape = shape_of_ctx_var acc o.ctx_op_source in
   Context.shape_fold (fun acc ctx ->
       let acc, src = Acc.get_derivative_var acc (fst o.ctx_op_source) ctx in
-      translate_guarded_redist ~label:(Some o.ctx_op_label) acc ~ctx ~act:Condition.always
+      translate_guarded_redist ~trigger:None ~label:(Some o.ctx_op_label)
+        acc ~ctx ~act:Condition.always
         ~src ~def_dest:o.ctx_op_default_dest o.ctx_op_guarded_redistrib)
     acc source_local_shape
 

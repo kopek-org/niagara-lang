@@ -35,7 +35,7 @@ module Acc : sig
 
   val find_event : t -> string -> Variable.t
 
-  val find_misc_var : way:stream_way -> t -> string -> Variable.t
+  val find_misc_var : t -> string -> Variable.t
 
   val add_proj_constraint : t -> Variable.t -> Context.Group.t -> t
 
@@ -57,7 +57,7 @@ end = struct
   (* Reference of names *)
 
   type actor_ref =
-    | BaseActor of { downstream : Variable.t; upstream : Variable.t }
+    | BaseActor of Variable.t
     | Label of Variable.t * stream_way
 
   type name_ref =
@@ -161,25 +161,16 @@ end = struct
       t, v
 
   let register_actor t (name : string) =
-    let uv = Variable.create () in
-    let dv = Variable.create () in
-    let uinfo = VarInfo.{
+    let pv = Variable.create () in
+    let info = VarInfo.{
         origin = Named name;
         typ = TMoney;
-        kind = ProvidingPartner;
+        kind = Partner;
       }
     in
-    let dinfo = VarInfo.{
-        origin = Named name;
-        typ = TMoney;
-        kind = ReceivingPartner;
-      }
-    in
-    let t = bind_vinfo uv uinfo t in
-    let t = bind_vinfo dv dinfo t in
-    bind_var name (RefActor (BaseActor {upstream = uv; downstream = dv})) t
-    |> bind_compound dv dv
-    |> bind_compound uv uv
+    let t = bind_vinfo pv info t in
+    bind_var name (RefActor (BaseActor pv)) t
+    |> bind_compound pv pv
 
   let register_event t (name : string) =
     let v = Variable.create () in
@@ -219,8 +210,7 @@ end = struct
           if way <> lway then
             Report.raise_error "Labeled actor has wrong steam way";
           v
-        | BaseActor a ->
-          (match way with Upstream -> a.upstream | Downstream -> a.downstream)
+        | BaseActor a -> a
     end
     | Some _ -> Report.raise_error "Identifier %s is not an actor" name
     | None -> Report.(raise_unknown_id_error name Partner)
@@ -231,11 +221,10 @@ end = struct
     | Some _ -> Report.raise_error "Identifier %s is not an event" name
     | None -> Report.(raise_unknown_id_error name Event)
 
-  let find_misc_var ~(way : stream_way) t (name : string) =
+  let find_misc_var t (name : string) =
     match StrMap.find_opt name t.var_table with
     | Some (RefROInput v | RefEvent v | RefConst v) -> v
-    | Some (RefActor (BaseActor a)) ->
-      (match way with Upstream -> a.upstream | Downstream -> a.downstream)
+    | Some (RefActor (BaseActor a)) -> a
     | Some (RefActor (Label _)) ->
       Report.raise_internal_error "Actor name %s should not exists" name
     | Some (RefPool _) ->
@@ -251,8 +240,7 @@ end = struct
     let base_actor =
       match StrMap.find_opt name t.var_table with
       | None -> Report.raise_error "Unknown actor %s" name
-      | Some (RefActor (BaseActor a)) ->
-        (match way with Downstream -> a.downstream | Upstream -> a.upstream)
+      | Some (RefActor (BaseActor a)) -> a
       | Some _ ->
         Report.raise_internal_error "'%s' should have been recognized as actor" name
     in
@@ -263,10 +251,7 @@ end = struct
       let info = VarInfo.{
           origin = LabelOfPartner { partner = base_actor; label };
           typ = ValueType.TMoney;
-          kind =
-            match way with
-            | Upstream -> ProvidingPartner
-            | Downstream -> ReceivingPartner;
+          kind = Partner;
         }
       in
       let t = bind_vinfo vl info t in
@@ -385,22 +370,26 @@ end = struct
       t.var_info Variable.Map.empty
 
   let add_deps_from t (src : Variable.t) (dests : Variable.t list) =
-    let tdeps =
-      List.fold_left (fun tdeps dest ->
-          match Variable.Map.find_opt dest t.deps with
-          | None -> Variable.Set.add dest tdeps
-          | Some tds -> Variable.Set.union (Variable.Set.add dest tds) tdeps)
-        Variable.Set.empty dests
-    in
-    if Variable.Set.mem src tdeps then
-      Report.raise_error "Cyclic repartition";
-    let deps =
-      Variable.Map.update src (function
-          | None -> Some tdeps
-          | Some tds -> Some (Variable.Set.union tds tdeps))
-        t.deps
-    in
-    { t with deps }
+    if VarInfo.is_partner (Variable.Map.find src t.var_info) then
+      (* providing value, not a real dependency *)
+      t
+    else
+      let tdeps =
+        List.fold_left (fun tdeps dest ->
+            match Variable.Map.find_opt dest t.deps with
+            | None -> Variable.Set.add dest tdeps
+            | Some tds -> Variable.Set.union (Variable.Set.add dest tds) tdeps)
+          Variable.Set.empty dests
+      in
+      if Variable.Set.mem src tdeps then
+        Report.raise_error "Cyclic repartition";
+      let deps =
+        Variable.Map.update src (function
+            | None -> Some tdeps
+            | Some tds -> Some (Variable.Set.union tds tdeps))
+          t.deps
+      in
+      { t with deps }
 
   let to_contextualized_program t =
     let infos : ProgramInfo.t = {
@@ -514,7 +503,7 @@ let named acc (named : named) ~(on_proj : Context.Group.t) =
   let acc, (v, proj) =
     match named.named_desc with
     | Name (name, ctx) ->
-      let v = Acc.find_misc_var ~way:Downstream acc name in
+      let v = Acc.find_misc_var acc name in
       let proj = projection_of_context_refinement (Acc.contexts acc) ctx in
       acc, (v, proj)
     | Holder h -> find_holder acc h

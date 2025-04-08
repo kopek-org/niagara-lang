@@ -2,8 +2,6 @@ open VarInfo
 
 type item_result_layout = {
   display_name : string;
-  provider : bool;
-  (* provided value item flag *)
   at_step : Variable.t;
   (* step value.
      canonical item variable, the one to look for in maps and for infos *)
@@ -34,7 +32,6 @@ type results_layout = top_item Variable.Map.t
 
 let dummy_detail v = {
   display_name = "%no_name%";
-  provider = false;
   at_step = v;
   cumulated = None;
   reps = Variable.Map.empty;
@@ -105,7 +102,6 @@ let variant_copy (pinfos : ProgramInfo.t) layout
       in
       let copy_item item v = {
         display_name = Printf.sprintf "%s @%s" item.display_name target_name;
-        provider = item.provider;
         at_step = v;
         cumulated = Option.bind item.cumulated variant_opt;
         reps = reps_update item.reps Variable.Map.empty;
@@ -176,8 +172,6 @@ let build_result_layout (pinfos : ProgramInfo.t) =
         | Named name ->
           (match infos.kind with
            | Event | Constant -> layout, variants
-           | ProvidingPartner ->
-             update (fun l -> { l with display_name = name; provider = true }), variants
            | _ -> update (fun l -> { l with display_name = name }), variants)
         | LabelOfPartner { partner; label } ->
           super_update partner (fun l ->
@@ -185,7 +179,6 @@ let build_result_layout (pinfos : ProgramInfo.t) =
                 display_name =
                   (VarInfo.get_any_name pinfos.var_info partner)
                   ^ "[" ^ label ^ "]";
-                provider = infos.kind = ProvidingPartner;
               }), variants
         | Cumulative step ->
           update_detail_of step (fun l -> { l with cumulated = Some v }) layout, variants
@@ -198,13 +191,25 @@ let build_result_layout (pinfos : ProgramInfo.t) =
               }), variants
         | OperationDetail { label = _; op_kind; source; target } ->
           (match op_kind with
-           | Quotepart  _ | Bonus ->
+           | Quotepart  _ ->
              update_detail_of source (fun l ->
                  { l with reps = Variable.Map.update target (function
                        | None -> Some (Variable.Set.singleton v)
                        | Some vs -> Some (Variable.Set.add v vs))
                        l.reps
                  })
+               layout
+           | Bonus vs ->
+             Variable.Set.fold (fun src layout ->
+                 update_detail_of src (fun l ->
+                     { l with
+                       reps = Variable.Map.update target (function
+                           | None -> Some (Variable.Set.singleton v)
+                           | Some vs -> Some (Variable.Set.add v vs))
+                           l.reps;
+                     })
+                   layout)
+               (Variable.Set.add source vs)
                layout
            | Default _ ->
              update_detail_of source (fun l ->
@@ -220,6 +225,18 @@ let build_result_layout (pinfos : ProgramInfo.t) =
                        | Some vs -> Some (Variable.Set.add v vs))
                        l.reps })
                layout), variants
+        | TriggerOperation { label = _; source; target; trigger = _; trigger_vars } ->
+          Variable.Set.fold (fun src layout ->
+              update_detail_of src (fun l ->
+                  { l with
+                    reps = Variable.Map.update target (function
+                        | None -> Some (Variable.Set.singleton v)
+                        | Some vs -> Some (Variable.Set.add v vs))
+                        l.reps;
+                  })
+                layout)
+            (Variable.Set.add source trigger_vars)
+            layout, variants
         | OperationSum _ ->
             (* No need, we already register the details, which always exists *)
             layout, variants
@@ -310,7 +327,7 @@ let filter_of_norm_mode (info : ProgramInfo.t) (mode : norm_mode) =
               Variable.Set.add v (Variable.Set.remove origin partners)
             else partners
           | OppositionDelta _, _
-          | _, (ProvidingPartner | ReceivingPartner) ->
+          | _, Partner ->
             Variable.Set.add v partners
           | Cumulative s, _ ->
             (match (Variable.Map.find s info.var_info).origin with
@@ -375,6 +392,7 @@ let merge_valuations (info : ProgramInfo.t)
             | Peeking _
             | ContextSpecialized _
             | OperationDetail _
+            | TriggerOperation _
             | OperationSum _
             | RepartitionSum _
             | DeficitSum _
