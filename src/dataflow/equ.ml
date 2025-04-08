@@ -46,3 +46,16 @@ type threshold =
   | Dynamic
 
 type limits = threshold Variable.Map.t
+
+
+let vars_of_expr (e : expr) : Variable.Set.t =
+  let rec aux acc e =
+    match e with
+    | EConst _ -> acc
+    | EVar v | EPre v -> Variable.Set.add v acc
+    | ENot e | ENeg e | EInv e -> aux acc e
+    | EAnd (e1, e2) | EGe (e1, e2) | EAdd (e1, e2) | EMult (e1, e2) ->
+      aux (aux acc e1) e2
+    | EMerge l -> List.fold_left (fun acc v -> aux acc (EVar v)) acc l
+  in
+  aux Variable.Set.empty e

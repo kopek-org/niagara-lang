@@ -53,9 +53,8 @@ let rec print_item ?(close=true) infos fmt layout step (item : Results.top_item)
     (match find_step_value item.at_step step with
      | Absent -> false
      | Present at_step ->
-       fprintf fmt "@[<v 2>- %s%s { %a, %a }:"
+       fprintf fmt "@[<v 2>- %s { %a, %a }:"
          item.display_name
-         (if item.provider then " (as provider)" else "")
          Value.human_print at_step
          (fun fmt o -> match o with
             | None -> pp_print_string fmt "%not_computed%"

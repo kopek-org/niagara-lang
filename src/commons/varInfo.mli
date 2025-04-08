@@ -1,7 +1,7 @@
 
 type op_kind =
   | Quotepart of R.t
-  | Bonus
+  | Bonus of Variable.Set.t
   | Default of Condition.t R.Map.t
   | Deficit of Condition.t R.Map.t
 
@@ -19,6 +19,13 @@ type origin =
       source : Variable.t;
       target : Variable.t
     }
+  | TriggerOperation of {
+      source : Variable.t;
+      target : Variable.t;
+      label : string option;
+      trigger : Variable.t;
+      trigger_vars : Variable.Set.t;
+    }
   | OperationSum of { source : Variable.t; target : Variable.t }
   | RepartitionSum of Variable.t
   | DeficitSum of Variable.t
@@ -27,8 +34,7 @@ type origin =
   | OppositionDelta of { target : Variable.t }
 
 type kind =
-  | ReceivingPartner
-  | ProvidingPartner
+  | Partner
   | ParameterInput of { shadow : bool }
   | PoolInput of { shadow : bool }
   | Intermediary
