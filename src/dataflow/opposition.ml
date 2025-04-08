@@ -286,13 +286,19 @@ let origin_variant acc env (var : Variable.t) (vorigin : VarInfo.origin) =
     let op_kind =
       match op_kind with
       | Quotepart p -> VarInfo.Quotepart (convert_part p)
-      | Bonus -> Bonus
+      | Bonus vs -> Bonus (Variable.Set.map variant_if_exists vs)
       | Default rep -> Default (convert_reps source rep)
       | Deficit rep -> Deficit (convert_reps source rep)
     in
     let source = variant_if_exists source in
     let target = variant_if_exists target in
     OperationDetail { label; op_kind; source; target }
+  | TriggerOperation { label; trigger; trigger_vars; source; target } ->
+    let trigger = variant_if_exists trigger in
+    let trigger_vars = Variable.Set.map variant_if_exists trigger_vars in
+    let source = variant_if_exists source in
+    let target = variant_if_exists target in
+    TriggerOperation { label; trigger; source; target; trigger_vars }
   | OperationSum { source; target } ->
     let source = variant_if_exists source in
     let target = variant_if_exists target in

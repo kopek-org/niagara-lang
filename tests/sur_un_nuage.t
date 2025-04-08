@@ -132,12 +132,11 @@
        - entree_salle_France { 100000, 100000 }:
        
      ++ after event seuil_100000_entrees :
-       - les_productions_du_chameau (as provider) { 1000000, 1000000 }:
-         1000000 -> barbie[bonus_nombre_entrees]
        - barbie { 1000000, 2340000 }:
          - barbie[bonus_nombre_entrees] { 1000000, 1000000 }:
          
        - entree_salle_France { 50000, 150000 }:
+         1000000 -> barbie[bonus_nombre_entrees]
        
      
   6: ++ no events:

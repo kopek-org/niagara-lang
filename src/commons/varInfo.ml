@@ -1,7 +1,7 @@
 
 type op_kind =
   | Quotepart of R.t
-  | Bonus
+  | Bonus of Variable.Set.t
   | Default of Condition.t R.Map.t
   | Deficit of Condition.t R.Map.t
 
@@ -19,6 +19,13 @@ type origin =
       source : Variable.t;
       target : Variable.t
     }
+  | TriggerOperation of {
+      source : Variable.t;
+      target : Variable.t;
+      label : string option;
+      trigger : Variable.t;
+      trigger_vars : Variable.Set.t;
+    }
   | OperationSum of { source : Variable.t; target : Variable.t }
   | RepartitionSum of Variable.t
   | DeficitSum of Variable.t
@@ -27,8 +34,7 @@ type origin =
   | OppositionDelta of { target : Variable.t }
 
 type kind =
-  | ReceivingPartner
-  | ProvidingPartner
+  | Partner
   | ParameterInput of { shadow : bool }
   | PoolInput of { shadow : bool }
   | Intermediary
@@ -51,15 +57,14 @@ let is_input t =
 
 let is_partner t =
   match t.kind with
-  | ReceivingPartner
-  | ProvidingPartner -> true
+  | Partner -> true
   | _ -> false
 
 let is_event t = t.kind = Event
 
 let is_original_partner t =
   match t.kind, t.origin with
-  | ReceivingPartner, Named s -> Some s
+  | Partner, Named s -> Some s
   | _ -> None
 
 let rec get_name coll v =
@@ -75,6 +80,7 @@ let rec get_name coll v =
     | RisingEvent v -> get_name coll v
     | ContextSpecialized { origin; _ } -> get_name coll origin
     | OperationDetail _ -> None
+    | TriggerOperation _ -> None
     | OperationSum _ -> None
     | RepartitionSum _ -> None
     | DeficitSum _ -> None
@@ -99,9 +105,12 @@ let print fmt t =
     fprintf fmt "[%d->%d]%s" (Variable.uid source) (Variable.uid target)
       (match op_kind with
        | Quotepart _ -> "%"
-       | Bonus -> "$"
+       | Bonus _ -> "$"
        | Default _ -> "?"
        | Deficit _ -> "!")
+  | TriggerOperation { label = _; source; target; trigger; trigger_vars = _ } ->
+    fprintf fmt "[%d->%d]@%d" (Variable.uid source) (Variable.uid target)
+      (Variable.uid trigger)
   | OperationSum { source; target } ->
     fprintf fmt "[%d->%d]*" (Variable.uid source) (Variable.uid target)
   | RepartitionSum v -> fprintf fmt "%d->*" (Variable.uid v)
