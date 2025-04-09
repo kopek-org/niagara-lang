@@ -97,13 +97,13 @@ let rec print_formula : type a. ProgramInfo.t -> Format.formatter -> a formula -
   | Total f -> Format.fprintf fmt "(%a) total" (print_formula infos) f
   | Instant f -> Format.fprintf fmt "(%a) courant" (print_formula infos) f
 
-let rec print_event_expr : type a. ProgramInfo.t -> Format.formatter -> a event_expr -> unit =
+let rec print_event_expr : type a.  ProgramInfo.t -> Format.formatter -> a event_expr -> unit =
   fun infos fmt e ->
   match e.event_expr_desc with
   | EventId id -> Format.fprintf fmt "evenement %s" id
   | EventVar v -> Format.fprintf fmt "evenement %a" (ProgramInfo.print_variable infos) v
   | EventComp (Eq, f1, f2) ->
-    Format.fprintf fmt "@[<hov 2>(%a@ %s %a)@]"
+    Format.fprintf fmt "@[<hov 2>%a@ %s %a@]"
       (print_formula infos) f1 "="
       (print_formula infos) f2
   | EventConj (e1, e2) ->
@@ -128,28 +128,30 @@ let print_opposable (type a )infos fmt (opposable : a opposable) =
       (ProgramInfo.print_variable infos) opposable.opp_towards
       (ProgramInfo.print_ctx_variable infos) opposable.opp_provider
 
-let print_redist (type a) infos fmt (redist : a redistribution) =
+let print_redist (type a) infos fmt (redist : a redistribution) ~dest =
   match redist.redistribution_desc with
   | Part (f, opposables) ->
-    Format.fprintf fmt "quotepart %a @[<v>%a@]"
+    Format.fprintf fmt "quotepart %a %t @[<v>%a@]"
       (print_formula infos) f
+      dest
       (Format.pp_print_list (print_opposable infos)) opposables
-  | Flat f -> Format.fprintf fmt "bonus %a" (print_formula infos) f
+  | Flat f -> Format.fprintf fmt "bonus %a %t" (print_formula infos) f dest
   | Retrocession (f, p) ->
-    Format.fprintf fmt "retrocession %a sur %a"
+    Format.fprintf fmt "retrocession %a sur %a %t"
       (print_formula infos) f
       print_holder p
-  | Default -> Format.fprintf fmt "defaut"
+      dest
+  | Default -> Format.fprintf fmt "quotepart reste %t" dest
 
 let print_redistrib_with_dest (type a) infos fmt (r : a redistrib_with_dest) =
   match r with
   | WithHolder (redist, dest) ->
-    Format.fprintf fmt "%a %a"
-      (print_redist infos) redist
-      (Format.pp_print_option print_destination) dest
+    let dest = Format.dprintf "%a" (Format.pp_print_option print_destination) dest in
+    Format.fprintf fmt "%a"
+      (print_redist infos ~dest) redist
   | WithVar (redist, dest) ->
     Format.fprintf fmt "%a -> %a"
-      (print_redist infos) redist
+      (print_redist infos ~dest:(fun _ -> ())) redist
       (Format.pp_print_option (ProgramInfo.print_ctx_variable infos)) dest
 
 let rec print_guarded_redistrib :
@@ -184,10 +186,16 @@ let print_declaration (type a) infos fmt (decl : a declaration) =
   | DActor a ->
     Format.fprintf fmt "acteur %s" a.actor_decl_desc
   | DInput input ->
-    Format.fprintf fmt "entree %s type %a %a"
-      input.input_name
-      print_type input.input_type
-      print_input_context input.input_context
+    (match input.input_kind with
+    | ReadOnly ->
+      Format.fprintf fmt "entree %s type %a %a"
+        input.input_name
+        print_type input.input_type
+        print_input_context input.input_context
+    | Attributable ->
+      Format.fprintf fmt "entree assiette %s %a"
+        input.input_name
+        print_input_context input.input_context)
   | DHolderOperation op ->
     Format.fprintf fmt "@[<hv 2>operation '%s' %a@,%a%a%a@]"
       op.op_label

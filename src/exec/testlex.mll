@@ -11,8 +11,10 @@ let space = [' ''\t''\r']+
 let num = ['0'-'9']+
 
 rule main lines = parse
+  | '\n' { new_line lexbuf; main lines lexbuf }
+  | space { main lines lexbuf }
   | (num as i) space* ':' ([^'\n']+ as input)
-      "+=" space* ([^'\n']+ as amount) space* '\n'
+      "+=" space* ([^'\n']+ as amount)
       {
         let i = int_of_string i in
         new_line lexbuf;

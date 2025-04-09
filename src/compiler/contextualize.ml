@@ -72,7 +72,6 @@ end = struct
     var_info : VarInfo.collection;
     var_table : name_ref StrMap.t;
     contexts : Context.world;
-    actors : stream_way Variable.Map.t;
     compounds : Variable.Set.t Variable.Map.t; (* Aggregations of actor labels *)
     constants : Literal.t Variable.Map.t;
     constraints : context_constraint Variable.Map.t;
@@ -84,7 +83,6 @@ end = struct
     var_info = Variable.Map.empty;
     var_table = StrMap.empty;
     contexts = Context.empty_world;
-    actors = Variable.Map.empty;
     compounds = Variable.Map.empty;
     constants = Variable.Map.empty;
     constraints = Variable.Map.empty;

@@ -12,7 +12,7 @@ let print_money_value fmt (m : Z.t) =
 let print fmt (l : t) =
   match l with
   | LInteger i -> Z.pp_print fmt i
-  | LRational f ->  R.pp_print fmt f
+  | LRational f ->  R.print_dec_approx fmt f
   | LMoney i -> Format.fprintf fmt "%a$" print_money_value i
   | LDate d -> CalendarLib.Printer.Date.fprint "%Y/%m/%d" fmt d
   | LDuration d ->
