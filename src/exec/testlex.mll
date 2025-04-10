@@ -1,5 +1,6 @@
 {
   open Lexing
+  open Grammar
 
   let print_error_pos lexbuf =
     Format.eprintf "on line %d character %d :"
@@ -14,11 +15,21 @@ rule main lines = parse
   | '\n' { new_line lexbuf; main lines lexbuf }
   | space { main lines lexbuf }
   | (num as i) space* ':' ([^'\n']+ as input)
-      "+=" space* ([^'\n']+ as amount)
+      "+=" space* ([^'\n']+ as value)
       {
-        let i = int_of_string i in
+        let id = int_of_string i in
+        let name, ctx =
+            ParserMain.parse_string
+             ~entry:Parser.Incremental.raw_pool input
+        in
+        let context =
+         List.filter_map (fun cri -> match cri.Surface.Ast.cri_desc with
+          | Surface.Ast.CFullDomain _ -> None
+          | CCase c -> Some c)
+          ctx
+        in
         new_line lexbuf;
-        main (IntMap.add i (input, amount) lines) lexbuf
+        main (Interpreter.Input.{id; name; context; value }::lines) lexbuf
       }
   | eof { lines }
   | _ { raise (Failure "Syntax error") }
@@ -33,7 +44,7 @@ rule main lines = parse
         pos_cnum = 0;
       };
     try
-      let inputs = main IntMap.empty lexbuf in
+      let inputs = main [] lexbuf in
       close_in ic;
       inputs
     with e -> close_in ic; print_error_pos lexbuf; raise e
