@@ -23,7 +23,6 @@ type acc = {
   value_eqs : aggregate_eqs;
   event_eqs : expr Variable.Map.t;
   copies : copies;
-  events : Variable.Set.t;
   relevance_sets : ProgramInfo.relevance_set Variable.Map.t
 }
 
@@ -46,19 +45,6 @@ let add_copy acc { cumulatives; _ } (var : Variable.t) =
   match Variable.Map.find_opt var cumulatives with
   | None -> acc
   | Some c -> one_copy acc c
-
-let add_condition_events acc (cond : Condition.t) =
-  let rec aux acc (tree : Condition.tree) =
-    match tree with
-    | True | False -> acc
-    | Branch { var = Input _; _ } -> assert false
-    | Branch { var = Event v; yes; no } ->
-      let acc =
-        { acc with events = Variable.Set.add v acc.events }
-      in
-      aux (aux acc yes) no
-  in
-  aux acc (Condition.tree cond)
 
 let maybes_are_certain acc env =
   let acc =
@@ -112,10 +98,10 @@ and eq_consequents acc env (var : Variable.t) (eq : aggregation) =
   match eq with
   | One { eq_act; eq_expr } ->
     let env = { env with maybes = Variable.Set.add var env.maybes } in
-    let acc = add_condition_events acc eq_act in
+    let acc, cond_consequent = condition_consequents acc env eq_act in
     let acc, is_consequent, delays = expr_consequents acc env eq_expr in
     let acc, delay_consequent = compute_consequent_delays acc env delays in
-    acc, is_consequent || delay_consequent
+    acc, is_consequent || delay_consequent || cond_consequent
   | More vars ->
     let env = { env with maybes = Variable.Set.add var env.maybes } in
     List.fold_left (fun (acc, aggr_is_consequent) (var, _) ->
@@ -150,25 +136,23 @@ and compute_consequents acc env (var : Variable.t) =
         let acc = register_consequence acc env var is_consequent in
         acc, is_consequent
 
-let rec events_consequents acc env =
-  let new_events =
-    Variable.Set.filter (fun ev -> not @@ Variable.Map.mem ev acc.copies)
-      acc.events
-  in
-  let acc = { acc with events = Variable.Set.empty } in
-  let fixpoint_reached = Variable.Set.is_empty new_events in
-  if fixpoint_reached then acc else
-    let acc =
-      Variable.Set.fold (fun ev acc ->
-          let ev_expr = Variable.Map.find ev acc.event_eqs in
-          let acc, is_consequent, delays = expr_consequents acc env ev_expr in
-          let acc, delay_consequent = compute_consequent_delays acc env delays in
-          let is_consequent = is_consequent || delay_consequent in
-          let acc = register_consequence acc env ev is_consequent in
-          acc)
-        new_events acc
-    in
-    events_consequents acc env
+and condition_consequents acc env (cond : Condition.t) =
+  Variable.Set.fold (fun ev (acc, is_consequent) ->
+      let acc, ev_conseq = event_consequents acc env ev in
+      acc, is_consequent || ev_conseq)
+    (Condition.events_of cond)
+    (acc, false)
+
+and event_consequents acc env (ev : Variable.t) =
+  match Variable.Map.find_opt ev acc.copies with
+  | Some c -> acc, Option.is_some c
+  | None ->
+    let ev_expr = Variable.Map.find ev acc.event_eqs in
+    let acc, is_consequent, delays = expr_consequents acc env ev_expr in
+    let acc, delay_consequent = compute_consequent_delays acc env delays in
+    let is_consequent = is_consequent || delay_consequent in
+    let acc = register_consequence acc env ev is_consequent in
+    acc, is_consequent
 
 let var_subst csq (var : Variable.t) =
   match Variable.Map.find_opt var csq.copies with
@@ -267,16 +251,22 @@ let origin_variant acc env (var : Variable.t) (vorigin : VarInfo.origin) =
       Variable.Map.filter (fun _ subst -> Variable.equal source subst.source)
         env.user_substs
     in
+    let add_rep c r rep =
+      if R.(r < zero || r > one) then rep else
+        R.Map.add r (condition_subst acc c) rep
+    in
     R.Map.fold (fun r c rep ->
-        let r =
-          Variable.Map.fold (fun _ subst r ->
-              if not Condition.(is_never (conj c subst.condition))
-              then R.(r - subst.delta)
-              else r)
-          relevant_substs r
-        in
-        if R.(r < zero || r > one) then rep else
-          R.Map.add r (condition_subst acc c) rep)
+        Variable.Map.fold (fun _ subst rep ->
+            let ccond = Condition.conj c subst.condition in
+            if Condition.is_never ccond then
+              add_rep c r rep
+            else
+              let xcond = Condition.excluded c subst.condition in
+              let cr = R.(r - subst.delta) in
+              let rep = add_rep ccond cr rep in
+              if Condition.is_never xcond then rep else
+                add_rep xcond r rep)
+          relevant_substs rep)
       rep R.Map.empty
   in
   let variant_if_exists v =
@@ -394,7 +384,6 @@ let save_relevant_set ~opposable acc ~(target : Variable.t) =
   in
   { acc with
     copies = Variable.Map.empty;
-    events = Variable.Set.empty;
     relevance_sets = Variable.Map.add target pset acc.relevance_sets
   }
 
@@ -403,7 +392,6 @@ let resolve_one_target ~opposable acc ~(target : Variable.t) (user_substs : user
   let env = { target; user_substs; cumulatives; maybes = Variable.Set.empty } in
   let acc, is_consequent = compute_consequents acc env target in
   if not is_consequent && opposable then Report.raise_error "Useless opposition";
-  let acc = events_consequents acc env in
   let acc = duplication acc env in
   let acc = add_delta acc env in
   save_relevant_set ~opposable acc ~target
@@ -414,7 +402,6 @@ let resolve (var_info : VarInfo.collection) (value_eqs : aggregate_eqs)
   let acc = {
     var_info; value_eqs; event_eqs;
     copies = Variable.Map.empty;
-    events = Variable.Set.empty;
     relevance_sets = Variable.Map.empty;
   }
   in

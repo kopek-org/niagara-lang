@@ -118,8 +118,8 @@
          - prod[residuel] { 4608000, 4608000 }:
          
        - sofica @sofica { 1288000, 1288000 }:
-         - sofica[recup] @sofica { 1200000, 1200000 }:
          - sofica[residuel] @sofica { 88000, 88000 }:
+         - sofica[recup] @sofica { 1200000, 1200000 }:
          
        - sofica delta { 136000, 136000 }:
        
