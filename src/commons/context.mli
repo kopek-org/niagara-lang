@@ -191,6 +191,8 @@ val is_any_projection : world -> Group.t -> bool
 (** Return the group description of a given group. *)
 val group_desc : world -> Group.t -> group_desc
 
+(** Returns the name of the case *)
+val case_name : world -> case -> string
 
 (** Various debug printing *)
 

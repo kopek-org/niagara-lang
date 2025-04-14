@@ -3,7 +3,8 @@ open Execution
 type raw = {
   id : int;
   name : string;
-  context : string list;
+  context : string list; (* A convex characterization of the context.
+                            Can be one element, or can be a convex subset. *)
   value : string;
 }
 
@@ -66,3 +67,51 @@ let to_interpreter_inputs (pinfos : ProgramInfo.t) (is : raw list) : computation
       InputLineMap.add i.id (to_interpreter_input pinfos i) ci)
     Execution.InputLineMap.empty
     is
+
+(** Computes the largest convex domain from a list of domains. *)
+let largest_domain
+      (world : Context.world)
+      (dl : Context.CaseSet.t Context.DomainMap.t list) : string list =
+  let _, l =
+    List.fold_left
+      (fun ((size, _l) as acc) dm ->
+        let (size', _l') as acc' =
+          Context.DomainMap.fold
+            (fun _ s (size', l') ->
+              (size' + Context.CaseSet.cardinal s),
+              Context.CaseSet.elements s @ l'
+            )
+            dm
+            (0, [])
+        in
+        if size >= size' then acc else acc'
+      )
+      (0, [])
+      dl
+  in
+  List.map (Context.case_name world) l
+
+let of_interpreter_input (pinfos : ProgramInfo.t) (id : int) (i : input_line) : raw =
+  let name =
+    match VarInfo.get_name pinfos.var_info i.input_variable with
+    | Some n -> n
+    | None -> invalid_arg "Input.of_interpreter_input (name)"
+  in
+  let value = Format.asprintf "%a" Literal.print i.input_value in
+  let context =
+    (* We will take the largest convex sub-set. *)
+    match Variable.Map.find_opt i.input_variable pinfos.var_info with
+    | None -> invalid_arg "Input.of_interpreter_input (value)"
+    | Some { origin = ContextSpecialized {context; _ }; _ } ->
+       let desc = Context.group_desc pinfos.contexts context in
+       largest_domain pinfos.contexts desc
+    | Some _ -> []
+  in
+  {id; name; context; value}
+
+let of_interpreter_inputs (pinfos : ProgramInfo.t) (ci : computation_inputs) : raw list =
+  InputLineMap.fold
+    (fun id i acc -> of_interpreter_input pinfos id i :: acc)
+    ci
+    []
+  |> List.rev
