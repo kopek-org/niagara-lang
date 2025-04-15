@@ -829,7 +829,7 @@ let rec translate_guarded_redist ~(trigger : Variable.t option) ~(label : string
     ~(def_dest : Ast.contextualized_variable option)
     (gr : _ Ast.guarded_redistrib) =
   match gr with
-  | Redists rs ->
+  | Atom rs ->
     List.fold_left (translate_redist_w_dest ~trigger ~label ~ctx ~act ~src ~def_dest)
       acc rs
   | Whens gs ->
@@ -900,6 +900,7 @@ let translate_declaration acc (decl : Ast.contextualized Ast.declaration) =
   | DVarEvent e ->
     let acc, evt_expr = translate_event acc e.ctx_event_expr in
     Acc.register_event acc e.ctx_event_var evt_expr
+  | DVarValue _ | DVarPool _ -> assert false
   | DVarDefault d -> translate_default acc d
   | DVarDeficit d -> translate_deficit acc d
 

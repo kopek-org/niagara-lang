@@ -8,7 +8,8 @@ let pos (start, stop) = Pos.Text.make ~start ~stop
 %token CONTEXTUALISEE PAR TYPE ENTIER RATIONNEL ARGENT TOTAL COURANT
 %token ACTEUR POUR EVENEMENT ET OU AVANT APRES QUAND CONTEXTE TOUT CONSTANTE
 %token LPAR RPAR VERS ATTEINT PLUS MINUS MULT DIV EQ COLON EOF DEFICIT
-%token AVANCE MONTANT COMMA RETROCESSION RESTE OPPOSABLE ENVERS // SECTION FIN
+%token AVANCE MONTANT COMMA RETROCESSION RESTE OPPOSABLE ENVERS VALEUR CALCULEE
+%token OBSERVABLE // SECTION FIN
 %token<R.t> FLOAT
 %token<Z.t> INT MONEY
 %token<string> LIDENT UIDENT LABEL
@@ -32,7 +33,7 @@ let pos (start, stop) = Pos.Text.make ~start ~stop
 operation:
 | OPERATION op_label = LABEL op_default_dest = destinataire?
     op_context = op_context* op_source = source
-    exprs = expression
+    exprs = expression(simple_exprs)
 {
   operation_decl
     ~loc:(pos $sloc)
@@ -42,6 +43,27 @@ operation:
     ~source:op_source
     ~guarded_redistrib:exprs
 }
+
+comp_pool_decl:
+| ASSIETTE CALCULEE name = LIDENT context = op_context* exprs = expression(value_def)
+{{
+  comp_pool_loc = pos $sloc;
+  comp_pool_name = name;
+  comp_pool_context = context;
+  comp_pool_guarded_value = exprs;
+}}
+
+value_decl:
+| VALEUR obs = boption(OBSERVABLE) name = LIDENT value = value_def
+{{
+  val_loc = pos $sloc;
+  val_name = name;
+  val_formula = value;
+  val_observable = obs;
+}}
+
+value_def:
+| COLON formula = formula { formula }
 
 advance:
 | AVANCE adv_label = LABEL SUR adv_output = holder PAR
@@ -79,29 +101,29 @@ simple_expr:
   }
 
 simple_exprs:
-| es = simple_expr+ { Redists (List.map (fun (e, d) -> WithHolder (e, d)) es) }
+| es = simple_expr+ { List.map (fun (e, d) -> WithHolder (e, d)) es }
 
-sub_expression:
-| es = simple_exprs { es }
-| LPAR es = expression RPAR { es }
+sub_expression(atom):
+| es = atom { Atom es }
+| LPAR es = expression(atom) RPAR { es }
 
-expression:
-| es = simple_exprs { es }
-| es = branch_expr { Branches { befores = fst es; afters = snd es } }
-| es = when_expr+ { Whens es }
+expression(atom):
+| es = atom { Atom es }
+| es = branch_expr(atom) { Branches { befores = fst es; afters = snd es } }
+| es = when_expr(atom)+ { Whens es }
 
-branch_expr:
-| ae = after_expr+ { ([], ae) }
-| be = before_expr+ ae = after_expr* { (be, ae) }
+branch_expr(atom):
+| ae = after_expr(atom)+ { ([], ae) }
+| be = before_expr(atom)+ ae = after_expr(atom)* { (be, ae) }
 
-after_expr:
-| APRES g = event_expr se = sub_expression { (g, se) }
+after_expr(atom):
+| APRES g = event_expr se = sub_expression(atom) { (g, se) }
 
-before_expr:
-| AVANT g = event_expr se = sub_expression { (g, se) }
+before_expr(atom):
+| AVANT g = event_expr se = sub_expression(atom) { (g, se) }
 
-when_expr:
-| QUAND g = event_expr se = sub_expression { (g, se) }
+when_expr(atom):
+| QUAND g = event_expr se = sub_expression(atom) { (g, se) }
 
 source:
 | SUR p = pool { p }
@@ -112,7 +134,6 @@ source:
 formula:
 | fd = formula_desc { formula ~loc:(pos $sloc) fd }
 | LPAR f = formula RPAR { f }
-;
 
 formula_desc:
 | l = literal { Literal l }
@@ -324,7 +345,9 @@ deficit_decl:
 toplevel_decl:
 | o = operation { DHolderOperation o }
 | e = event_decl { DHolderEvent e }
+| p = comp_pool_decl { DHolderPool p }
 | c = constant_decl { DConstant c }
+| v = value_decl { DHolderValue v }
 | c = context_decl { DContext c }
 | i = input_decl { DInput i }
 | o = actor_decl { DActor o }

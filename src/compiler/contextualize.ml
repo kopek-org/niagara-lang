@@ -589,9 +589,11 @@ let redist_with_dest acc (WithHolder (redist, dest) : source redistrib_with_dest
   let redist_wd = WithVar (redist, dest) in
   acc, redist_wd, Option.to_list dest
 
-let rec guarded_redist acc (redist : source guarded_redistrib) ~(on_proj : Context.Group.t) =
+let rec guarded_redist acc
+    (redist : (source, source redistrib_with_dest list) guarded_redistrib)
+    ~(on_proj : Context.Group.t) =
   match redist with
-  | Redists rs ->
+  | Atom rs ->
     let (acc, dests), redists =
       List.fold_left_map (fun (acc, dests) r ->
           let acc, red_wd, ds = redist_with_dest acc r ~on_proj in
@@ -599,7 +601,7 @@ let rec guarded_redist acc (redist : source guarded_redistrib) ~(on_proj : Conte
         )
         (acc, []) rs
     in
-    acc, Redists redists, dests
+    acc, Atom redists, dests
   | Branches { befores; afters } ->
     let (acc, dests), befores =
       List.fold_left_map (fun (acc, dests) (c, r) ->
@@ -683,7 +685,9 @@ let declaration acc (decl : source declaration) =
   | DHolderEvent e ->
     let acc, e = event_decl acc e in
     Acc.add_program_decl acc (DVarEvent e)
+  | DHolderPool _ -> Report.raise_error "computed pool not implemented yet"
   | DConstant c -> constant acc c
+  | DHolderValue _ -> Report.raise_error "declared values not implemented yet"
   | DHolderDefault d ->
     let acc, (src, src_proj as ctx_default_source) =
       find_holder acc d.default_source

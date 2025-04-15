@@ -1,0 +1,37 @@
+contexte Territoire :
+- France
+- Etranger
+
+acteur distrib
+acteur prod
+
+entree entrees type entier
+
+assiette calculee rbd
+pour Territoire(France)
+: 2.5$ * entrees
+
+assiette calculee rbd
+pour Territoire(Etranger)
+: 3$ * entrees
+
+operation 'com'
+pour Territoire(France)
+sur assiette rbd
+quotepart 30% vers distrib
+quotepart reste vers assiette rnpp
+
+defaut sur assiette rbd vers assiette rnpp
+
+valeur observable palier : prod - 1000$
+
+evenement seuil atteint quand palier = 2500$
+
+operation 'rep'
+sur assiette rnpp
+avant evenement seuil
+quotepart 3% vers distrib
+apres evenement seuil
+quotepart 5% vers distrib
+
+defaut sur assiette rnpp vers prod
