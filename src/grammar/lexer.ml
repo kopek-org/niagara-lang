@@ -43,6 +43,9 @@ let keywords =
     "reste", RESTE;
     "opposable", OPPOSABLE;
     "envers", ENVERS;
+    "valeur", VALEUR;
+    "calculee", CALCULEE;
+    "observable", OBSERVABLE;
     (* "section", SECTION; *)
     (* "fin", FIN; *)
   ]

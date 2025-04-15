@@ -154,27 +154,33 @@ let print_redistrib_with_dest (type a) infos fmt (r : a redistrib_with_dest) =
       (print_redist infos ~dest:(fun _ -> ())) redist
       (Format.pp_print_option (ProgramInfo.print_ctx_variable infos)) dest
 
-let rec print_guarded_redistrib :
-  type a. ProgramInfo.t -> Format.formatter -> a guarded_redistrib -> unit =
-  fun infos fmt g_redist ->
+let print_redistrib_list (type a) infos fmt (rs : a redistrib_with_dest list) =
+  Format.pp_print_list (print_redistrib_with_dest infos) fmt rs
+
+let rec print_guarded_obj :
+  type a b. ProgramInfo.t -> (ProgramInfo.t -> Format.formatter -> b -> unit)
+  -> Format.formatter -> (a, b) guarded_redistrib -> unit =
+  fun infos print_atom fmt g_redist ->
   match g_redist with
-  | Redists rs ->
-    Format.pp_print_list (print_redistrib_with_dest infos) fmt rs
+  | Atom rs -> print_atom infos fmt rs
   | Branches { befores; afters } ->
     Format.pp_print_list (fun fmt (c, r)->
         Format.fprintf fmt "@[<v 2>avant %a (@,%a)@]"
-          (print_event_expr infos) c (print_guarded_redistrib infos) r)
+          (print_event_expr infos) c (print_guarded_obj infos print_atom) r)
       fmt befores;
     Format.pp_print_break fmt 0 0;
     Format.pp_print_list (fun fmt (c, r)->
         Format.fprintf fmt "@[<v 2>apres %a (@,%a)@]"
-          (print_event_expr infos) c (print_guarded_redistrib infos) r)
+          (print_event_expr infos) c (print_guarded_obj infos print_atom) r)
       fmt afters
   | Whens gs ->
     Format.pp_print_list (fun fmt (c, r)->
         Format.fprintf fmt "@[<v 2>quand %a (@,%a)@]"
-          (print_event_expr infos) c (print_guarded_redistrib infos) r)
+          (print_event_expr infos) c (print_guarded_obj infos print_atom) r)
       fmt gs
+
+let print_local_valuation (type a) infos fmt (f : a formula) =
+  Format.fprintf fmt ": %a" (print_formula infos) f
 
 let print_declaration (type a) infos fmt (decl : a declaration) =
   match decl with
@@ -202,13 +208,13 @@ let print_declaration (type a) infos fmt (decl : a declaration) =
       (Format.pp_print_option print_destination) op.op_default_dest
       print_op_context op.op_context
       print_op_source op.op_source
-      (print_guarded_redistrib infos) op.op_guarded_redistrib
+      (print_guarded_obj infos print_redistrib_list) op.op_guarded_redistrib
   | DVarOperation op ->
     Format.fprintf fmt "@[<hv 2>operation '%s' -> %a@,sur %a@;%a@]"
       op.ctx_op_label
       (Format.pp_print_option (ProgramInfo.print_ctx_variable infos)) op.ctx_op_default_dest
       (ProgramInfo.print_ctx_variable infos) op.ctx_op_source
-      (print_guarded_redistrib infos) op.ctx_op_guarded_redistrib
+      (print_guarded_obj infos print_redistrib_list) op.ctx_op_guarded_redistrib
   | DHolderEvent e ->
     Format.fprintf fmt "@[<hov>evenement %s@ atteint quand %a"
       e.event_name (print_event_expr infos) e.event_expr
@@ -216,8 +222,27 @@ let print_declaration (type a) infos fmt (decl : a declaration) =
     Format.fprintf fmt "@[<hov>evenement %a@ atteint quand %a"
       (ProgramInfo.print_variable infos) e.ctx_event_var
       (print_event_expr infos) e.ctx_event_expr
+  | DHolderPool p ->
+    Format.fprintf fmt "@[<hv 2>assiette calculee %s@,%a%a@]"
+      p.comp_pool_name
+      print_op_context p.comp_pool_context
+      (print_guarded_obj infos print_local_valuation) p.comp_pool_guarded_value
+  | DVarPool p ->
+    Format.fprintf fmt "@[<hv 2>assiette calculee %a@,%a@]"
+      (ProgramInfo.print_ctx_variable infos) p.ctx_comp_pool_var
+      (print_guarded_obj infos print_local_valuation) p.ctx_comp_pool_guarded_value
   | DConstant c ->
     Format.fprintf fmt "constante %s : %a" c.const_name Literal.print c.const_value
+  | DHolderValue v ->
+    Format.fprintf fmt "@[<hov 2>valeur%s %s :@ %a@]"
+      (if v.val_observable then " observable" else "")
+      v.val_name
+      (print_formula infos) v.val_formula
+  | DVarValue v ->
+    Format.fprintf fmt "@[<hov 2>valeur%s %a :@ %a@]"
+      (if v.ctx_val_observable then " observable" else "")
+      (ProgramInfo.print_ctx_variable infos) v.ctx_val_var
+      (print_formula infos) v.ctx_val_formula
   | DHolderAdvance a ->
     Format.fprintf fmt "@[<hov>avance '%s' sur %a par %a@ montant %a@]"
       a.adv_label print_holder a.adv_output

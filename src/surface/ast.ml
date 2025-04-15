@@ -112,16 +112,16 @@ and _ event_expr_desc =
   | EventConj : 'a event_expr * 'a event_expr -> 'a event_expr_desc
   | EventDisj : 'a event_expr * 'a event_expr -> 'a event_expr_desc
 
-type 'a conditional_redistrib =
-  'a event_expr * 'a guarded_redistrib
+type ('pass, 'leaf) conditional_redistrib =
+  'pass event_expr * ('pass, 'leaf) guarded_redistrib
 
-and 'a guarded_redistrib =
-  | Whens of 'a conditional_redistrib list
+and ('pass, 'leaf) guarded_redistrib =
+  | Whens of ('pass, 'leaf) conditional_redistrib list
   | Branches of {
-      befores : 'a conditional_redistrib list;
-      afters : 'a conditional_redistrib list;
+      befores : ('pass, 'leaf) conditional_redistrib list;
+      afters : ('pass, 'leaf) conditional_redistrib list;
     }
-  | Redists of 'a redistrib_with_dest list
+  | Atom of 'leaf
 
 type context =
   | Forall of string
@@ -133,14 +133,16 @@ type operation_decl = {
   op_default_dest : holder option;
   op_context : context list;
   op_source : holder;
-  op_guarded_redistrib : source guarded_redistrib;
+  op_guarded_redistrib :
+    (source, source redistrib_with_dest list) guarded_redistrib;
 }
 
 type ctx_operation_decl = {
   ctx_op_label : string;
   ctx_op_default_dest : contextualized_variable option;
   ctx_op_source : contextualized_variable;
-  ctx_op_guarded_redistrib : contextualized guarded_redistrib;
+  ctx_op_guarded_redistrib :
+    (contextualized, contextualized redistrib_with_dest list) guarded_redistrib;
 }
 
 type advance_decl = {
@@ -215,12 +217,41 @@ type ctx_deficit_decl = {
   ctx_deficit_provider : contextualized_variable;
 }
 
+type comp_pool_decl = {
+  comp_pool_loc : Pos.t;
+  comp_pool_name : string;
+  comp_pool_context : context list;
+  comp_pool_guarded_value : (source, source formula) guarded_redistrib;
+}
+
+type ctx_comp_pool_decl = {
+  ctx_comp_pool_var : contextualized_variable;
+  ctx_comp_pool_guarded_value : (contextualized, contextualized formula) guarded_redistrib;
+}
+
+type val_decl = {
+  val_loc : Pos.t;
+  val_name : string;
+  val_formula : source formula;
+  val_observable : bool;
+}
+
+type ctx_val_decl = {
+  ctx_val_var : contextualized_variable;
+  ctx_val_formula : contextualized formula;
+  ctx_val_observable : bool;
+}
+
 type _ declaration =
   | DHolderOperation : operation_decl -> source declaration
   | DVarOperation : ctx_operation_decl -> contextualized declaration
   | DHolderEvent : event_decl -> source declaration
   | DVarEvent : ctx_event_decl -> contextualized declaration
+  | DHolderPool : comp_pool_decl -> source declaration
+  | DVarPool : ctx_comp_pool_decl -> contextualized declaration
   | DConstant : const_decl -> source declaration
+  | DHolderValue : val_decl -> source declaration
+  | DVarValue : ctx_val_decl -> contextualized declaration
   | DContext : context_decl -> source declaration
   | DInput : input_decl -> source declaration
   | DActor : actor_decl -> source declaration
