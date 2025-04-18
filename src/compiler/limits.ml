@@ -45,8 +45,21 @@ let is_input acc (v : Variable.t) =
   | Some i -> VarInfo.is_input i
 
 let add_limits acc (v : Variable.t) (l : threshold) =
+  let cond_match c b =
+    not @@ Condition.(is_never (conj c (of_event v b)))
+  in
+  let fl =
+    match l with
+    | Dynamic -> l
+    | Static tl ->
+      Static (List.filter (fun t ->
+          match t.edge with
+          | Raising -> cond_match t.value.eq_act false
+          | Falling -> cond_match t.value.eq_act true
+        ) tl)
+  in
   { acc with
-    lim_memo = Variable.Map.add v l acc.lim_memo;
+    lim_memo = Variable.Map.add v fl acc.lim_memo;
   }
 
 let add_val acc (v : Variable.t) (va : val_exprs) =
