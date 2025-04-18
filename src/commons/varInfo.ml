@@ -26,6 +26,11 @@ type origin =
       trigger : Variable.t;
       trigger_vars : Variable.Set.t;
     }
+  | LocalValuation of {
+      target : Variable.t;
+      trigger : Variable.t option;
+      deps : Variable.Set.t;
+    }
   | OperationSum of { source : Variable.t; target : Variable.t }
   | RepartitionSum of Variable.t
   | DeficitSum of Variable.t
@@ -38,6 +43,8 @@ type kind =
   | ParameterInput of { shadow : bool }
   | PoolInput of { shadow : bool }
   | Intermediary
+  | Computed
+  | Value of bool
   | Event
   | Constant
 
@@ -81,6 +88,7 @@ let rec get_name coll v =
     | ContextSpecialized { origin; _ } -> get_name coll origin
     | OperationDetail _ -> None
     | TriggerOperation _ -> None
+    | LocalValuation _ -> None
     | OperationSum _ -> None
     | RepartitionSum _ -> None
     | DeficitSum _ -> None
@@ -109,8 +117,13 @@ let print fmt t =
        | Default _ -> "?"
        | Deficit _ -> "!")
   | TriggerOperation { label = _; source; target; trigger; trigger_vars = _ } ->
-    fprintf fmt "[%d->%d]@%d" (Variable.uid source) (Variable.uid target)
+    fprintf fmt "[%d->%d]@@%d" (Variable.uid source) (Variable.uid target)
       (Variable.uid trigger)
+  | LocalValuation { target; trigger; deps = _ } ->
+    fprintf fmt "[=%d]%a" (Variable.uid target)
+      (pp_print_option (fun fmt trigger ->
+           fprintf fmt"@@%d" (Variable.uid trigger)))
+      trigger
   | OperationSum { source; target } ->
     fprintf fmt "[%d->%d]*" (Variable.uid source) (Variable.uid target)
   | RepartitionSum v -> fprintf fmt "%d->*" (Variable.uid v)
