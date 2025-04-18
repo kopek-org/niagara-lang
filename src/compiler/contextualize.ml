@@ -12,7 +12,9 @@ module Acc : sig
 
   val register_input : t -> string -> ValueType.t -> input_kind -> t * Variable.t
 
-  val register_pool : t -> string -> t * Variable.t
+  val register_pool : t -> string -> computed:bool -> t * Variable.t
+
+  val register_value : t -> string -> obs:bool -> t * Variable.t
 
   val register_actor : t -> string -> t
 
@@ -63,6 +65,7 @@ end = struct
   type name_ref =
     | RefActor of actor_ref (* providers or receivers, with or without labels *)
     | RefPool of Variable.t (* redistributable pools of money *)
+    | RefValue of Variable.t
     | RefROInput of Variable.t (* Non redistributable inputs (variable parameters) *)
     | RefEvent of Variable.t
     | RefConst of Variable.t
@@ -123,16 +126,28 @@ end = struct
   let bind_vinfo (v : Variable.t) (info : VarInfo.t) t =
     { t with var_info = Variable.Map.add v info t.var_info }
 
-  let register_pool t (name : string) =
+  let register_pool t (name : string) ~(computed : bool) =
     let v = Variable.create () in
     let info = VarInfo.{
         origin = Named name;
         typ = TMoney;
-        kind = Intermediary;
+        kind = if computed then Computed else Intermediary;
       }
     in
     let t = bind_vinfo v info t in
     let t = bind_var name (RefPool v) t in
+    t, v
+
+  let register_value t (name : string) ~(obs : bool) =
+    let v = Variable.create () in
+    let info = VarInfo.{
+        origin = Named name;
+        typ = TMoney;
+        kind = Value obs;
+      }
+    in
+    let t = bind_vinfo v info t in
+    let t = bind_var name (RefValue v) t in
     t, v
 
   let register_input t (name : string) (typ : ValueType.t) (kind : input_kind) =
@@ -145,7 +160,7 @@ end = struct
         kind = PoolInput { shadow = false };
       }
       in
-      let t, v = register_pool t name in
+      let t, v = register_pool t name ~computed:false in
       let t = bind_vinfo v info t in
       t, v
     | ReadOnly ->
@@ -223,7 +238,7 @@ end = struct
 
   let find_misc_var t (name : string) =
     match StrMap.find_opt name t.var_table with
-    | Some (RefROInput v | RefEvent v | RefConst v) -> v
+    | Some (RefROInput v | RefEvent v | RefValue v | RefConst v) -> v
     | Some (RefActor (BaseActor a)) -> a
     | Some (RefActor (Label _)) ->
       Report.raise_internal_error "Actor name %s should not exists" name
@@ -467,7 +482,7 @@ let find_holder0 ~(way : stream_way) acc (h : holder) =
     | Some v ->
       Acc.add_proj_constraint acc v proj, (v, proj)
     | None ->
-      let acc, v = Acc.register_pool acc name in
+      let acc, v = Acc.register_pool acc name ~computed:false in
       Acc.add_proj_constraint acc v proj, (v, proj)
     end
   | Actor {actor_desc = PlainActor name; _} ->
@@ -582,54 +597,58 @@ let redistribution acc (redist : source redistribution) ~(on_proj : Context.Grou
     acc, {redist with redistribution_desc = Flat f}
   | Default -> acc, { redist with redistribution_desc = Default }
 
-let redist_with_dest acc (WithHolder (redist, dest) : source redistrib_with_dest)
+let redist_with_dest ~(src : Variable.t) acc (WithHolder (redist, dest) : source redistrib_with_dest)
     ~(on_proj : Context.Group.t) =
   let acc, dest = destination_opt acc dest in
+  let acc =
+    match dest with
+    | None -> acc
+    | Some (dest,_) ->
+      let acc = Acc.add_deps_from acc src [dest] in
+      Acc.add_var_constraint acc src dest on_proj
+  in
   let acc, redist = redistribution acc redist ~on_proj in
   let redist_wd = WithVar (redist, dest) in
-  acc, redist_wd, Option.to_list dest
+  acc, redist_wd
 
-let rec guarded_redist acc
-    (redist : (source, source redistrib_with_dest list) guarded_redistrib)
-    ~(on_proj : Context.Group.t) =
-  match redist with
-  | Atom rs ->
-    let (acc, dests), redists =
-      List.fold_left_map (fun (acc, dests) r ->
-          let acc, red_wd, ds = redist_with_dest acc r ~on_proj in
-          (acc, ds @ dests), red_wd
-        )
-        (acc, []) rs
-    in
-    acc, Atom redists, dests
+let rec guarded_obj :
+  type src_obj ctx_obj. Acc.t
+  -> (Acc.t -> src_obj -> on_proj:Context.Group.t -> Acc.t * ctx_obj)
+  -> (source, src_obj) guarded_redistrib -> on_proj:Context.Group.t
+  -> Acc.t * (contextualized, ctx_obj) guarded_redistrib =
+  fun acc obj_process obj ~on_proj ->
+  match obj with
+  | Atom a ->
+    let acc, ctx_obj = obj_process acc a ~on_proj in
+    acc, Atom ctx_obj
   | Branches { befores; afters } ->
-    let (acc, dests), befores =
-      List.fold_left_map (fun (acc, dests) (c, r) ->
+    let acc, befores =
+      List.fold_left_map (fun acc (c, r) ->
           let acc, cond = event_expr acc c ~on_proj in
-          let acc, g_redist, ds = guarded_redist acc r ~on_proj in
-          (acc, ds@dests), (cond, g_redist)
+          let acc, g_redist = guarded_obj acc obj_process r ~on_proj in
+          acc, (cond, g_redist)
         )
-        (acc, []) befores
+        acc befores
     in
-    let (acc, dests), afters =
-      List.fold_left_map (fun (acc, dests) (c, r) ->
+    let acc, afters =
+      List.fold_left_map (fun acc (c, r) ->
           let acc, cond = event_expr acc c ~on_proj in
-          let acc, g_redist, ds = guarded_redist acc r ~on_proj in
-          (acc, ds@dests), (cond, g_redist)
+          let acc, g_redist = guarded_obj acc obj_process r ~on_proj in
+          acc, (cond, g_redist)
         )
-        (acc, dests) afters
+        acc afters
     in
-    acc, Branches { befores; afters }, dests
+    acc, Branches { befores; afters }
   | Whens gs ->
-    let (acc, dests), redists =
-      List.fold_left_map (fun (acc, dests) (c, r) ->
+    let acc, redists =
+      List.fold_left_map (fun acc (c, r) ->
           let acc, cond = event_expr acc c ~on_proj in
-          let acc, g_redist, ds = guarded_redist acc r ~on_proj in
-          (acc, ds@dests), (cond, g_redist)
+          let acc, g_redist = guarded_obj acc obj_process r ~on_proj in
+          acc, (cond, g_redist)
         )
-        (acc, []) gs
+        acc gs
     in
-    acc, Whens redists, dests
+    acc, Whens redists
 
 let operation acc (op : operation_decl) =
   let acc, (src, src_proj) = find_holder_as_source acc op.op_source in
@@ -639,13 +658,20 @@ let operation acc (op : operation_decl) =
     projection_of_context_selector acc op.op_context
   in
   let acc, default_dest = destination_opt acc op.op_default_dest in
-  let acc, g_redist, dests = guarded_redist acc op.op_guarded_redistrib ~on_proj in
-  let dests = dests @ (Option.to_list default_dest) in
-  let acc = Acc.add_deps_from acc src (List.map fst dests) in
+  let redist_process acc rs ~on_proj =
+    List.fold_left_map (fun acc r ->
+        let acc, red_wd = redist_with_dest ~src acc r ~on_proj in
+        acc, red_wd
+      )
+      acc rs
+  in
+  let acc, g_redist = guarded_obj acc redist_process op.op_guarded_redistrib ~on_proj in
   let acc =
-    List.fold_left (fun acc (dest,_) ->
-        Acc.add_var_constraint acc src dest on_proj)
-      acc dests
+    match default_dest with
+    | None -> acc
+    | Some (d,_) ->
+      let acc = Acc.add_deps_from acc src [d] in
+      Acc.add_var_constraint acc src d on_proj
   in
   acc,
   {
@@ -673,6 +699,37 @@ let constant acc (c : const_decl) =
 
 let advance _acc (_a : advance_decl) = Report.raise_error "no more advance"
 
+let comp_pool acc (p : comp_pool_decl) =
+  let acc, pool =
+    match Acc.find_pool_opt acc p.comp_pool_name with
+    | Some v -> acc, v
+    | None -> Acc.register_pool acc p.comp_pool_name ~computed:true
+  in
+  let on_proj =
+    projection_of_context_selector acc p.comp_pool_context
+  in
+  let acc = Acc.add_proj_constraint acc pool on_proj in
+  let acc, g_redist =
+    guarded_obj acc formula p.comp_pool_guarded_value ~on_proj
+  in
+  acc,
+  {
+    ctx_comp_pool_var = (pool, on_proj);
+    ctx_comp_pool_guarded_value = g_redist;
+  }
+
+let value acc (v : val_decl) =
+  let obs = v.val_observable in
+  let on_proj = Context.any_projection (Acc.contexts acc) in
+  let acc, var = Acc.register_value acc v.val_name ~obs in
+  let acc, f = formula acc v.val_formula ~on_proj in
+  acc,
+  {
+    ctx_val_var = var, on_proj;
+    ctx_val_formula = f;
+    ctx_val_observable = obs;
+  }
+
 let declaration acc (decl : source declaration) =
   match decl with
   | DInput i -> register_input acc i
@@ -685,9 +742,13 @@ let declaration acc (decl : source declaration) =
   | DHolderEvent e ->
     let acc, e = event_decl acc e in
     Acc.add_program_decl acc (DVarEvent e)
-  | DHolderPool _ -> Report.raise_error "computed pool not implemented yet"
+  | DHolderPool p ->
+    let acc, p = comp_pool acc p in
+    Acc.add_program_decl acc (DVarPool p)
   | DConstant c -> constant acc c
-  | DHolderValue _ -> Report.raise_error "declared values not implemented yet"
+  | DHolderValue v ->
+    let acc, v = value acc v in
+    Acc.add_program_decl acc (DVarValue v)
   | DHolderDefault d ->
     let acc, (src, src_proj as ctx_default_source) =
       find_holder acc d.default_source

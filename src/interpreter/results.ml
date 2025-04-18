@@ -237,6 +237,18 @@ let build_result_layout (pinfos : ProgramInfo.t) =
                 layout)
             (Variable.Set.add source trigger_vars)
             layout, variants
+        | LocalValuation { target; trigger = _; deps } ->
+          Variable.Set.fold (fun dep layout ->
+              update_detail_of dep (fun l ->
+                  { l with
+                    reps = Variable.Map.update target (function
+                        | None -> Some (Variable.Set.singleton v)
+                        | Some vs -> Some (Variable.Set.add v vs))
+                        l.reps;
+                  })
+                layout)
+            deps
+            layout, variants
         | OperationSum _ ->
             (* No need, we already register the details, which always exists *)
             layout, variants
@@ -393,6 +405,7 @@ let merge_valuations (info : ProgramInfo.t)
             | ContextSpecialized _
             | OperationDetail _
             | TriggerOperation _
+            | LocalValuation _
             | OperationSum _
             | RepartitionSum _
             | DeficitSum _

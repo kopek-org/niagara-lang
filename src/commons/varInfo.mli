@@ -26,6 +26,11 @@ type origin =
       trigger : Variable.t;
       trigger_vars : Variable.Set.t;
     }
+  | LocalValuation of {
+      target : Variable.t;
+      trigger : Variable.t option;
+      deps : Variable.Set.t;
+    }
   | OperationSum of { source : Variable.t; target : Variable.t }
   | RepartitionSum of Variable.t
   | DeficitSum of Variable.t
@@ -38,6 +43,8 @@ type kind =
   | ParameterInput of { shadow : bool }
   | PoolInput of { shadow : bool }
   | Intermediary
+  | Computed
+  | Value of bool (* observable flag *)
   | Event
   | Constant
 

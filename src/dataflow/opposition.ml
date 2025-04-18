@@ -299,6 +299,11 @@ let origin_variant acc env (var : Variable.t) (vorigin : VarInfo.origin) =
     let source = variant_if_exists source in
     let target = variant_if_exists target in
     TriggerOperation { label; trigger; source; target; trigger_vars }
+  | LocalValuation { trigger; target; deps } ->
+    let trigger = Option.map variant_if_exists trigger in
+    let target = variant_if_exists target in
+    let deps = Variable.Set.map variant_if_exists deps in
+    LocalValuation { trigger; target; deps }
   | OperationSum { source; target } ->
     let source = variant_if_exists source in
     let target = variant_if_exists target in
