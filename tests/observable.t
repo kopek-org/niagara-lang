@@ -5,38 +5,36 @@
   Awaiting inputs:
   ### OUTPUTS ###
   1: ++ no events:
-       - entrees { 250, 250 }:
-         - entrees(France) { 250, 250 }:
-           125000 -> rbd(France)
+       - entrees { 200, 200 }:
+         - entrees(France) { 200, 200 }:
+           100000 -> rbd(France)
          
-       - rbd { 125000, 125000 }:
-         - rbd(France) { 125000, 125000 }:
-           25000 -> distrib
+       - rbd { 100000, 100000 }:
+         - rbd(France) { 100000, 100000 }:
            default 100000 -> rnpp
          
        - rnpp { 100000, 100000 }:
          10000 -> distrib
          default 90000 -> prod
-       - distrib { 35000, 35000 }:
+       - distrib { 10000, 10000 }:
        - prod { 90000, 90000 }:
        - palier { 80000, 80000 }:
        
      ++ after event seuil :
-       - entrees { 9750, 10000 }:
-         - entrees(France) { 9750, 10000 }:
-           4875000 -> rbd(France)
+       - entrees { 9800, 10000 }:
+         - entrees(France) { 9800, 10000 }:
+           4900000 -> rbd(France)
          
-       - rbd { 4875000, 5000000 }:
-         - rbd(France) { 4875000, 5000000 }:
-           975000 -> distrib
-           default 3900000 -> rnpp
+       - rbd { 4900000, 5000000 }:
+         - rbd(France) { 4900000, 5000000 }:
+           default 4900000 -> rnpp
          
-       - rnpp { 3900000, 4000000 }:
-         780000 -> distrib
-         default 3120000 -> prod
-       - distrib { 1755000, 1790000 }:
-       - prod { 3120000, 3210000 }:
-       - palier { 3110000, 3190000 }:
+       - rnpp { 4900000, 5000000 }:
+         980000 -> distrib
+         default 3920000 -> prod
+       - distrib { 980000, 990000 }:
+       - prod { 3920000, 4010000 }:
+       - palier { 3910000, 3990000 }:
        
      
   2: ++ no events:
@@ -48,11 +46,11 @@
          - rbd(Etranger) { 20000000, 20000000 }:
            default 20000000 -> rnpp
          
-       - rnpp { 20000000, 24000000 }:
+       - rnpp { 20000000, 25000000 }:
          4000000 -> distrib
          default 16000000 -> prod
-       - distrib { 4000000, 5790000 }:
-       - prod { 16000000, 19210000 }:
-       - palier { 15990000, 19180000 }:
+       - distrib { 4000000, 4990000 }:
+       - prod { 16000000, 20010000 }:
+       - palier { 15990000, 19980000 }:
        
      

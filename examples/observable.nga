@@ -1,5 +1,6 @@
 contexte Territoire :
 - France
+- Belgique
 - Etranger
 
 acteur distrib
@@ -12,11 +13,11 @@ pour Territoire(France)
 : 5$ * entrees
 
 assiette calculee rbd
-pour Territoire(Etranger)
+pour Territoire(Belgique,Etranger)
 : 10$ * entrees
 
 operation 'com'
-pour Territoire(France)
+pour Territoire(Belgique)
 sur assiette rbd
 quotepart 20% vers distrib
 

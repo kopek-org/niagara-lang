@@ -212,12 +212,11 @@ let shape_clip (s1 : shape) (s2 : shape) =
     s1 s2
 
 let shape_imprint_projection (s : shape) (g : Group.t) =
-  List.map (fun sg ->
+  List.concat_map (fun sg ->
       let clip = Group.clip sg g in
       List.filter (fun g -> not (Group.is_empty g))
         [clip.only_left; clip.common])
     s
-  |> List.flatten
 
 let shape_cut_out (s : shape) (g : Group.t) =
   List.filter_map (fun sg ->

@@ -8,6 +8,8 @@ module Acc : sig
 
   val contexts : t -> Context.world
 
+  val is_partner : Variable.t -> t -> bool
+
   val add_program_decl : t -> contextualized declaration -> t
 
   val register_input : t -> string -> ValueType.t -> input_kind -> t * Variable.t
@@ -30,6 +32,8 @@ module Acc : sig
   val register_const : t -> string -> ValueType.t -> Literal.t -> t
 
   val register_context_domain : t -> string -> string list -> t
+
+  val project_var : t -> Variable.t -> Context.Group.t -> contextualized_variable
 
   val find_pool_opt : t -> string -> Variable.t option
 
@@ -94,10 +98,12 @@ end = struct
 
   let contexts t = t.contexts
 
-  let is_actor v t =
+  let is_partner v t =
     match Variable.Map.find_opt v t.var_info with
     | None -> false
     | Some i -> VarInfo.is_partner i
+
+  let is_constant v t = Variable.Map.mem v t.constants
 
   let add_program_decl t (decl : contextualized declaration) =
     { t with program_decls = decl::t.program_decls }
@@ -211,6 +217,11 @@ end = struct
     bind_var name (RefConst v) t
     |> bind_const v value
 
+  let project_var t (v : Variable.t) (proj : Context.Group.t) =
+    if is_partner v t || is_constant v t
+    then v, Context.any_projection t.contexts
+    else v, proj
+
   let find_pool_opt t (name : string) =
     match StrMap.find_opt name t.var_table with
     | Some (RefPool v) -> Some v
@@ -286,7 +297,7 @@ end = struct
 
   let add_var_constraint t (v : Variable.t)
       (from_var : Variable.t) (proj : Context.Group.t) =
-    if is_actor v t then t else
+    if is_partner v t || is_constant v t then t else
       { t with
         constraints =
           Variable.Map.update v (function
@@ -309,7 +320,7 @@ end = struct
       }
 
   let add_proj_constraint t (v : Variable.t) (proj : Context.Group.t) =
-    if is_actor v t then t else
+    if is_partner v t || is_constant v t then t else
       { t with
         constraints =
           Variable.Map.update v (function
@@ -530,21 +541,30 @@ let named acc (named : named) ~(on_proj : Context.Group.t) =
   let acc = Acc.add_proj_constraint acc v proj in
   acc, (v, proj)
 
-let rec formula acc (f : source formula) ~(on_proj : Context.Group.t) =
+let rec formula acc ~(for_ : Variable.t option) (f : source formula)
+    ~(on_proj : Context.Group.t) =
+  let register_for acc (v,_) =
+    match for_ with
+    | None -> acc
+    | Some for_ ->
+      let acc = Acc.add_deps_from acc v [for_] in
+      Acc.add_var_constraint acc v for_ on_proj
+  in
   match f.formula_desc with
   | Literal l -> acc, {f with formula_desc = Literal l}
   | Named n ->
     let acc, v = named acc n ~on_proj in
+    let acc = register_for acc v in
     acc, {f with formula_desc = Variable v}
   | Binop (op, f1, f2) ->
-    let acc, f1 = formula acc f1 ~on_proj in
-    let acc, f2 = formula acc f2 ~on_proj in
+    let acc, f1 = formula acc ~for_ f1 ~on_proj in
+    let acc, f2 = formula acc ~for_ f2 ~on_proj in
     acc, {f with formula_desc = Binop (op, f1, f2)}
   | Total f ->
-    let acc, f = formula acc f ~on_proj in
+    let acc, f = formula acc ~for_ f ~on_proj in
     acc, {f with formula_desc = Total f}
   | Instant f ->
-    let acc, f = formula acc f ~on_proj in
+    let acc, f = formula acc ~for_ f ~on_proj in
     acc, {f with formula_desc = Instant f}
 
 let rec event_expr acc (e : source event_expr) ~(on_proj : Context.Group.t) =
@@ -553,8 +573,8 @@ let rec event_expr acc (e : source event_expr) ~(on_proj : Context.Group.t) =
     let v = Acc.find_event acc name in
     acc, {e with event_expr_desc = EventVar v}
   | EventComp (op, f1, f2) ->
-    let acc, f1 = formula acc f1 ~on_proj in
-    let acc, f2 = formula acc f2 ~on_proj in
+    let acc, f1 = formula acc ~for_:None f1 ~on_proj in
+    let acc, f2 = formula acc ~for_:None f2 ~on_proj in
     acc, {e with event_expr_desc = EventComp (op, f1, f2)}
   | EventConj (e1, e2) ->
     let acc, e1 = event_expr acc e1 ~on_proj in
@@ -567,7 +587,7 @@ let rec event_expr acc (e : source event_expr) ~(on_proj : Context.Group.t) =
 
 let opposable acc ~(on_proj : Context.Group.t)
     (HolderOpp { opp_value; opp_provider; opp_towards } : source opposable) =
-  let acc, opp_value = formula acc opp_value ~on_proj in
+  let acc, opp_value = formula acc ~for_:None opp_value ~on_proj in
   let acc, opp_provider =
     find_holder_as_source acc
       (holder ~loc:opp_provider.actor_loc (Actor opp_provider))
@@ -579,25 +599,26 @@ let opposable acc ~(on_proj : Context.Group.t)
   in
   acc, VarOpp { opp_value; opp_provider; opp_towards }
 
-let redistribution acc (redist : source redistribution) ~(on_proj : Context.Group.t) =
+let redistribution acc ~(for_ : Variable.t option) (redist : source redistribution) ~(on_proj : Context.Group.t) =
   match redist.redistribution_desc with
   | Part (f, opposables) ->
-    let acc, f = formula acc f ~on_proj in
+    let acc, f = formula acc ~for_ f ~on_proj in
     let acc, opposables = List.fold_left_map (opposable ~on_proj) acc opposables in
     acc, {redist with redistribution_desc = Part (f, opposables)}
   | Flat f ->
-    let acc, f = formula acc f ~on_proj in
+    let acc, f = formula acc ~for_ f ~on_proj in
     acc, {redist with redistribution_desc = Flat f}
   | Retrocession (f, p) ->
     (* syntactic sugar *)
     let left_operand = f in
     let right_operand = Surface.Ast.formula (Named (Surface.Ast.named (Holder p))) in
     let f = Surface.Ast.formula (Binop (Mult, left_operand, right_operand)) in
-    let acc, f = formula acc f ~on_proj in
+    let acc, f = formula acc ~for_ f ~on_proj in
     acc, {redist with redistribution_desc = Flat f}
   | Default -> acc, { redist with redistribution_desc = Default }
 
-let redist_with_dest ~(src : Variable.t) acc (WithHolder (redist, dest) : source redistrib_with_dest)
+let redist_with_dest ~(src : Variable.t) ~(default_dest : Variable.t option)
+    acc (WithHolder (redist, dest) : source redistrib_with_dest)
     ~(on_proj : Context.Group.t) =
   let acc, dest = destination_opt acc dest in
   let acc =
@@ -607,7 +628,13 @@ let redist_with_dest ~(src : Variable.t) acc (WithHolder (redist, dest) : source
       let acc = Acc.add_deps_from acc src [dest] in
       Acc.add_var_constraint acc src dest on_proj
   in
-  let acc, redist = redistribution acc redist ~on_proj in
+  let for_ =
+    let o =
+      Option.fold ~none:default_dest ~some:(fun (d,_) -> Some d) dest
+    in
+    Option.bind o (fun d -> if Acc.is_partner d acc then None else Some d)
+  in
+  let acc, redist = redistribution ~for_ acc redist ~on_proj in
   let redist_wd = WithVar (redist, dest) in
   acc, redist_wd
 
@@ -660,11 +687,14 @@ let operation acc (op : operation_decl) =
   let acc, default_dest = destination_opt acc op.op_default_dest in
   let redist_process acc rs ~on_proj =
     List.fold_left_map (fun acc r ->
-        let acc, red_wd = redist_with_dest ~src acc r ~on_proj in
+        let acc, red_wd =
+          redist_with_dest ~src ~default_dest:(Option.map fst default_dest) acc r ~on_proj
+        in
         acc, red_wd
       )
       acc rs
   in
+  let source = Acc.project_var acc src on_proj in
   let acc, g_redist = guarded_obj acc redist_process op.op_guarded_redistrib ~on_proj in
   let acc =
     match default_dest with
@@ -677,7 +707,7 @@ let operation acc (op : operation_decl) =
   {
     ctx_op_label = op.op_label;
     ctx_op_default_dest = default_dest;
-    ctx_op_source = src, on_proj;
+    ctx_op_source = source;
     ctx_op_guarded_redistrib = g_redist;
   }
 
@@ -710,7 +740,7 @@ let comp_pool acc (p : comp_pool_decl) =
   in
   let acc = Acc.add_proj_constraint acc pool on_proj in
   let acc, g_redist =
-    guarded_obj acc formula p.comp_pool_guarded_value ~on_proj
+    guarded_obj acc (formula ~for_:(Some pool)) p.comp_pool_guarded_value ~on_proj
   in
   acc,
   {
@@ -722,7 +752,7 @@ let value acc (v : val_decl) =
   let obs = v.val_observable in
   let on_proj = Context.any_projection (Acc.contexts acc) in
   let acc, var = Acc.register_value acc v.val_name ~obs in
-  let acc, f = formula acc v.val_formula ~on_proj in
+  let acc, f = formula acc ~for_:None v.val_formula ~on_proj in
   acc,
   {
     ctx_val_var = var, on_proj;

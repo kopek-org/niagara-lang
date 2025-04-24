@@ -107,6 +107,9 @@ let is_actor t (v : Variable.t) =
   | None -> false
   | Some i -> VarInfo.is_partner i
 
+let is_constant t (v : Variable.t) =
+  Variable.Map.mem v t.pinfos.constants
+
 let create_cumulation t v =
   let t, cv =
     create_var_from t v (fun i ->
@@ -249,7 +252,9 @@ let register_aggregation t ~(act : Condition.t) ~(dest : Variable.t) (v : Variab
         | None -> Some (More [v, act])
         | Some (More vars) -> Some (More ((v, act)::vars))
         | Some (One _) ->
-          Report.raise_internal_error "Cannot aggregate on valuation expression")
+          Printf.eprintf "err %d\n%!" (Variable.uid dest);
+          failwith "erg"
+          (* Report.raise_internal_error "Cannot aggregate on valuation expression" *))
       t.value_eqs
   in
   { t with value_eqs }
@@ -349,6 +354,8 @@ let derive_ctx_variables ~mode t (v : Variable.t) (ctx : Context.Group.t) =
         t compound
     in
     t, ActorComp { base = v; compound; }
+  else if is_constant t v then
+    t, ContextVar [v]
   else
     let shape = var_shape t v in
     let subshape =
@@ -677,10 +684,10 @@ let shape_of_ctx_var acc (v : Ast.contextualized_variable) =
   let vshape = Acc.var_shape acc v in
   Context.shape_filter_projection vshape proj
 
-let resolve_projection_context acc ~context ~refinement =
-  (* Refinement has priority over operation context *)
-  if Context.is_any_projection (Acc.contexts acc) refinement then context else refinement
-
+let resolve_projection_context ~context ~refinement =
+  (* Apply further coercion through the refinement. We cannot allow
+     the user to break context inference *)
+  Context.Group.inter context refinement
 
 (* Used only to compute constant quoteparts *)
 let rec reduce_to_r (e : expr) : R.t option =
@@ -778,7 +785,7 @@ let rec translate_formula acc ~(ctx : Context.Group.t) ~(view : flow_view)
   | Literal l -> acc, (EConst l, Literal.type_of l)
   | Variable (v, proj) ->
     let t = Acc.type_of acc v in
-    let proj = resolve_projection_context acc ~context:ctx ~refinement:proj in
+    let proj = resolve_projection_context ~context:ctx ~refinement:proj in
     let acc, vs = Acc.derive_ctx_variables ~mode:Strict acc v proj in
     let vs = match vs with
       | ActorComp c -> [c.base]
@@ -812,7 +819,7 @@ let translate_redistribution ~(trigger : Variable.t option) ~(label : string opt
     ~(act : Condition.t)
     ~(src : Variable.t) ~(dest : Ast.contextualized_variable)
     (redist : Ast.contextualized Ast.redistribution) =
-  let proj = resolve_projection_context acc ~context:ctx ~refinement:(snd dest) in
+  let proj = resolve_projection_context ~context:ctx ~refinement:(snd dest) in
   let acc, dest = Acc.derive_ctx_variables ~mode:Inclusive acc (fst dest) proj in
   let dest =
     match dest with

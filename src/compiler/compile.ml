@@ -13,10 +13,11 @@ let time =
 
 (** Compilation pipeline from a source AST. *)
 let compile : Ast.source Ast.program -> Equ.program * Equ.limits = fun program ->
+  (* let fmt = Format.formatter_of_out_channel stderr in *)
   time "compile start";
   let ctx_program = Contextualize.program program in
+  (* FormatAst.print_program fmt ctx_program; *)
   time "contextualized";
-  (* let fmt = Format.formatter_of_out_channel stderr in *)
   let equ_res = Equationalize.translate_program ctx_program in
   (* Variable.Map.iter (fun v _ -> *)
   (*     Format.fprintf fmt "%a@." (FormatEqu.print_var_with_info equ_res.infos) v) *)
