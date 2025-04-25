@@ -171,7 +171,7 @@ let build_result_layout (pinfos : ProgramInfo.t) =
         match infos.origin with
         | Named name ->
           (match infos.kind with
-           | Event | Constant -> layout, variants
+           | Event | Constant | Value false -> layout, variants
            | _ -> update (fun l -> { l with display_name = name }), variants)
         | LabelOfPartner { partner; label } ->
           super_update partner (fun l ->
@@ -339,7 +339,7 @@ let filter_of_norm_mode (info : ProgramInfo.t) (mode : norm_mode) =
               Variable.Set.add v (Variable.Set.remove origin partners)
             else partners
           | OppositionDelta _, _
-          | _, Partner ->
+          | _, (Partner | Value true) ->
             Variable.Set.add v partners
           | Cumulative s, _ ->
             (match (Variable.Map.find s info.var_info).origin with
