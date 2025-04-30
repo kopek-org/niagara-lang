@@ -9,6 +9,8 @@ type item_result_layout = {
   (* destination -> value mapping of repartition *)
   defaults : Variable.Set.t Variable.Map.t;
   (* destination -> value mapping of default repartition *)
+  computed : Variable.Set.t
+  (* computation of item value *)
 }
 
 type super_item_layout = {
@@ -41,7 +43,7 @@ type norm_mode =
   | Explain of {
       for_partner : Variable.t;
       lines : line_squashing IntMap.t; (* Each line its own policy *)
-      repartitions : bool;
+      in_out_details : bool;
       partner_display : bool;
     }
 (* Normalization form for computation valuations and result layout *)

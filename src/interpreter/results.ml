@@ -11,6 +11,8 @@ type item_result_layout = {
   (* destination -> value mapping of repartition *)
   defaults : Variable.Set.t Variable.Map.t;
   (* destination -> value mapping of default repartition *)
+  computed : Variable.Set.t
+  (* computation of item value *)
 }
 
 type super_item_layout = {
@@ -36,6 +38,7 @@ let dummy_detail v = {
   cumulated = None;
   reps = Variable.Map.empty;
   defaults = Variable.Map.empty;
+  computed = Variable.Set.empty;
 }
 
 let update_detail_of ?(is_detail=false) (v : Variable.t)
@@ -106,6 +109,7 @@ let variant_copy (pinfos : ProgramInfo.t) layout
         cumulated = Option.bind item.cumulated variant_opt;
         reps = reps_update item.reps Variable.Map.empty;
         defaults = reps_update item.defaults Variable.Map.empty;
+        computed = Variable.Set.map variant_if_exists item.computed;
       }
       in
       let update_canon_item item = {
@@ -172,6 +176,12 @@ let build_result_layout (pinfos : ProgramInfo.t) =
         | Named name ->
           (match infos.kind with
            | Event | Constant | Value false -> layout, variants
+           | Value true ->
+             update (fun l -> {
+                   l with display_name = name;
+                          computed = Variable.Set.add v l.computed;
+                 }),
+             variants
            | _ -> update (fun l -> { l with display_name = name }), variants)
         | LabelOfPartner { partner; label } ->
           super_update partner (fun l ->
@@ -237,17 +247,11 @@ let build_result_layout (pinfos : ProgramInfo.t) =
                 layout)
             (Variable.Set.add source trigger_vars)
             layout, variants
-        | LocalValuation { target; trigger = _; deps } ->
-          Variable.Set.fold (fun dep layout ->
-              update_detail_of dep (fun l ->
-                  { l with
-                    reps = Variable.Map.update target (function
-                        | None -> Some (Variable.Set.singleton v)
-                        | Some vs -> Some (Variable.Set.add v vs))
-                        l.reps;
-                  })
-                layout)
-            deps
+        | LocalValuation { target; trigger = _; deps = _ } ->
+          update_detail_of target (fun l ->
+              { l with
+                computed = Variable.Set.add v l.computed;
+              })
             layout, variants
         | OperationSum _ ->
             (* No need, we already register the details, which always exists *)
@@ -311,7 +315,7 @@ type norm_mode =
   | Explain of {
       for_partner : Variable.t;
       lines : line_squashing IntMap.t;
-      repartitions : bool;
+      in_out_details : bool;
       partner_display : bool;
     }
 
@@ -355,7 +359,7 @@ let filter_of_norm_mode (info : ProgramInfo.t) (mode : norm_mode) =
   match mode with
   | Canonical -> canonical_filter, all_lines
   | SquashAllButPartners -> only_partners_filter (), no_lines
-  | Explain { for_partner; lines; repartitions; partner_display } ->
+  | Explain { for_partner; lines; in_out_details; partner_display } ->
     let line_filter i =
       match IntMap.find_opt i lines with
       | Some s -> s
@@ -372,7 +376,7 @@ let filter_of_norm_mode (info : ProgramInfo.t) (mode : norm_mode) =
           | OpposingVariant { variant; _ } -> variant_check variant
           | RepartitionSum _ | DeficitSum _
           | OperationDetail _ | OperationSum _ ->
-            repartitions && Variable.Set.mem v ps.relevant_vars
+            in_out_details && Variable.Set.mem v ps.relevant_vars
           | Cumulative v -> org_check v
           | _ -> Variable.Set.mem v ps.relevant_vars
         in
@@ -524,7 +528,14 @@ let normalize_layout (info : ProgramInfo.t) (mode : norm_mode) (layout : results
     in
     let reps = filter_map item.reps in
     let defaults = filter_map item.defaults in
-    { item with reps; defaults }
+    let computed =
+      match mode with
+      | Canonical -> item.computed
+      | SquashAllButPartners -> Variable.Set.empty
+      | Explain { in_out_details; _ } ->
+        if in_out_details then item.computed else Variable.Set.empty
+    in
+    { item with reps; defaults; computed }
   in
   let layout, as_details =
     Variable.Map.fold (fun v item (nlayout, details) ->

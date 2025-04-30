@@ -39,7 +39,7 @@ let test_stdin (p : Equ.program) (l : Equ.limits) (for_partner : string option) 
         | Some for_partner ->
           Results.Explain {
             for_partner; lines;
-            repartitions = true;
+            in_out_details = true;
             partner_display = true;
           }
   in

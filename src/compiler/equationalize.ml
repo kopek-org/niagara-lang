@@ -252,9 +252,7 @@ let register_aggregation t ~(act : Condition.t) ~(dest : Variable.t) (v : Variab
         | None -> Some (More [v, act])
         | Some (More vars) -> Some (More ((v, act)::vars))
         | Some (One _) ->
-          Printf.eprintf "err %d\n%!" (Variable.uid dest);
-          failwith "erg"
-          (* Report.raise_internal_error "Cannot aggregate on valuation expression" *))
+          Report.raise_internal_error "Cannot aggregate on valuation expression")
       t.value_eqs
   in
   { t with value_eqs }
