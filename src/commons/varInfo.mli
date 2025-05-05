@@ -44,7 +44,7 @@ type kind =
   | PoolInput of { shadow : bool }
   | Intermediary
   | Computed
-  | Value of bool (* observable flag *)
+  | Value of { observable : bool; cumulative : bool }
   | Event
   | Constant
 

@@ -10,13 +10,15 @@ module Acc : sig
 
   val is_partner : Variable.t -> t -> bool
 
+  val is_linear : Variable.t -> t -> bool
+
   val add_program_decl : t -> contextualized declaration -> t
 
   val register_input : t -> string -> ValueType.t -> input_kind -> t * Variable.t
 
   val register_pool : t -> string -> computed:bool -> t * Variable.t
 
-  val register_value : t -> string -> obs:bool -> t * Variable.t
+  val register_value : t -> string -> obs:bool -> linear:bool -> t * Variable.t
 
   val register_actor : t -> string -> t
 
@@ -82,6 +84,7 @@ end = struct
     compounds : Variable.Set.t Variable.Map.t; (* Aggregations of actor labels *)
     constants : Literal.t Variable.Map.t;
     constraints : context_constraint Variable.Map.t;
+    linearity : bool Variable.Map.t;
     deps : Variable.Set.t Variable.Map.t; (* maps src -> dests, for cycle detections *)
   }
 
@@ -93,6 +96,7 @@ end = struct
     compounds = Variable.Map.empty;
     constants = Variable.Map.empty;
     constraints = Variable.Map.empty;
+    linearity = Variable.Map.empty;
     deps = Variable.Map.empty;
   }
 
@@ -104,6 +108,11 @@ end = struct
     | Some i -> VarInfo.is_partner i
 
   let is_constant v t = Variable.Map.mem v t.constants
+
+  let is_linear v t =
+    match Variable.Map.find_opt v t.linearity with
+    | None | Some false -> false
+    | Some true -> true
 
   let add_program_decl t (decl : contextualized declaration) =
     { t with program_decls = decl::t.program_decls }
@@ -132,6 +141,9 @@ end = struct
   let bind_vinfo (v : Variable.t) (info : VarInfo.t) t =
     { t with var_info = Variable.Map.add v info t.var_info }
 
+  let bind_linearity (v : Variable.t) (linear : bool) t =
+    { t with linearity = Variable.Map.add v linear t.linearity }
+
   let register_pool t (name : string) ~(computed : bool) =
     let v = Variable.create () in
     let info = VarInfo.{
@@ -142,18 +154,20 @@ end = struct
     in
     let t = bind_vinfo v info t in
     let t = bind_var name (RefPool v) t in
+    let t = bind_linearity v true t in
     t, v
 
-  let register_value t (name : string) ~(obs : bool) =
+  let register_value t (name : string) ~(obs : bool) ~(linear : bool) =
     let v = Variable.create () in
     let info = VarInfo.{
         origin = Named name;
         typ = TMoney;
-        kind = Value obs;
+        kind = Value { observable = obs; cumulative = not linear };
       }
     in
     let t = bind_vinfo v info t in
     let t = bind_var name (RefValue v) t in
+    let t = bind_linearity v linear t in
     t, v
 
   let register_input t (name : string) (typ : ValueType.t) (kind : input_kind) =
@@ -168,6 +182,7 @@ end = struct
       in
       let t, v = register_pool t name ~computed:false in
       let t = bind_vinfo v info t in
+      let t = bind_linearity v true t in
       t, v
     | ReadOnly ->
       let v = Variable.create () in
@@ -179,6 +194,7 @@ end = struct
       in
       let t = bind_var name (RefROInput v) t in
       let t = bind_vinfo v info t in
+      let t = bind_linearity v true t in
       t, v
 
   let register_actor t (name : string) =
@@ -190,6 +206,7 @@ end = struct
       }
     in
     let t = bind_vinfo pv info t in
+    let t = bind_linearity pv true t in
     bind_var name (RefActor (BaseActor pv)) t
     |> bind_compound pv pv
 
@@ -214,6 +231,7 @@ end = struct
       }
     in
     let t = bind_vinfo v info t in
+    let t = bind_linearity v false t in
     bind_var name (RefConst v) t
     |> bind_const v value
 
@@ -541,8 +559,14 @@ let named acc (named : named) ~(on_proj : Context.Group.t) =
   let acc = Acc.add_proj_constraint acc v proj in
   acc, (v, proj)
 
+type formula_res = {
+  acc : Acc.t;
+  formula : contextualized formula;
+  is_input_linear : bool;
+}
+
 let rec formula acc ~(for_ : Variable.t option) (f : source formula)
-    ~(on_proj : Context.Group.t) =
+    ~(on_proj : Context.Group.t) : formula_res =
   let register_for acc (v,_) =
     match for_ with
     | None -> acc
@@ -551,21 +575,44 @@ let rec formula acc ~(for_ : Variable.t option) (f : source formula)
       Acc.add_var_constraint acc v for_ on_proj
   in
   match f.formula_desc with
-  | Literal l -> acc, {f with formula_desc = Literal l}
+  | Literal l -> {
+      acc;
+      formula = { f with formula_desc = Literal l };
+      is_input_linear = false;
+    }
   | Named n ->
     let acc, v = named acc n ~on_proj in
     let acc = register_for acc v in
-    acc, {f with formula_desc = Variable v}
+    { acc;
+      formula = { f with formula_desc = Variable v };
+      is_input_linear = Acc.is_linear (fst v) acc;
+    }
   | Binop (op, f1, f2) ->
-    let acc, f1 = formula acc ~for_ f1 ~on_proj in
-    let acc, f2 = formula acc ~for_ f2 ~on_proj in
-    acc, {f with formula_desc = Binop (op, f1, f2)}
+    let { acc; formula = f1; is_input_linear = l1 } =
+      formula acc ~for_ f1 ~on_proj
+    in
+    let { acc; formula = f2; is_input_linear = l2 } =
+      formula acc ~for_ f2 ~on_proj
+    in
+    { acc;
+      formula = { f with formula_desc = Binop (op, f1, f2) };
+      is_input_linear =
+        match op with
+        | Add | Sub -> l1 && l2
+        | Mult | Div -> l1 || l2;
+    }
   | Total f ->
-    let acc, f = formula acc ~for_ f ~on_proj in
-    acc, {f with formula_desc = Total f}
+    let { acc; formula; is_input_linear = _ } = formula acc ~for_ f ~on_proj in
+    { acc;
+      formula = { formula with formula_desc = Total formula };
+      is_input_linear = false;
+    }
   | Instant f ->
-    let acc, f = formula acc ~for_ f ~on_proj in
-    acc, {f with formula_desc = Instant f}
+    let { acc; formula; is_input_linear } = formula acc ~for_ f ~on_proj in
+    { acc;
+      formula = { formula with formula_desc = Instant formula };
+      is_input_linear;
+    }
 
 let rec event_expr acc (e : source event_expr) ~(on_proj : Context.Group.t) =
   match e.event_expr_desc with
@@ -573,8 +620,8 @@ let rec event_expr acc (e : source event_expr) ~(on_proj : Context.Group.t) =
     let v = Acc.find_event acc name in
     acc, {e with event_expr_desc = EventVar v}
   | EventComp (op, f1, f2) ->
-    let acc, f1 = formula acc ~for_:None f1 ~on_proj in
-    let acc, f2 = formula acc ~for_:None f2 ~on_proj in
+    let { acc; formula = f1; _ } = formula acc ~for_:None f1 ~on_proj in
+    let { acc; formula = f2; _ } = formula acc ~for_:None f2 ~on_proj in
     acc, {e with event_expr_desc = EventComp (op, f1, f2)}
   | EventConj (e1, e2) ->
     let acc, e1 = event_expr acc e1 ~on_proj in
@@ -587,7 +634,9 @@ let rec event_expr acc (e : source event_expr) ~(on_proj : Context.Group.t) =
 
 let opposable acc ~(on_proj : Context.Group.t)
     (HolderOpp { opp_value; opp_provider; opp_towards } : source opposable) =
-  let acc, opp_value = formula acc ~for_:None opp_value ~on_proj in
+  let { acc; formula = opp_value; _ } =
+    formula acc ~for_:None opp_value ~on_proj
+  in
   let acc, opp_provider =
     find_holder_as_source acc
       (holder ~loc:opp_provider.actor_loc (Actor opp_provider))
@@ -599,27 +648,30 @@ let opposable acc ~(on_proj : Context.Group.t)
   in
   acc, VarOpp { opp_value; opp_provider; opp_towards }
 
-let redistribution acc ~(for_ : Variable.t option) (redist : source redistribution) ~(on_proj : Context.Group.t) =
+let redistribution acc ~(for_ : Variable.t option) (redist : source redistribution)
+    ~(on_proj : Context.Group.t) ~(when_guarded : bool) =
   match redist.redistribution_desc with
   | Part (f, opposables) ->
-    let acc, f = formula acc ~for_ f ~on_proj in
+    let { acc; formula; _ } = formula acc ~for_ f ~on_proj in
     let acc, opposables = List.fold_left_map (opposable ~on_proj) acc opposables in
-    acc, {redist with redistribution_desc = Part (f, opposables)}
+    acc, { redist with redistribution_desc = Part (formula, opposables) }
   | Flat f ->
-    let acc, f = formula acc ~for_ f ~on_proj in
-    acc, {redist with redistribution_desc = Flat f}
+    let { acc; formula; is_input_linear } = formula acc ~for_ f ~on_proj in
+    if not (when_guarded || is_input_linear) then
+      Report.raise_nonlinear_error ~loc:formula.formula_loc ();
+    acc, { redist with redistribution_desc = Flat formula }
   | Retrocession (f, p) ->
     (* syntactic sugar *)
     let left_operand = f in
     let right_operand = Surface.Ast.formula (Named (Surface.Ast.named (Holder p))) in
     let f = Surface.Ast.formula (Binop (Mult, left_operand, right_operand)) in
-    let acc, f = formula acc ~for_ f ~on_proj in
-    acc, {redist with redistribution_desc = Flat f}
+    let { acc; formula; _ } = formula acc ~for_ f ~on_proj in
+    acc, { redist with redistribution_desc = Flat formula }
   | Default -> acc, { redist with redistribution_desc = Default }
 
 let redist_with_dest ~(src : Variable.t) ~(default_dest : Variable.t option)
     acc (WithHolder (redist, dest) : source redistrib_with_dest)
-    ~(on_proj : Context.Group.t) =
+    ~(on_proj : Context.Group.t) ~(when_guarded : bool) =
   let acc, dest = destination_opt acc dest in
   let acc =
     match dest with
@@ -634,25 +686,27 @@ let redist_with_dest ~(src : Variable.t) ~(default_dest : Variable.t option)
     in
     Option.bind o (fun d -> if Acc.is_partner d acc then None else Some d)
   in
-  let acc, redist = redistribution ~for_ acc redist ~on_proj in
+  let acc, redist = redistribution ~for_ acc redist ~on_proj ~when_guarded in
   let redist_wd = WithVar (redist, dest) in
   acc, redist_wd
 
 let rec guarded_obj :
   type src_obj ctx_obj. Acc.t
-  -> (Acc.t -> src_obj -> on_proj:Context.Group.t -> Acc.t * ctx_obj)
+  -> (Acc.t -> src_obj -> on_proj:Context.Group.t -> when_guarded:bool
+      -> Acc.t * ctx_obj)
   -> (source, src_obj) guarded_redistrib -> on_proj:Context.Group.t
+  -> when_guarded:bool
   -> Acc.t * (contextualized, ctx_obj) guarded_redistrib =
-  fun acc obj_process obj ~on_proj ->
+  fun acc obj_process obj ~on_proj ~when_guarded ->
   match obj with
   | Atom a ->
-    let acc, ctx_obj = obj_process acc a ~on_proj in
+    let acc, ctx_obj = obj_process acc a ~on_proj ~when_guarded in
     acc, Atom ctx_obj
   | Branches { befores; afters } ->
     let acc, befores =
       List.fold_left_map (fun acc (c, r) ->
           let acc, cond = event_expr acc c ~on_proj in
-          let acc, g_redist = guarded_obj acc obj_process r ~on_proj in
+          let acc, g_redist = guarded_obj acc obj_process r ~on_proj ~when_guarded in
           acc, (cond, g_redist)
         )
         acc befores
@@ -660,7 +714,7 @@ let rec guarded_obj :
     let acc, afters =
       List.fold_left_map (fun acc (c, r) ->
           let acc, cond = event_expr acc c ~on_proj in
-          let acc, g_redist = guarded_obj acc obj_process r ~on_proj in
+          let acc, g_redist = guarded_obj acc obj_process r ~on_proj ~when_guarded in
           acc, (cond, g_redist)
         )
         acc afters
@@ -670,7 +724,9 @@ let rec guarded_obj :
     let acc, redists =
       List.fold_left_map (fun acc (c, r) ->
           let acc, cond = event_expr acc c ~on_proj in
-          let acc, g_redist = guarded_obj acc obj_process r ~on_proj in
+          let acc, g_redist =
+            guarded_obj acc obj_process r ~on_proj ~when_guarded:true
+          in
           acc, (cond, g_redist)
         )
         acc gs
@@ -685,17 +741,20 @@ let operation acc (op : operation_decl) =
     projection_of_context_selector acc op.op_context
   in
   let acc, default_dest = destination_opt acc op.op_default_dest in
-  let redist_process acc rs ~on_proj =
+  let redist_process acc rs ~on_proj ~when_guarded =
     List.fold_left_map (fun acc r ->
         let acc, red_wd =
-          redist_with_dest ~src ~default_dest:(Option.map fst default_dest) acc r ~on_proj
+          redist_with_dest ~src ~default_dest:(Option.map fst default_dest)
+            acc r ~on_proj ~when_guarded
         in
         acc, red_wd
       )
       acc rs
   in
   let source = Acc.project_var acc src on_proj in
-  let acc, g_redist = guarded_obj acc redist_process op.op_guarded_redistrib ~on_proj in
+  let acc, g_redist =
+    guarded_obj acc redist_process op.op_guarded_redistrib ~on_proj ~when_guarded:false
+  in
   let acc =
     match default_dest with
     | None -> acc
@@ -740,7 +799,14 @@ let comp_pool acc (p : comp_pool_decl) =
   in
   let acc = Acc.add_proj_constraint acc pool on_proj in
   let acc, g_redist =
-    guarded_obj acc (formula ~for_:(Some pool)) p.comp_pool_guarded_value ~on_proj
+    guarded_obj acc (fun acc f ~on_proj ~when_guarded ->
+        let { acc; formula; is_input_linear } =
+          formula acc ~for_:(Some pool) f ~on_proj
+        in
+        if not ( when_guarded || is_input_linear) then
+          Report.raise_nonlinear_error ~loc:formula.formula_loc ();
+        acc, formula)
+      p.comp_pool_guarded_value ~on_proj ~when_guarded:false
   in
   acc,
   {
@@ -751,13 +817,14 @@ let comp_pool acc (p : comp_pool_decl) =
 let value acc (v : val_decl) =
   let obs = v.val_observable in
   let on_proj = Context.any_projection (Acc.contexts acc) in
-  let acc, var = Acc.register_value acc v.val_name ~obs in
-  let acc, f = formula acc ~for_:None v.val_formula ~on_proj in
+  let { acc; formula; is_input_linear } = formula acc ~for_:None v.val_formula ~on_proj in
+  let acc, var = Acc.register_value acc v.val_name ~obs ~linear:is_input_linear in
   acc,
   {
     ctx_val_var = var, on_proj;
-    ctx_val_formula = f;
+    ctx_val_formula = formula;
     ctx_val_observable = obs;
+    ctx_val_linear = is_input_linear;
   }
 
 let declaration acc (decl : source declaration) =

@@ -175,11 +175,13 @@ let build_result_layout (pinfos : ProgramInfo.t) =
         match infos.origin with
         | Named name ->
           (match infos.kind with
-           | Event | Constant | Value false -> layout, variants
-           | Value true ->
-             update (fun l -> {
-                   l with display_name = name;
-                          computed = Variable.Set.add v l.computed;
+           | Event | Constant | Value { observable = false; _ } -> layout, variants
+           | Value { cumulative = true; _ } ->
+             update (fun l ->
+                 { l with
+                   display_name = name;
+                   cumulated = Some v;
+                   computed = Variable.Set.add v l.computed;
                  }),
              variants
            | _ -> update (fun l -> { l with display_name = name }), variants)
@@ -343,7 +345,7 @@ let filter_of_norm_mode (info : ProgramInfo.t) (mode : norm_mode) =
               Variable.Set.add v (Variable.Set.remove origin partners)
             else partners
           | OppositionDelta _, _
-          | _, (Partner | Value true) ->
+          | _, (Partner | Value { observable = true; _}) ->
             Variable.Set.add v partners
           | Cumulative s, _ ->
             (match (Variable.Map.find s info.var_info).origin with
@@ -395,7 +397,9 @@ let merge_valuations (info : ProgramInfo.t)
     (val1 : value_presence Variable.Map.t) (val2 : value_presence Variable.Map.t) =
   Variable.Map.merge (fun v p1 p2 ->
       let vinfo = Variable.Map.find v info.var_info in
-      if vinfo.kind = Constant then p2 else
+      match vinfo.kind with
+      | Constant | Value { cumulative = true; _ } -> p2
+      | _ ->
         match p1, p2 with
         | None, None -> None
         | Some p, None | None, Some p -> Some p

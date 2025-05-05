@@ -130,9 +130,9 @@ let get_cumulation_var t (v : Variable.t) =
   match Variable.Map.find_opt v t.cumulation_vars with
   | Some v -> t, v
   | None ->
-    let vinfo = Variable.Map.find v t.pinfos.var_info in
-    if vinfo.kind = Constant then t, v else
-      create_cumulation t v
+    match (Variable.Map.find v t.pinfos.var_info).kind with
+    | Constant | Value { cumulative = true; _ } -> t, v
+    | _ -> create_cumulation t v
 
 let ensure_cumulation t (v : Variable.t) =
   fst @@ get_cumulation_var t v
@@ -258,6 +258,17 @@ let register_aggregation t ~(act : Condition.t) ~(dest : Variable.t) (v : Variab
   { t with value_eqs }
 
 let register_value t ~(act : Condition.t) ~(dest : Variable.t) (expr : expr) =
+  let ge = { eq_act = act; eq_expr = expr } in
+  let value_eqs =
+    Variable.Map.update dest (function
+        | None -> Some (One ge)
+        | Some _ ->
+          Report.raise_internal_error "Cannot register valuation on aggregation")
+      t.value_eqs
+  in
+  { t with value_eqs; }
+
+let register_cumulated_value t ~(act : Condition.t) ~(dest : Variable.t) (expr : expr) =
   let ge = { eq_act = act; eq_expr = expr } in
   let value_eqs =
     Variable.Map.update dest (function
@@ -978,12 +989,14 @@ let translate_deficit acc (d : Ast.ctx_deficit_decl) =
     acc pool_local_shape
 
 let translate_value acc (v : Ast.ctx_val_decl) =
-  let var_local_shape = shape_of_ctx_var acc v.ctx_val_var in
-  Context.shape_fold (fun acc ctx ->
-      let acc, var = Acc.get_derivative_var acc (fst v.ctx_val_var) ctx in
-      let acc, f = translate_formula acc ~ctx ~view:AtInstant v.ctx_val_formula in
-      Acc.register_value acc ~act:Condition.always ~dest:var (fst f))
-    acc var_local_shape
+  let var, ctx = v.ctx_val_var in
+  if v.ctx_val_linear then
+    let acc, f = translate_formula acc ~ctx ~view:AtInstant v.ctx_val_formula in
+    let acc = Acc.register_value acc ~act:Condition.always ~dest:var (fst f) in
+    Acc.ensure_cumulation acc var
+  else
+    let acc, f = translate_formula acc ~ctx ~view:Cumulated v.ctx_val_formula in
+    Acc.register_cumulated_value acc ~act:Condition.always ~dest:var (fst f)
 
 let translate_declaration acc (decl : Ast.contextualized Ast.declaration) =
   match decl with
