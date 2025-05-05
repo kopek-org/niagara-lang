@@ -240,6 +240,7 @@ type ctx_val_decl = {
   ctx_val_var : contextualized_variable;
   ctx_val_formula : contextualized formula;
   ctx_val_observable : bool;
+  ctx_val_linear : bool;
 }
 
 type _ declaration =

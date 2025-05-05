@@ -7,7 +7,6 @@
   1: ++ no events:
        - entrees { 200, 200 }:
          - entrees(France) { 200, 200 }:
-           100000 -> rbd(France)
          
        - rbd { 100000, 100000 }:
          - rbd(France) { 100000, 100000 }:
@@ -23,7 +22,6 @@
      ++ after event seuil :
        - entrees { 9800, 10000 }:
          - entrees(France) { 9800, 10000 }:
-           4900000 -> rbd(France)
          
        - rbd { 4900000, 5000000 }:
          - rbd(France) { 4900000, 5000000 }:
@@ -34,13 +32,12 @@
          default 3920000 -> prod
        - distrib { 980000, 990000 }:
        - prod { 3920000, 4010000 }:
-       - palier { 3910000, 3990000 }:
+       - palier { 4000000, 4000000 }:
        
      
   2: ++ no events:
        - entrees { 20000, 30000 }:
          - entrees(Etranger) { 20000, 20000 }:
-           20000000 -> rbd(Etranger)
          
        - rbd { 20000000, 25000000 }:
          - rbd(Etranger) { 20000000, 20000000 }:
@@ -51,6 +48,6 @@
          default 16000000 -> prod
        - distrib { 4000000, 4990000 }:
        - prod { 16000000, 20010000 }:
-       - palier { 15990000, 19980000 }:
+       - palier { 20000000, 20000000 }:
        
      

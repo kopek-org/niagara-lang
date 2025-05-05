@@ -11,6 +11,7 @@ type error = private
   | UnknownIdentifier of { loc : Pos.t; id : string; kind : id_kind }
   | MultipleDefRep of { pool : Variable.t }
   | Typing of { loc : Pos.t }
+  | ForbiddenNonLinear of { loc : Pos.t }
   | User of { locs : Pos.t list; msg : string }
 
 val print_error : ProgramInfo.t -> Format.formatter -> error -> unit
@@ -44,6 +45,8 @@ val raise_multiple_def_rep_error : ProgramInfo.t -> Variable.t -> 'a
 val raise_missing_dest_error : unit -> 'a
 
 val raise_typing_error : ?loc:Pos.t -> unit -> 'a
+
+val raise_nonlinear_error : ?loc:Pos.t -> unit -> 'a
 
 val raise_unknown_id_error : ?loc:Pos.t -> string -> id_kind -> 'a
 
