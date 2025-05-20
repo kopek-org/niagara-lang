@@ -97,11 +97,6 @@ let create_var_from t ?(shadowing=false) (ov : Variable.t)
 
 let contexts t = t.pinfos.contexts
 
-let type_of t v =
-  match Variable.Map.find_opt v t.pinfos.var_info with
-  | Some vinfo -> vinfo.typ
-  | None -> Report.raise_internal_error "Cannot find type of variable"
-
 let is_actor t (v : Variable.t) =
   match Variable.Map.find_opt v t.pinfos.var_info with
   | None -> false
@@ -737,48 +732,7 @@ let aggregate_vars acc ~view (vars : Variable.t list) =
         acc, EAdd (e, EVar v))
       (acc, EVar v) vs
 
-let translate_binop (op : Ast.binop)
-    (e1, t1 : expr * ValueType.t)
-    (e2, t2 : expr * ValueType.t) =
-  let typ =
-    match op, t1, t2 with
-    | Add, TInteger, TInteger
-    | Sub, TInteger, TInteger
-    | Mult, TInteger, TInteger
-    | Div, TInteger, TInteger -> ValueType.TInteger
-    | Add, TInteger, TRational
-    | Add, TRational, TInteger
-    | Add, TRational, TRational
-    | Sub, TInteger, TRational
-    | Sub, TRational, TInteger
-    | Sub, TRational, TRational
-    | Mult, TInteger, TRational
-    | Mult, TRational, TInteger
-    | Mult, TRational, TRational
-    | Div, TInteger, TRational
-    | Div, TRational, TInteger
-    | Div, TRational, TRational -> ValueType.TRational
-    | Add, TMoney, TMoney
-    | Sub, TMoney, TMoney
-    | Mult, TMoney, TInteger
-    | Mult, TMoney, TRational
-    | Mult, TInteger, TMoney
-    | Mult, TRational, TMoney
-    | Div, TMoney, TInteger
-    | Div, TMoney, TRational -> ValueType.TMoney
-    | Add, TDate, TDuration
-    | Add, TDuration, TDate
-    | Sub, TDate, TDuration -> ValueType.TDate
-    | Add, TDuration, TDuration
-    | Sub, TDuration, TDuration
-    | Mult, TDuration, TInteger
-    | Mult, TDuration, TRational
-    | Mult, TInteger, TDuration
-    | Mult, TRational, TDuration
-    | Div, TDuration, TInteger
-    | Div, TDuration, TRational -> ValueType.TDuration
-    | _ -> Report.raise_typing_error ()
-  in
+let translate_binop (op : Ast.binop) (e1 : expr) (e2 : expr) =
   let expr =
     match op with
     | Add -> EAdd (e1, e2)
@@ -786,14 +740,13 @@ let translate_binop (op : Ast.binop)
     | Mult -> EMult (e1, e2)
     | Div -> EMult (e1, EInv e2)
   in
-  expr, typ
+  expr
 
 let rec translate_formula acc ~(ctx : Context.Group.t) ~(view : flow_view)
     (f : Ast.contextualized Ast.formula) =
   match f.formula_desc with
-  | Literal l -> acc, (EConst l, Literal.type_of l)
+  | Literal l -> acc, EConst l
   | Variable (v, proj) ->
-    let t = Acc.type_of acc v in
     let proj = resolve_projection_context ~context:ctx ~refinement:proj in
     let acc, vs = Acc.derive_ctx_variables ~mode:Strict acc v proj in
     let vs = match vs with
@@ -801,7 +754,7 @@ let rec translate_formula acc ~(ctx : Context.Group.t) ~(view : flow_view)
       | ContextVar vs -> vs
     in
     let acc, f = aggregate_vars acc ~view vs in
-    acc, (f, t)
+    acc, f
   | Binop (op, f1, f2) ->
     let acc, e1 = translate_formula ~ctx acc ~view f1 in
     let acc, e2 = translate_formula ~ctx acc ~view f2 in
@@ -814,8 +767,8 @@ let rec translate_event acc (eexpr : Ast.contextualized Ast.event_expr) =
   | EventVar v -> acc, EVar v
   | EventComp (Eq, f1, f2) ->
     let ctx = Context.any_projection (Acc.contexts acc) in
-    let acc, (e1, _) = translate_formula ~ctx ~view:Cumulated acc f1 in
-    let acc, (e2, _) = translate_formula ~ctx ~view:Cumulated acc f2 in
+    let acc, e1= translate_formula ~ctx ~view:Cumulated acc f1 in
+    let acc, e2 = translate_formula ~ctx ~view:Cumulated acc f2 in
     acc, EGe (e1, e2)
   | EventConj (e1, e2) ->
     let acc, e1 = translate_event acc e1 in
@@ -838,7 +791,7 @@ let translate_redistribution ~(trigger : Variable.t option) ~(label : string opt
   in
   match redist.redistribution_desc with
   | Part (f, opp) ->
-    let acc, (partf, _) = translate_formula ~ctx ~view:AtInstant acc f in
+    let acc, partf = translate_formula ~ctx ~view:AtInstant acc f in
     let part =
       match reduce_to_r partf with
       | Some p -> p
@@ -846,7 +799,7 @@ let translate_redistribution ~(trigger : Variable.t option) ~(label : string opt
     in
     let acc, opps =
       List.fold_left_map (fun acc (Ast.VarOpp { opp_towards; opp_value; _ }) ->
-          let acc, (partf, _) = translate_formula ~ctx ~view:AtInstant acc opp_value in
+          let acc, partf = translate_formula ~ctx ~view:AtInstant acc opp_value in
           let opp_part =
             match reduce_to_r partf with
             | Some p -> p
@@ -857,7 +810,7 @@ let translate_redistribution ~(trigger : Variable.t option) ~(label : string opt
     in
     Acc.register_redist ~label acc ~act ~src ~dest part opps
   | Flat f ->
-    let acc, (e, _) = translate_formula ~ctx ~view:AtInstant acc f in
+    let acc, e = translate_formula ~ctx ~view:AtInstant acc f in
     Acc.register_flat ~trigger ~label acc ~act ~src ~dest e
   | Default -> Acc.register_default ~label acc ~act ~src ~dest
 
@@ -952,7 +905,7 @@ let translate_comp_pool acc (p : Ast.ctx_comp_pool_decl) =
   Context.shape_fold (fun acc ctx ->
       let acc, pool = Acc.get_derivative_var acc (fst p.ctx_comp_pool_var) ctx in
       let formula_process acc ~trigger ~ctx ~act f =
-        let acc, (e, _) = translate_formula ~ctx ~view:AtInstant acc f in
+        let acc, e = translate_formula ~ctx ~view:AtInstant acc f in
         Acc.register_comp_val ~trigger acc ~act ~dest:pool e
       in
       translate_guarded_obj acc formula_process ~trigger:None
@@ -992,11 +945,11 @@ let translate_value acc (v : Ast.ctx_val_decl) =
   let var, ctx = v.ctx_val_var in
   if v.ctx_val_linear then
     let acc, f = translate_formula acc ~ctx ~view:AtInstant v.ctx_val_formula in
-    let acc = Acc.register_value acc ~act:Condition.always ~dest:var (fst f) in
+    let acc = Acc.register_value acc ~act:Condition.always ~dest:var f in
     Acc.ensure_cumulation acc var
   else
     let acc, f = translate_formula acc ~ctx ~view:Cumulated v.ctx_val_formula in
-    Acc.register_cumulated_value acc ~act:Condition.always ~dest:var (fst f)
+    Acc.register_cumulated_value acc ~act:Condition.always ~dest:var f
 
 let translate_declaration acc (decl : Ast.contextualized Ast.declaration) =
   match decl with

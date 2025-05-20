@@ -12,13 +12,21 @@ module Acc : sig
 
   val is_linear : Variable.t -> t -> bool
 
+  val type_of : Variable.t -> t -> ValueType.t
+
   val add_program_decl : t -> contextualized declaration -> t
 
   val register_input : t -> string -> ValueType.t -> input_kind -> t * Variable.t
 
   val register_pool : t -> string -> computed:bool -> t * Variable.t
 
-  val register_value : t -> string -> obs:bool -> linear:bool -> t * Variable.t
+  val register_value :
+    t ->
+    string ->
+    obs:bool ->
+    linear:bool ->
+    typ:ValueType.t ->
+    t * Variable.t
 
   val register_actor : t -> string -> t
 
@@ -114,6 +122,12 @@ end = struct
     | None | Some false -> false
     | Some true -> true
 
+  let type_of v t =
+    match Variable.Map.find_opt v t.var_info with
+    | None ->
+      Report.raise_internal_error "No info for variable %d" (Variable.uid v)
+    | Some { typ; _ } -> typ
+
   let add_program_decl t (decl : contextualized declaration) =
     { t with program_decls = decl::t.program_decls }
 
@@ -157,11 +171,12 @@ end = struct
     let t = bind_linearity v true t in
     t, v
 
-  let register_value t (name : string) ~(obs : bool) ~(linear : bool) =
+  let register_value t (name : string) ~(obs : bool)
+      ~(linear : bool) ~(typ : ValueType.t) =
     let v = Variable.create () in
     let info = VarInfo.{
         origin = Named name;
-        typ = TMoney;
+        typ;
         kind = Value { observable = obs; cumulative = not linear };
       }
     in
@@ -562,8 +577,48 @@ let named acc (named : named) ~(on_proj : Context.Group.t) =
 type formula_res = {
   acc : Acc.t;
   formula : contextualized formula;
+  typ : ValueType.t;
   is_input_linear : bool;
 }
+
+let binop_typ (op : Surface.Ast.binop) (t1 : ValueType.t) (t2 : ValueType.t) =
+  match op, t1, t2 with
+  | Add, TInteger, TInteger
+  | Sub, TInteger, TInteger
+  | Mult, TInteger, TInteger
+  | Div, TInteger, TInteger -> ValueType.TInteger
+  | Add, TInteger, TRational
+  | Add, TRational, TInteger
+  | Add, TRational, TRational
+  | Sub, TInteger, TRational
+  | Sub, TRational, TInteger
+  | Sub, TRational, TRational
+  | Mult, TInteger, TRational
+  | Mult, TRational, TInteger
+  | Mult, TRational, TRational
+  | Div, TInteger, TRational
+  | Div, TRational, TInteger
+  | Div, TRational, TRational -> ValueType.TRational
+  | Add, TMoney, TMoney
+  | Sub, TMoney, TMoney
+  | Mult, TMoney, TInteger
+  | Mult, TMoney, TRational
+  | Mult, TInteger, TMoney
+  | Mult, TRational, TMoney
+  | Div, TMoney, TInteger
+  | Div, TMoney, TRational -> ValueType.TMoney
+  | Add, TDate, TDuration
+  | Add, TDuration, TDate
+  | Sub, TDate, TDuration -> ValueType.TDate
+  | Add, TDuration, TDuration
+  | Sub, TDuration, TDuration
+  | Mult, TDuration, TInteger
+  | Mult, TDuration, TRational
+  | Mult, TInteger, TDuration
+  | Mult, TRational, TDuration
+  | Div, TDuration, TInteger
+  | Div, TDuration, TRational -> ValueType.TDuration
+  | _ -> Report.raise_typing_error ()
 
 let rec formula acc ~(for_ : Variable.t option) (f : source formula)
     ~(on_proj : Context.Group.t) : formula_res =
@@ -579,6 +634,7 @@ let rec formula acc ~(for_ : Variable.t option) (f : source formula)
       acc;
       formula = { f with formula_desc = Literal l };
       is_input_linear = false;
+      typ = Literal.type_of l;
     }
   | Named n ->
     let acc, v = named acc n ~on_proj in
@@ -586,15 +642,17 @@ let rec formula acc ~(for_ : Variable.t option) (f : source formula)
     { acc;
       formula = { f with formula_desc = Variable v };
       is_input_linear = Acc.is_linear (fst v) acc;
+      typ = Acc.type_of (fst v) acc;
     }
   | Binop (op, f1, f2) ->
-    let { acc; formula = f1; is_input_linear = l1 } =
+    let { acc; formula = f1; is_input_linear = l1; typ = t1 } =
       formula acc ~for_ f1 ~on_proj
     in
-    let { acc; formula = f2; is_input_linear = l2 } =
+    let { acc; formula = f2; is_input_linear = l2; typ = t2 } =
       formula acc ~for_ f2 ~on_proj
     in
-    { acc;
+    let typ = binop_typ op t1 t2 in
+    { acc; typ;
       formula = { f with formula_desc = Binop (op, f1, f2) };
       is_input_linear =
         match op with
@@ -602,14 +660,16 @@ let rec formula acc ~(for_ : Variable.t option) (f : source formula)
         | Mult | Div -> l1 || l2;
     }
   | Total f ->
-    let { acc; formula; is_input_linear = _ } = formula acc ~for_ f ~on_proj in
-    { acc;
+    let { acc; formula; is_input_linear = _; typ } =
+      formula acc ~for_ f ~on_proj
+    in
+    { acc; typ;
       formula = { formula with formula_desc = Total formula };
       is_input_linear = false;
     }
   | Instant f ->
-    let { acc; formula; is_input_linear } = formula acc ~for_ f ~on_proj in
-    { acc;
+    let { acc; formula; is_input_linear; typ } = formula acc ~for_ f ~on_proj in
+    { acc; typ;
       formula = { formula with formula_desc = Instant formula };
       is_input_linear;
     }
@@ -656,7 +716,8 @@ let redistribution acc ~(for_ : Variable.t option) (redist : source redistributi
     let acc, opposables = List.fold_left_map (opposable ~on_proj) acc opposables in
     acc, { redist with redistribution_desc = Part (formula, opposables) }
   | Flat f ->
-    let { acc; formula; is_input_linear } = formula acc ~for_ f ~on_proj in
+    let { acc; formula; is_input_linear; typ } = formula acc ~for_ f ~on_proj in
+    if typ <> ValueType.TMoney then Report.raise_typing_error ();
     if not (when_guarded || is_input_linear) then
       Report.raise_nonlinear_error ~loc:formula.formula_loc ();
     acc, { redist with redistribution_desc = Flat formula }
@@ -800,9 +861,10 @@ let comp_pool acc (p : comp_pool_decl) =
   let acc = Acc.add_proj_constraint acc pool on_proj in
   let acc, g_redist =
     guarded_obj acc (fun acc f ~on_proj ~when_guarded ->
-        let { acc; formula; is_input_linear } =
+        let { acc; formula; is_input_linear; typ } =
           formula acc ~for_:(Some pool) f ~on_proj
         in
+        if typ <> ValueType.TMoney then Report.raise_typing_error ();
         if not ( when_guarded || is_input_linear) then
           Report.raise_nonlinear_error ~loc:formula.formula_loc ();
         acc, formula)
@@ -817,8 +879,12 @@ let comp_pool acc (p : comp_pool_decl) =
 let value acc (v : val_decl) =
   let obs = v.val_observable in
   let on_proj = Context.any_projection (Acc.contexts acc) in
-  let { acc; formula; is_input_linear } = formula acc ~for_:None v.val_formula ~on_proj in
-  let acc, var = Acc.register_value acc v.val_name ~obs ~linear:is_input_linear in
+  let { acc; formula; is_input_linear; typ } =
+    formula acc ~for_:None v.val_formula ~on_proj
+  in
+  let acc, var =
+    Acc.register_value acc v.val_name ~obs ~linear:is_input_linear ~typ
+  in
   acc,
   {
     ctx_val_var = var, on_proj;
