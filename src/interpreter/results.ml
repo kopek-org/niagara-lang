@@ -176,11 +176,11 @@ let build_result_layout (pinfos : ProgramInfo.t) =
         | Named name ->
           (match infos.kind with
            | Event | Constant | Value { observable = false; _ } -> layout, variants
-           | Value { cumulative = true; _ } ->
+           | Value { cumulative; _ } ->
              update (fun l ->
                  { l with
                    display_name = name;
-                   cumulated = Some v;
+                   cumulated = if cumulative then Some v else l.cumulated;
                    computed = Variable.Set.add v l.computed;
                  }),
              variants
@@ -383,7 +383,9 @@ let filter_of_norm_mode (info : ProgramInfo.t) (mode : norm_mode) =
           | _ -> Variable.Set.mem v ps.relevant_vars
         in
         if not partner_display && VarInfo.is_partner vinfo then false
-        else variant_check vinfo.origin
+        else match vinfo.kind with
+          | Value { observable = true; _ } -> true
+          | _ -> variant_check vinfo.origin
       in
       org_check, line_filter
 
