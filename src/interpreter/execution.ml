@@ -351,7 +351,10 @@ let init_state (p : program) =
       p.infos.constants vals
   in
   {
-    events = init_map p.act_eqs false;
+    (* Setting events to passed is a hack to avoid Raising event to
+       trigger at the very first step. Works because the first thing
+       computed at each steps are events. *)
+    events = init_map p.act_eqs true;
     valuations =
       init_map p.val_eqs (Present Value.zero)
       |> const_init;
