@@ -34,6 +34,7 @@ let rec print_item ?(close=true) infos fmt layout step (item : Results.top_item)
               let name =
                 match Variable.Map.find_opt dest layout with
                 | Some (Results.Top item | Detail item) -> item.display_name
+                | Some (Results.Flat item) -> item.flat_name
                 | Some (Super item) -> item.super_item.display_name
                 | None ->
                   match VarInfo.get_name infos dest with
@@ -71,6 +72,22 @@ let rec print_item ?(close=true) infos fmt layout step (item : Results.top_item)
        if List.length defaults > 0 then
          fprintf fmt "@,%a"
            (pp_print_list print_default) defaults;
+       if close then pp_close_box fmt ();
+       true)
+  | Flat item ->
+    (match find_step_value item.value step with
+     | Absent -> false
+     | Present value ->
+       fprintf fmt "@[<v 2>- %s : %a -> %a"
+         item.flat_name
+         Value.human_print value
+         (fun fmt target ->
+            Variable.Map.find_opt target layout
+            |> Option.iter (function
+                | Results.Top i | Detail i | Super { super_item = i; _ } ->
+                  fprintf fmt "%s" i.display_name
+                | Flat _ -> assert false))
+         item.target;
        if close then pp_close_box fmt ();
        true)
   | Super item ->

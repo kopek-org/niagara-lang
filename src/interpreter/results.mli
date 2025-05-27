@@ -13,6 +13,13 @@ type item_result_layout = {
   (* computation of item value *)
 }
 
+type flat_item = {
+  flat_name : string;
+  value : Variable.t;
+  trigger : Variable.t option;
+  target : Variable.t;
+}
+
 type super_item_layout = {
   super_item : item_result_layout;
   (* aggregation values item *)
@@ -27,6 +34,8 @@ type top_item =
   (* non aggregate value items *)
   | Detail of item_result_layout
   (* aggregation details, not to be displayed at toplevel *)
+  | Flat of flat_item
+  (* triggered value item *)
 
 type results_layout = top_item Variable.Map.t
 

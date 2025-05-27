@@ -15,6 +15,13 @@ type item_result_layout = {
   (* computation of item value *)
 }
 
+type flat_item = {
+  flat_name : string;
+  value : Variable.t;
+  trigger : Variable.t option;
+  target : Variable.t;
+}
+
 type super_item_layout = {
   super_item : item_result_layout;
   (* aggregation values item *)
@@ -29,6 +36,8 @@ type top_item =
   (* non aggregate value items *)
   | Detail of item_result_layout
   (* aggregation details, not to be displayed at toplevel *)
+  | Flat of flat_item
+  (* triggered value item *)
 
 type results_layout = top_item Variable.Map.t
 
@@ -41,6 +50,24 @@ let dummy_detail v = {
   computed = Variable.Set.empty;
 }
 
+let dummy_trigger v tr ta = {
+  flat_name = "%no_name%";
+  value = v;
+  trigger = tr;
+  target = ta;
+}
+
+let update_flat_detail (v : Variable.t) (trigger : Variable.t option)
+    (target : Variable.t) (f : flat_item -> flat_item)
+    (layout : results_layout) =
+  Variable.Map.update v (function
+      | None ->
+        let item = f (dummy_trigger v trigger target) in
+        Some (Flat item)
+      | Some (Flat item) -> Some (Flat (f item))
+      | Some _ -> assert false)
+    layout
+
 let update_detail_of ?(is_detail=false) (v : Variable.t)
     (f : item_result_layout -> item_result_layout)
     (layout : results_layout) =
@@ -52,7 +79,8 @@ let update_detail_of ?(is_detail=false) (v : Variable.t)
       | Some (Top item) ->
         if is_detail then Some (Detail (f item)) else Some (Top (f item))
       | Some (Super item) ->
-        Some (Super { item with super_item = f item.super_item }))
+        Some (Super { item with super_item = f item.super_item })
+      | Some (Flat _) -> assert false)
     layout
 
 let update_super_detail_of (super : Variable.t) (detail : Variable.t)
@@ -75,7 +103,8 @@ let update_super_detail_of (super : Variable.t) (detail : Variable.t)
             if Variable.equal super detail then Variable.Set.empty
             else Variable.Set.singleton detail
         } in
-        Some (Super super_item))
+        Some (Super super_item)
+      | Some (Flat _) -> assert false)
     layout
 
 let context_display (world : Context.world) (c : Context.Group.t) =
@@ -112,6 +141,13 @@ let variant_copy (pinfos : ProgramInfo.t) layout
         computed = Variable.Set.map variant_if_exists item.computed;
       }
       in
+      let copy_flat_item item v = {
+        flat_name = Printf.sprintf "%s @%s" item.flat_name target_name;
+        value = v;
+        trigger = Option.map variant_if_exists item.trigger;
+        target = variant_if_exists item.target;
+      }
+      in
       let update_canon_item item = {
         item with
         reps = reps_update item.reps item.reps;
@@ -131,6 +167,11 @@ let variant_copy (pinfos : ProgramInfo.t) layout
               let canon_item = update_canon_item item in
               let layout =
                 Variable.Map.add org (Detail canon_item) layout
+              in
+              layout, details
+            | Flat item ->
+              let layout =
+                Variable.Map.add org (Flat item) layout
               in
               layout, details
             | Super { super_item; super_detail_items } ->
@@ -157,6 +198,8 @@ let variant_copy (pinfos : ProgramInfo.t) layout
             | Super _ -> layout
             | Top item ->
               Variable.Map.add variant (Top (copy_item item variant)) layout
+            | Flat item ->
+              Variable.Map.add variant (Flat (copy_flat_item item variant)) layout
             | Detail item ->
               let item =
                 if Variable.Set.mem variant variant_detail_items
@@ -201,7 +244,7 @@ let build_result_layout (pinfos : ProgramInfo.t) =
                   (VarInfo.get_any_name pinfos.var_info origin)
                   ^ "(" ^ (context_display pinfos.contexts context) ^ ")"
               }), variants
-        | OperationDetail { label = _; op_kind; source; target } ->
+        | OperationDetail { label; op_kind; source; target } ->
           (match op_kind with
            | Quotepart  _ ->
              update_detail_of source (fun l ->
@@ -211,17 +254,22 @@ let build_result_layout (pinfos : ProgramInfo.t) =
                        l.reps
                  })
                layout
-           | Bonus vs ->
-             Variable.Set.fold (fun src layout ->
-                 update_detail_of src (fun l ->
-                     { l with
-                       reps = Variable.Map.update target (function
-                           | None -> Some (Variable.Set.singleton v)
-                           | Some vs -> Some (Variable.Set.add v vs))
-                           l.reps;
-                     })
-                   layout)
-               (Variable.Set.add source vs)
+           | Bonus _ ->
+             let layout =
+               update_flat_detail v None target (fun l ->
+                   { l with
+                     flat_name =
+                       Option.value label ~default:("flat bonus");
+                   })
+                 layout
+             in
+             update_detail_of source (fun l ->
+                 { l with
+                   reps = Variable.Map.update target (function
+                       | None -> Some (Variable.Set.singleton v)
+                       | Some vs -> Some (Variable.Set.add v vs))
+                       l.reps;
+                 })
                layout
            | Default _ ->
              update_detail_of source (fun l ->
@@ -237,17 +285,19 @@ let build_result_layout (pinfos : ProgramInfo.t) =
                        | Some vs -> Some (Variable.Set.add v vs))
                        l.reps })
                layout), variants
-        | TriggerOperation { label = _; source; target; trigger = _; trigger_vars } ->
-          Variable.Set.fold (fun src layout ->
-              update_detail_of src (fun l ->
-                  { l with
-                    reps = Variable.Map.update target (function
-                        | None -> Some (Variable.Set.singleton v)
-                        | Some vs -> Some (Variable.Set.add v vs))
-                        l.reps;
-                  })
-                layout)
-            (Variable.Set.add source trigger_vars)
+        | TriggerOperation { label; source = _; target; trigger; trigger_vars = _ } ->
+          let layout =
+            update_detail_of target (fun l ->
+                { l with
+                  computed = Variable.Set.add v l.computed;
+                })
+              layout
+          in
+          update_flat_detail v (Some trigger) target (fun l ->
+              { l with
+                flat_name =
+                  Option.value label ~default:("triggered bonus");
+              })
             layout, variants
         | LocalValuation { target; trigger = _; deps = _ } ->
           update_detail_of target (fun l ->
@@ -285,6 +335,7 @@ let sort_layout ~(graph : Variable.Graph.t) (layout : results_layout) =
   let max_index item =
     match item with
     | Top i | Detail i -> scc_index i.at_step
+    | Flat i -> scc_index i.value
     | Super { super_detail_items; super_item = _ } ->
       Variable.Set.fold (fun v m -> max m (scc_index v))
         super_detail_items 0
@@ -377,7 +428,7 @@ let filter_of_norm_mode (info : ProgramInfo.t) (mode : norm_mode) =
           | Peeking  _ | RisingEvent _ -> false
           | OpposingVariant { variant; _ } -> variant_check variant
           | RepartitionSum _ | DeficitSum _
-          | OperationDetail _ | OperationSum _ ->
+          | OperationDetail _ | OperationSum _ | TriggerOperation _ ->
             in_out_details && Variable.Set.mem v ps.relevant_vars
           | Cumulative v -> org_check v
           | _ -> Variable.Set.mem v ps.relevant_vars
@@ -569,6 +620,13 @@ let normalize_layout (info : ProgramInfo.t) (mode : norm_mode) (layout : results
           | Detail item ->
             let item = filter_res_item item in
             Variable.Map.add v (Detail item) nlayout, details
+          | Flat item ->
+            let nlayout =
+              if show then
+                Variable.Map.add v (Flat item) nlayout
+              else nlayout
+            in
+            nlayout, details
         in
         if show then nlayout, details else
           nlayout, Variable.Set.add v details)
