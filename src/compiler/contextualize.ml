@@ -620,6 +620,17 @@ let binop_typ (op : Surface.Ast.binop) (t1 : ValueType.t) (t2 : ValueType.t) =
   | Div, TDuration, TRational -> ValueType.TDuration
   | _ -> Report.raise_typing_error ()
 
+let comp_typ (t1 : ValueType.t) (t2 : ValueType.t) =
+  match t1, t2 with
+  | TInteger, TInteger
+  | TInteger, TRational
+  | TRational, TInteger
+  | TRational, TRational
+  | TMoney, TMoney
+  | TDate, TDate
+  | TDuration, TDuration -> ()
+  | _ -> Report.raise_typing_error ()
+
 let rec formula acc ~(for_ : Variable.t option) (f : source formula)
     ~(on_proj : Context.Group.t) : formula_res =
   let register_for acc (v,_) =
@@ -680,8 +691,13 @@ let rec event_expr acc (e : source event_expr) ~(on_proj : Context.Group.t) =
     let v = Acc.find_event acc name in
     acc, {e with event_expr_desc = EventVar v}
   | EventComp (op, f1, f2) ->
-    let { acc; formula = f1; _ } = formula acc ~for_:None f1 ~on_proj in
-    let { acc; formula = f2; _ } = formula acc ~for_:None f2 ~on_proj in
+    let { acc; formula = f1; typ = t1; _ } =
+      formula acc ~for_:None f1 ~on_proj
+    in
+    let { acc; formula = f2; typ = t2; _ } =
+      formula acc ~for_:None f2 ~on_proj
+    in
+    comp_typ t1 t2;
     acc, {e with event_expr_desc = EventComp (op, f1, f2)}
   | EventConj (e1, e2) ->
     let acc, e1 = event_expr acc e1 ~on_proj in

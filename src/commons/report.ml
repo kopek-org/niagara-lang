@@ -42,7 +42,7 @@ let print_error (pinfo : ProgramInfo.t) fmt (err : error) =
     Format.fprintf fmt "Error: Cannot have several deficit/default for pool '%s'"
       (VarInfo.get_any_name pinfo.var_info pool)
   | Typing { loc } ->
-    Format.fprintf fmt "Error, %a:@\nMismatching types for binop"
+    Format.fprintf fmt "Error, %a:@\nMismatching types"
       Pos.Text.pp loc
   | ForbiddenNonLinear { loc } ->
     Format.fprintf fmt "Error, %a:@\nNon-linear expression forbidden, \
