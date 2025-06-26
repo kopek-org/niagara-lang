@@ -7,6 +7,7 @@ type part_or_def = Part of opposable_part | Default | Deficit
 
 type 'a share = {
   label : string option;
+  main_event : VarInfo.event_loc;
   dest : Variable.t;
   part : 'a;
   condition : Condition.t;
@@ -161,7 +162,13 @@ let resolve_fullness_exn (rep : part_or_def t) =
         let condition =
           R.Map.fold (fun _p -> Condition.disj) ds Condition.never
         in
-        let share = { label = def_share.label; dest = def_share.dest; condition; part = ds } in
+        let share = {
+          label = def_share.label;
+          dest = def_share.dest;
+          condition; part = ds;
+          main_event = def_share.main_event
+        }
+        in
         parts, share::defs
       )
       (parts, []) defs.local_defaults
@@ -174,7 +181,13 @@ let resolve_fullness_exn (rep : part_or_def t) =
       let condition =
         R.Map.fold (fun _p -> Condition.disj) ds Condition.never
       in
-      let gd_share = { label = share.label; dest = share.dest; condition; part = ds } in
+      let gd_share =
+        { label = share.label;
+          dest = share.dest;
+          condition;
+          part = ds;
+          main_event = share.main_event
+        } in
       parts, Some gd_share
   in
   let parts, deficit =
@@ -185,15 +198,20 @@ let resolve_fullness_exn (rep : part_or_def t) =
       let condition =
         R.Map.fold (fun _p -> Condition.disj) ds Condition.never
       in
-      let deficit_share = { label = share.label; dest = share.dest; condition; part = ds } in
+      let deficit_share = {
+        label = share.label;
+        dest = share.dest;
+        condition; part = ds;
+        main_event = share.main_event
+      } in
       parts, Some deficit_share
   in
   check_fullness parts;
   {
     parts =
-      List.filter_map (fun { label; part; dest; condition } ->
+      List.filter_map (fun { label; part; dest; condition; main_event } ->
           match part with
-          | Part part -> Some { label; part; dest; condition }
+          | Part part -> Some { label; part; dest; condition; main_event }
           | _ -> None)
         rep;
     defaults = (Option.to_list global_default) @ local_defaults;

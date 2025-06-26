@@ -5,6 +5,11 @@ type op_kind =
   | Default of Condition.t R.Map.t
   | Deficit of Condition.t R.Map.t
 
+type event_loc =
+  | NoEvent
+  | Before of Variable.t
+  | After of Variable.t
+
 type origin =
   | Named of string
   | LabelOfPartner of { partner : Variable.t; label : string }
@@ -16,6 +21,7 @@ type origin =
   | OperationDetail of {
       label : string option;
       op_kind : op_kind;
+      condition : event_loc;
       source : Variable.t;
       target : Variable.t
     }

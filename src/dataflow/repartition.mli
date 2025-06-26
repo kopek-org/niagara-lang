@@ -6,6 +6,7 @@ type part_or_def = Part of opposable_part | Default | Deficit
 
 type 'a share = {
   label : string option;
+  main_event : VarInfo.event_loc;
   dest : Variable.t;
   part : 'a;
   condition : Condition.t;

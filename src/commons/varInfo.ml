@@ -5,6 +5,11 @@ type op_kind =
   | Default of Condition.t R.Map.t
   | Deficit of Condition.t R.Map.t
 
+type event_loc =
+  | NoEvent
+  | Before of Variable.t
+  | After of Variable.t
+
 type origin =
   | Named of string
   | LabelOfPartner of { partner : Variable.t; label : string }
@@ -16,6 +21,7 @@ type origin =
   | OperationDetail of {
       label : string option;
       op_kind : op_kind;
+      condition : event_loc;
       source : Variable.t;
       target : Variable.t
     }
@@ -109,7 +115,7 @@ let print fmt t =
   | RisingEvent v -> fprintf fmt "^%d" (Variable.uid v)
   | ContextSpecialized { origin; context } ->
     fprintf fmt "%d(%a)" (Variable.uid origin) Context.Group.print context
-  | OperationDetail { label = _; source; target; op_kind } ->
+  | OperationDetail { label = _; source; target; op_kind; condition = _ } ->
     fprintf fmt "[%d->%d]%s" (Variable.uid source) (Variable.uid target)
       (match op_kind with
        | Quotepart _ -> "%"

@@ -282,7 +282,7 @@ let origin_variant acc env (var : Variable.t) (vorigin : VarInfo.origin) =
     LabelOfPartner { partner = variant_if_exists partner; label }
   | Cumulative v -> Cumulative (variant_if_exists v)
   | OpposingVariant { variant; _ } -> variant
-  | OperationDetail { label; op_kind; source; target } ->
+  | OperationDetail { label; op_kind; source; target; condition } ->
     let op_kind =
       match op_kind with
       | Quotepart p -> VarInfo.Quotepart (convert_part p)
@@ -292,7 +292,12 @@ let origin_variant acc env (var : Variable.t) (vorigin : VarInfo.origin) =
     in
     let source = variant_if_exists source in
     let target = variant_if_exists target in
-    OperationDetail { label; op_kind; source; target }
+    let condition = match condition with
+      | NoEvent -> condition
+      | Before e -> Before (variant_if_exists e)
+      | After e -> After (variant_if_exists e)
+    in
+    OperationDetail { label; op_kind; source; target; condition }
   | TriggerOperation { label; trigger; trigger_vars; source; target } ->
     let trigger = variant_if_exists trigger in
     let trigger_vars = Variable.Set.map variant_if_exists trigger_vars in
