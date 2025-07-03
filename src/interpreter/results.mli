@@ -65,6 +65,13 @@ val iter_layout :
   graph:Variable.Graph.t -> results_layout -> (top_item -> unit) -> unit
 (* iter on result items in a predefined order *)
 
+val force_step_merge :
+  ProgramInfo.t
+  -> filter:(Variable.t -> bool)
+  -> Execution.output_step
+  -> Execution.output_step
+  -> Execution.output_step
+
 val normalize_valuations :
   ProgramInfo.t
   -> norm_mode
