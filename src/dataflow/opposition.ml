@@ -1,10 +1,14 @@
 open Equ
 
+type subst_kind =
+  | QuotePart of { source : Variable.t; delta : R.t }
+  | Flat of { source : Variable.t }
+  | Other
+
 type user_substitution = {
   expr : expr;
-  source : Variable.t;
   condition : Condition.t;
-  delta : R.t;
+  kind : subst_kind;
 }
 
 type user_substitutions = user_substitution Variable.Map.t
@@ -147,10 +151,16 @@ and event_consequents acc env (ev : Variable.t) =
   match Variable.Map.find_opt ev acc.copies with
   | Some c -> acc, Option.is_some c
   | None ->
+    let is_user_subst = is_user_subst env ev in
+    let acc, env =
+      if is_user_subst
+      then maybes_are_certain acc env
+      else acc, env
+    in
     let ev_expr = Variable.Map.find ev acc.event_eqs in
     let acc, is_consequent, delays = expr_consequents acc env ev_expr in
     let acc, delay_consequent = compute_consequent_delays acc env delays in
-    let is_consequent = is_consequent || delay_consequent in
+    let is_consequent = is_consequent || delay_consequent || is_user_subst in
     let acc = register_consequence acc env ev is_consequent in
     acc, is_consequent
 
@@ -244,11 +254,18 @@ let origin_variant acc env (var : Variable.t) (vorigin : VarInfo.origin) =
   let convert_part p =
     match Variable.Map.find_opt var env.user_substs with
     | None -> p
-    | Some subst -> R.(p + subst.delta)
+    | Some subst ->
+      match subst.kind with
+      | QuotePart { delta; _ } -> R.(p + delta)
+      | _ -> assert false
   in
-  let convert_reps (source : Variable.t) (rep : Condition.t R.Map.t) =
+  let convert_reps (src : Variable.t) (rep : Condition.t R.Map.t) =
     let relevant_substs =
-      Variable.Map.filter (fun _ subst -> Variable.equal source subst.source)
+      Variable.Map.filter (fun _ subst ->
+          match subst.kind with
+          | QuotePart { source; _ } | Flat { source } ->
+            Variable.equal source src
+          | Other -> false)
         env.user_substs
     in
     let add_rep c r rep =
@@ -257,12 +274,17 @@ let origin_variant acc env (var : Variable.t) (vorigin : VarInfo.origin) =
     in
     R.Map.fold (fun r c rep ->
         Variable.Map.fold (fun _ subst rep ->
+            let delta =
+              match subst.kind with
+              | QuotePart { delta; _ } -> delta
+              | _ -> assert false
+            in
             let ccond = Condition.conj c subst.condition in
             if Condition.is_never ccond then
               add_rep c r rep
             else
               let xcond = Condition.excluded c subst.condition in
-              let cr = R.(r - subst.delta) in
+              let cr = R.(r - delta) in
               let rep = add_rep ccond cr rep in
               if Condition.is_never xcond then rep else
                 add_rep xcond r rep)

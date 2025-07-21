@@ -1,8 +1,13 @@
+
+type subst_kind =
+  | QuotePart of { source : Variable.t; delta : R.t }
+  | Flat of { source : Variable.t }
+  | Other
+
 type user_substitution = {
   expr : Equ.expr;
-  source : Variable.t;
   condition : Condition.t;
-  delta : R.t;
+  kind : subst_kind;
 }
 
 type user_substitutions = user_substitution Variable.Map.t

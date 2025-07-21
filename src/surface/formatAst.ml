@@ -96,6 +96,21 @@ let rec print_formula : type a. ProgramInfo.t -> Format.formatter -> a formula -
         (print_formula infos) f2
   | Total f -> Format.fprintf fmt "(%a) total" (print_formula infos) f
   | Instant f -> Format.fprintf fmt "(%a) courant" (print_formula infos) f
+  | Opposed (f, opp) -> Format.fprintf fmt "(%a) %a" (print_formula infos) f (print_opposable infos) opp
+
+and print_opposable : type a. ProgramInfo.t -> Format.formatter -> a opposable -> unit =
+  fun infos fmt opposable ->
+  match opposable with
+  | HolderOpp opposable ->
+    Format.fprintf fmt "opposable %a @[<hv>envers %a@ par %a@]"
+      (print_formula infos) opposable.opp_value
+      print_actor opposable.opp_towards
+      print_actor opposable.opp_provider
+  | VarOpp opposable ->
+    Format.fprintf fmt "opposable %a @[<hv>envers %a@ par %a@]"
+      (print_formula infos) opposable.opp_value
+      (ProgramInfo.print_variable infos) opposable.opp_towards
+      (ProgramInfo.print_ctx_variable infos) opposable.opp_provider
 
 let rec print_event_expr : type a.  ProgramInfo.t -> Format.formatter -> a event_expr -> unit =
   fun infos fmt e ->
@@ -115,18 +130,6 @@ let rec print_event_expr : type a.  ProgramInfo.t -> Format.formatter -> a event
       (print_event_expr infos) e1
       (print_event_expr infos) e2
 
-let print_opposable (type a )infos fmt (opposable : a opposable) =
-  match opposable with
-  | HolderOpp opposable ->
-    Format.fprintf fmt "opposable %a @[<hv>envers %a@ par %a@]"
-      (print_formula infos) opposable.opp_value
-      print_actor opposable.opp_towards
-      print_actor opposable.opp_provider
-  | VarOpp opposable ->
-    Format.fprintf fmt "opposable %a @[<hv>envers %a@ par %a@]"
-      (print_formula infos) opposable.opp_value
-      (ProgramInfo.print_variable infos) opposable.opp_towards
-      (ProgramInfo.print_ctx_variable infos) opposable.opp_provider
 
 let print_redist (type a) infos fmt (redist : a redistribution) ~dest =
   match redist.redistribution_desc with

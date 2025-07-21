@@ -15,6 +15,10 @@ type result = {
   event_eqs : Equ.expr Variable.Map.t;
 }
 
+type opposed_expr = expr Variable.Map.t
+
+type expr_with_opps = expr * opposed_expr
+
 module Acc = struct
 
 type flat_op = {
@@ -24,12 +28,14 @@ type flat_op = {
   flat_cond : Condition.t;
   flat_main_event : VarInfo.event_loc;
   flat_trigger : Variable.t option;
+  flat_opposed : opposed_expr;
 }
 
 type comp_val = {
   cv_expr : expr;
   cv_cond : Condition.t;
   cv_trigger : Variable.t option;
+  cv_opposed : opposed_expr;
 }
 
 type t = {
@@ -148,10 +154,21 @@ let var_shape t (v : Variable.t) =
   | Some shape -> shape
   | None -> Report.raise_error "No shape for var %d" (Variable.uid v)
 
+let register_opposition t ~(on : Variable.t) ~(target : Variable.t)
+    (subst : Opposition.user_substitution) =
+  let oppositions =
+    Variable.Map.update target (function
+        | None -> Some (Variable.Map.singleton on subst)
+        | Some opps -> Some (Variable.Map.add on subst opps))
+      t.oppositions
+  in
+  { t with oppositions }
+
 let register_event t (v : Variable.t) (e : expr) =
   { t with event_eqs = Variable.Map.add v e t.event_eqs }
 
-let lift_event t (event : expr) (kind : artefact_event) =
+let lift_event t (event, opp_evs : expr_with_opps)
+    (kind : artefact_event) =
   let has_equal =
     match event with
     | EVar v -> Some v
@@ -161,24 +178,33 @@ let lift_event t (event : expr) (kind : artefact_event) =
           | None -> if event = evt then Some v else None)
         t.event_eqs None
   in
-  match has_equal with
-  | Some evt -> t, evt
-  | None ->
-    let v = Variable.create () in
-    let info = VarInfo.{
-        origin =
-          (match kind with
-          | Generic -> AnonEvent
-          | PreviousState v -> Peeking v
-          | RaiseTest v -> RisingEvent v);
-        typ = ValueType.TEvent;
-        kind = Event;
-      }
-    in
-    let t = bind_vinfo t v info in
-    let t = flag_variable_usage t v in
-    let t = register_event t v event in
-    t, v
+  let t, v =
+    match has_equal with
+    | Some evt -> t, evt
+    | None ->
+      let v = Variable.create () in
+      let info = VarInfo.{
+          origin =
+            (match kind with
+             | Generic -> AnonEvent
+             | PreviousState v -> Peeking v
+             | RaiseTest v -> RisingEvent v);
+          typ = ValueType.TEvent;
+          kind = Event;
+        }
+      in
+      let t = bind_vinfo t v info in
+      let t = flag_variable_usage t v in
+      let t = register_event t v event in
+      t, v
+  in
+  let t =
+    Variable.Map.fold (fun target expr t ->
+        register_opposition t ~on:v ~target
+          Opposition.{ expr; kind = Other; condition = Condition.always })
+      opp_evs t
+  in
+  t, v
 
 let register_part t ~(label : string option) ~(act : Condition.t) ~(src : Variable.t)
     ~(dest : Variable.t) ~(main_event : VarInfo.event_loc)
@@ -210,7 +236,8 @@ let register_deficit t ~(act : Condition.t) ~(provider : Variable.t)
 
 let register_flat ~(trigger : Variable.t option) ~(label : string option) t
     ~(act : Condition.t) ~(src : Variable.t)
-    ~(dest : Variable.t) ~(main_event : VarInfo.event_loc) (expr : expr) =
+    ~(dest : Variable.t) ~(main_event : VarInfo.event_loc)
+    (expr, opps : expr_with_opps) =
   let flat = {
     flat_label = label;
     flat_src = src;
@@ -218,6 +245,7 @@ let register_flat ~(trigger : Variable.t option) ~(label : string option) t
     flat_cond = act;
     flat_main_event = main_event;
     flat_trigger = trigger;
+    flat_opposed = opps;
   }
   in
   let flat_eqs =
@@ -229,11 +257,12 @@ let register_flat ~(trigger : Variable.t option) ~(label : string option) t
   { t with flat_eqs; }
 
 let register_comp_val ~(trigger : Variable.t option) t
-    ~(act : Condition.t) ~(dest : Variable.t) (expr : expr) =
+    ~(act : Condition.t) ~(dest : Variable.t) (expr, opps : expr_with_opps) =
   let cv = {
     cv_expr = expr;
     cv_cond = act;
     cv_trigger = trigger;
+    cv_opposed = opps;
   }
   in
   let comp_val_eqs =
@@ -265,27 +294,6 @@ let register_value t ~(act : Condition.t) ~(dest : Variable.t) (expr : expr) =
       t.value_eqs
   in
   { t with value_eqs; }
-
-let register_cumulated_value t ~(act : Condition.t) ~(dest : Variable.t) (expr : expr) =
-  let ge = { eq_act = act; eq_expr = expr } in
-  let value_eqs =
-    Variable.Map.update dest (function
-        | None -> Some (One ge)
-        | Some _ ->
-          Report.raise_internal_error "Cannot register valuation on aggregation")
-      t.value_eqs
-  in
-  { t with value_eqs; }
-
-let register_opposition t ~(on : Variable.t) ~(target : Variable.t)
-    (subst : Opposition.user_substitution) =
-  let oppositions =
-    Variable.Map.update target (function
-        | None -> Some (Variable.Map.singleton on subst)
-        | Some opps -> Some (Variable.Map.add on subst opps))
-      t.oppositions
-  in
-  { t with oppositions }
 
 let add_deficit_var t ~(act : Condition.t) ~(provider : Variable.t) (def : Variable.t) =
   { t with
@@ -427,9 +435,11 @@ let convert_repartitions t =
                         in
                         let t =
                           List.fold_left (fun t Repartition.{ opp_value; opp_target } ->
-                              let delta = R.(opp_value - part) in
+                              let kind =
+                                Opposition.QuotePart { source = src; delta = R.(opp_value - part) }
+                              in
                               let expr = EMult (EConst (LRational opp_value), EVar src) in
-                              let subst = Opposition.{ expr; delta; condition; source = src } in
+                              let subst = Opposition.{ expr; kind; condition } in
                               register_opposition t ~on:ov ~target:opp_target subst)
                             t opposed
                         in
@@ -556,6 +566,13 @@ let convert_flats t =
           })
     in
     let t = register_value t ~act:flat.flat_cond ~dest:ldest flat.flat_expr in
+    let t =
+      Variable.Map.fold (fun target expr t ->
+          let kind = Opposition.Flat { source = src } in
+          let subst = Opposition.{ expr; kind; condition = flat.flat_cond} in
+          register_opposition t ~on:ldest ~target subst)
+        flat.flat_opposed t
+    in
     t, (ldest, flat.flat_cond)
   in
   Variable.Map.fold (fun dest flats t ->
@@ -602,6 +619,12 @@ let convert_comp_val t =
           })
     in
     let t = register_value t ~act:cv.cv_cond ~dest:ldest cv.cv_expr in
+    let t =
+      Variable.Map.fold (fun target expr t ->
+          register_opposition t ~on:ldest ~target
+            Opposition.{ expr; condition = cv.cv_cond; kind = Other })
+        cv.cv_opposed t
+    in
     register_aggregation t ~act:cv.cv_cond ~dest ldest
   in
   Variable.Map.fold (fun dest cvs t ->
@@ -745,19 +768,26 @@ let aggregate_vars acc ~view (vars : Variable.t list) =
       (acc, EVar v) vs
 
 let translate_binop (op : Ast.binop) (e1 : expr) (e2 : expr) =
-  let expr =
-    match op with
-    | Add -> EAdd (e1, e2)
-    | Sub -> EAdd (e1, ENeg e2)
-    | Mult -> EMult (e1, e2)
-    | Div -> EMult (e1, EInv e2)
-  in
-  expr
+  match op with
+  | Add -> EAdd (e1, e2)
+  | Sub -> EAdd (e1, ENeg e2)
+  | Mult -> EMult (e1, e2)
+  | Div -> EMult (e1, EInv e2)
+
+let combine_fopps (cmb : expr -> expr -> expr)
+    (canon1, opps1 : expr_with_opps) (canon2, opps2 : expr_with_opps) =
+  cmb canon1 canon2,
+  Variable.Map.merge (fun _ o1 o2 ->
+      Some
+        (cmb
+           (Option.value ~default:canon1 o1)
+           (Option.value ~default:canon2 o2)))
+    opps1 opps2
 
 let rec translate_formula acc ~(ctx : Context.Group.t) ~(view : flow_view)
     (f : Ast.contextualized Ast.formula) =
   match f.formula_desc with
-  | Literal l -> acc, EConst l
+  | Literal l -> acc, (EConst l, Variable.Map.empty)
   | Variable (v, proj) ->
     let proj = resolve_projection_context ~context:ctx ~refinement:proj in
     let acc, vs = Acc.derive_ctx_variables ~mode:Strict acc v proj in
@@ -766,26 +796,37 @@ let rec translate_formula acc ~(ctx : Context.Group.t) ~(view : flow_view)
       | ContextVar vs -> vs
     in
     let acc, f = aggregate_vars acc ~view vs in
-    acc, f
+    acc, (f, Variable.Map.empty)
   | Binop (op, f1, f2) ->
     let acc, e1 = translate_formula ~ctx acc ~view f1 in
     let acc, e2 = translate_formula ~ctx acc ~view f2 in
-    acc, (translate_binop op e1 e2)
+    acc, (combine_fopps (translate_binop op) e1 e2)
   | Total f -> translate_formula ~ctx acc ~view:Cumulated f
   | Instant f -> translate_formula ~ctx acc ~view:AtInstant f
+  | Opposed (f, VarOpp { opp_towards; opp_value; _ }) ->
+    let acc, (fc, fopps) = translate_formula ~ctx acc ~view f in
+    let acc, (fo, oops) = translate_formula ~ctx acc ~view opp_value in
+    if not @@ Variable.Map.is_empty oops
+       || Variable.Map.mem opp_towards fopps
+    then
+      Report.raise_error "forbidden nested opposable formulae";
+    let fopps = Variable.Map.add opp_towards fo fopps in
+    acc, (fc, fopps)
 
 let rec translate_event acc (eexpr : Ast.contextualized Ast.event_expr) =
   match eexpr.event_expr_desc with
-  | EventVar v -> acc, EVar v
+  | EventVar v -> acc, (EVar v, Variable.Map.empty)
   | EventComp (Eq, f1, f2) ->
     let ctx = Context.any_projection (Acc.contexts acc) in
-    let acc, e1= translate_formula ~ctx ~view:Cumulated acc f1 in
+    let acc, e1 = translate_formula ~ctx ~view:Cumulated acc f1 in
     let acc, e2 = translate_formula ~ctx ~view:Cumulated acc f2 in
-    acc, EGe (e1, e2)
+    let e = combine_fopps (fun e1 e2 -> EGe (e1, e2)) e1 e2 in
+    acc, e
   | EventConj (e1, e2) ->
     let acc, e1 = translate_event acc e1 in
     let acc, e2 = translate_event acc e2 in
-    acc, EAnd(e1, e2)
+    let e = combine_fopps (fun e1 e2 -> EAnd (e1, e2)) e1 e2 in
+    acc, e
   | EventDisj _ -> assert false
 
 let translate_redistribution ~(trigger : Variable.t option) ~(label : string option)
@@ -803,7 +844,9 @@ let translate_redistribution ~(trigger : Variable.t option) ~(label : string opt
   in
   match redist.redistribution_desc with
   | Part (f, opp) ->
-    let acc, partf = translate_formula ~ctx ~view:AtInstant acc f in
+    let acc, (partf, fopps) = translate_formula ~ctx ~view:AtInstant acc f in
+    (* TODO: use generalized version here as well *)
+    assert (Variable.Map.is_empty fopps);
     let part =
       match reduce_to_r partf with
       | Some p -> p
@@ -811,7 +854,8 @@ let translate_redistribution ~(trigger : Variable.t option) ~(label : string opt
     in
     let acc, opps =
       List.fold_left_map (fun acc (Ast.VarOpp { opp_towards; opp_value; _ }) ->
-          let acc, partf = translate_formula ~ctx ~view:AtInstant acc opp_value in
+          let acc, (partf, fopps) = translate_formula ~ctx ~view:AtInstant acc opp_value in
+          assert (Variable.Map.is_empty fopps);
           let opp_part =
             match reduce_to_r partf with
             | Some p -> p
@@ -847,9 +891,9 @@ let translate_condition acc (cond : Ast.contextualized Ast.event_expr) =
 
 let event_trigger acc (base_evt : Variable.t) =
   let acc, prev_evt =
-    Acc.lift_event acc (EPre base_evt) (PreviousState base_evt)
+    Acc.lift_event acc (EPre base_evt, Variable.Map.empty) (PreviousState base_evt)
   in
-  Acc.lift_event acc (EAnd (ENot (EVar prev_evt), EVar base_evt))
+  Acc.lift_event acc (EAnd (ENot (EVar prev_evt), EVar base_evt), Variable.Map.empty)
     (RaiseTest base_evt)
 
 let conds_of_event ~act (evt : Variable.t) =
@@ -961,20 +1005,30 @@ let translate_deficit acc (d : Ast.ctx_deficit_decl) =
 
 let translate_value acc (v : Ast.ctx_val_decl) =
   let var, ctx = v.ctx_val_var in
-  if v.ctx_val_linear then
-    let acc, f = translate_formula acc ~ctx ~view:AtInstant v.ctx_val_formula in
-    let acc = Acc.register_value acc ~act:Condition.always ~dest:var f in
-    Acc.ensure_cumulation acc var
-  else
-    let acc, f = translate_formula acc ~ctx ~view:Cumulated v.ctx_val_formula in
-    Acc.register_cumulated_value acc ~act:Condition.always ~dest:var f
+  let acc, opps =
+    if v.ctx_val_linear then
+      let acc, (f, opps) = translate_formula acc ~ctx ~view:AtInstant v.ctx_val_formula in
+      let acc = Acc.register_value acc ~act:Condition.always ~dest:var f in
+      Acc.ensure_cumulation acc var, opps
+    else
+      let acc, (f, opps) = translate_formula acc ~ctx ~view:Cumulated v.ctx_val_formula in
+      Acc.register_value acc ~act:Condition.always ~dest:var f, opps
+  in
+  Variable.Map.fold (fun target expr acc ->
+      Acc.register_opposition acc ~on:var ~target
+        Opposition.{ expr; condition = Condition.always; kind = Other })
+    opps acc
 
 let translate_declaration acc (decl : Ast.contextualized Ast.declaration) =
   match decl with
   | DVarOperation o -> translate_operation acc o
   | DVarEvent e ->
-    let acc, evt_expr = translate_event acc e.ctx_event_expr in
-    Acc.register_event acc e.ctx_event_var evt_expr
+    let acc, (evt_expr, opps) = translate_event acc e.ctx_event_expr in
+    let acc = Acc.register_event acc e.ctx_event_var evt_expr in
+    Variable.Map.fold (fun target expr acc ->
+        Acc.register_opposition acc ~on:e.ctx_event_var ~target
+          Opposition.{ expr; condition = Condition.always; kind = Other })
+      opps acc
   | DVarValue v -> translate_value acc v
   | DVarPool p -> translate_comp_pool acc p
   | DVarDefault d -> translate_default acc d

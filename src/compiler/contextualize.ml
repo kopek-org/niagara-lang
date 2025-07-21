@@ -684,6 +684,29 @@ let rec formula acc ~(for_ : Variable.t option) (f : source formula)
       formula = { formula with formula_desc = Instant formula };
       is_input_linear;
     }
+  | Opposed (f, opp) ->
+    let { acc; formula; is_input_linear; typ } = formula acc ~for_ f ~on_proj in
+    let acc, opp = opposable acc ~on_proj opp in
+    { acc; typ;
+      formula = { formula with formula_desc = Opposed (formula, opp) };
+      is_input_linear;
+    }
+
+and opposable acc ~(on_proj : Context.Group.t)
+    (HolderOpp { opp_value; opp_provider; opp_towards } : source opposable) =
+  let { acc; formula = opp_value; _ } =
+    formula acc ~for_:None opp_value ~on_proj
+  in
+  let acc, opp_provider =
+    find_holder_as_source acc
+      (holder ~loc:opp_provider.actor_loc (Actor opp_provider))
+  in
+  let opp_towards =
+    match opp_towards.actor_desc with
+    | LabeledActor _ -> Report.raise_error "Opposition target must be a partner without label"
+    | PlainActor s -> Acc.find_actor acc ~way:Downstream s
+  in
+  acc, VarOpp { opp_value; opp_provider; opp_towards }
 
 let rec event_expr acc (e : source event_expr) ~(on_proj : Context.Group.t) =
   match e.event_expr_desc with
@@ -707,22 +730,6 @@ let rec event_expr acc (e : source event_expr) ~(on_proj : Context.Group.t) =
     let acc, e1 = event_expr acc e1 ~on_proj in
     let acc, e2 = event_expr acc e2 ~on_proj in
     acc, {e with event_expr_desc = EventDisj (e1, e2)}
-
-let opposable acc ~(on_proj : Context.Group.t)
-    (HolderOpp { opp_value; opp_provider; opp_towards } : source opposable) =
-  let { acc; formula = opp_value; _ } =
-    formula acc ~for_:None opp_value ~on_proj
-  in
-  let acc, opp_provider =
-    find_holder_as_source acc
-      (holder ~loc:opp_provider.actor_loc (Actor opp_provider))
-  in
-  let opp_towards =
-    match opp_towards.actor_desc with
-    | LabeledActor _ -> Report.raise_error "Opposition target must be a partner without label"
-    | PlainActor s -> Acc.find_actor acc ~way:Downstream s
-  in
-  acc, VarOpp { opp_value; opp_provider; opp_towards }
 
 let redistribution acc ~(for_ : Variable.t option) (redist : source redistribution)
     ~(on_proj : Context.Group.t) ~(when_guarded : bool) =

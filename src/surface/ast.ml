@@ -70,8 +70,9 @@ and _ formula_desc =
   | Binop : binop * 'a formula * 'a formula -> 'a formula_desc
   | Total : 'a formula -> 'a formula_desc
   | Instant : 'a formula -> 'a formula_desc
+  | Opposed : 'a formula * 'a opposable -> 'a formula_desc
 
-type _ opposable =
+and _ opposable =
   | HolderOpp : {
       opp_towards : actor;
       opp_provider : actor;
