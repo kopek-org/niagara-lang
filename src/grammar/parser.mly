@@ -20,7 +20,7 @@ let pos (start, stop) = Pos.Text.make ~start ~stop
 
 %left PLUS MINUS OU
 %left MULT DIV ET
-%nonassoc TOTAL COURANT
+%nonassoc TOTAL COURANT OPPOSABLE
 
 %on_error_reduce literal formula named actor
 
@@ -85,8 +85,8 @@ opposable:
 }
 
 simple_expr:
-| QUOTEPART f = formula d = destinataire? opp = opposable* {
-  redistribution ~loc:f.formula_loc (Part (f, opp)), d
+| QUOTEPART f = formula d = destinataire? {
+  redistribution ~loc:f.formula_loc (Part f), d
 }
 | QUOTEPART RESTE d = destinataire? {
   let start, stop = $startpos, $endpos in
@@ -141,6 +141,7 @@ formula_desc:
 | f1 = formula op = binop f2 = formula { Binop(op, f1, f2) }
 | f = formula COURANT { Instant f }
 | f = formula TOTAL { Total f }
+| f = formula opp = opposable { Opposed (f, opp) }
 ;
 
 %inline binop:

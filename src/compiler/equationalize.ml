@@ -843,26 +843,22 @@ let translate_redistribution ~(trigger : Variable.t option) ~(label : string opt
     | _ -> Report.raise_internal_error "Destination context inapplicable"
   in
   match redist.redistribution_desc with
-  | Part (f, opp) ->
+  | Part f ->
     let acc, (partf, fopps) = translate_formula ~ctx ~view:AtInstant acc f in
-    (* TODO: use generalized version here as well *)
-    assert (Variable.Map.is_empty fopps);
     let part =
       match reduce_to_r partf with
       | Some p -> p
       | None -> Report.raise_error "Non-constant quotepart"
     in
-    let acc, opps =
-      List.fold_left_map (fun acc (Ast.VarOpp { opp_towards; opp_value; _ }) ->
-          let acc, (partf, fopps) = translate_formula ~ctx ~view:AtInstant acc opp_value in
-          assert (Variable.Map.is_empty fopps);
+    let opps =
+      Variable.Map.fold (fun target value opps ->
           let opp_part =
-            match reduce_to_r partf with
+            match reduce_to_r value with
             | Some p -> p
             | None -> Report.raise_error "Non-constant quotepart"
           in
-          acc, (opp_towards, opp_part))
-        acc opp
+          (target, opp_part)::opps)
+        fopps []
     in
     Acc.register_redist ~label acc ~act ~src ~dest part opps
   | Flat f ->
