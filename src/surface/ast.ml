@@ -90,7 +90,7 @@ type 'a redistribution = {
 }
 
 and _ redistribution_desc =
-  | Part : 'a formula -> 'a redistribution_desc
+  | Part : 'a formula * bool -> 'a redistribution_desc
   | Flat : 'a formula -> 'a redistribution_desc
   | Retrocession : source formula * holder -> source redistribution_desc
   | Default

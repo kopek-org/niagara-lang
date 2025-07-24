@@ -6,7 +6,7 @@ let pos (start, stop) = Pos.Text.make ~start ~stop
 
 %token OPERATION QUOTEPART BONUS SUR ASSIETTE ANS MOIS ENTREE LBRA RBRA DEFAUT
 %token CONTEXTUALISEE PAR TYPE ENTIER RATIONNEL ARGENT TOTAL COURANT
-%token ACTEUR POUR EVENEMENT ET OU AVANT APRES QUAND CONTEXTE TOUT CONSTANTE
+%token ACTEUR POUR EVENEMENT NON ET OU AVANT APRES QUAND CONTEXTE TOUT CONSTANTE
 %token LPAR RPAR VERS ATTEINT PLUS MINUS MULT DIV EQ COLON EOF DEFICIT
 %token AVANCE MONTANT COMMA RETROCESSION RESTE OPPOSABLE ENVERS VALEUR CALCULEE
 %token OBSERVABLE // SECTION FIN
@@ -85,8 +85,8 @@ opposable:
 }
 
 simple_expr:
-| QUOTEPART f = formula d = destinataire? {
-  redistribution ~loc:f.formula_loc (Part f), d
+| QUOTEPART f = formula no = boption(pair(NON,OPPOSABLE)) d = destinataire? {
+  redistribution ~loc:f.formula_loc (Part (f, no)), d
 }
 | QUOTEPART RESTE d = destinataire? {
   let start, stop = $startpos, $endpos in

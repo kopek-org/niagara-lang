@@ -41,6 +41,7 @@ let keywords =
     "retrocession", RETROCESSION;
     "montant", MONTANT;
     "reste", RESTE;
+    "non", NON;
     "opposable", OPPOSABLE;
     "envers", ENVERS;
     "valeur", VALEUR;

@@ -1,0 +1,17 @@
+acteur distrib
+acteur sofica
+acteur prod
+
+entree assiette rbd
+
+operation 'com'
+sur assiette rbd
+quotepart 20% non opposable vers distrib
+quotepart reste vers assiette rnpp
+
+operation 'sof'
+sur assiette rnpp
+quotepart 40% vers sofica
+
+defaut sur assiette rnpp vers prod
+deficit sur assiette rbd par prod[depassement_rbd]

@@ -3,7 +3,10 @@ type opposed_part = { opp_value : R.t; opp_target : Variable.t }
 
 type opposable_part = R.t * opposed_part list
 
-type part_or_def = Part of opposable_part | Default | Deficit
+type part_or_def =
+  | Part of { part : opposable_part; non_opp : bool }
+  | Default
+  | Deficit
 
 type 'a share = {
   label : string option;
@@ -86,6 +89,7 @@ type def_star = {
   global_default : part_or_def share option;
   local_defaults : part_or_def share list;
   deficit : part_or_def share option;
+  non_opp_parts : unified_parts * opposable_part share list;
 }
 
 let sort_shares (rep : part_or_def t) =
@@ -93,6 +97,7 @@ let sort_shares (rep : part_or_def t) =
     global_default = None;
     local_defaults = [];
     deficit = None;
+    non_opp_parts = R.Map.empty, []
   }
   in
   List.fold_left (fun (parts, defs) share ->
@@ -122,14 +127,21 @@ let sort_shares (rep : part_or_def t) =
                 (fun sh -> not @@ Condition.(is_never (conj share.condition sh.condition)))
                 defs.local_defaults
             with
-            | Some _ -> Report.raise_error "Cannot have coexisiting local defaults for a pool"
+            | Some _ ->
+              Report.raise_error "Cannot have coexisiting local defaults for a pool"
             | None ->
               { defs with local_defaults = share::defs.local_defaults }
         in
         parts, defs
-      | Part (p, _) ->
-        let parts = add_part parts share.condition p in
-        parts, defs)
+      | Part { part; non_opp } ->
+        if non_opp then
+          let ud, nop_shares = defs.non_opp_parts in
+          let ud = add_part ud share.condition (fst part) in
+          let nop_shares = { share with part }::nop_shares in
+          parts, { defs with non_opp_parts = ud, nop_shares }
+        else
+          let parts = add_part parts share.condition (fst part) in
+          parts, defs)
     (R.Map.empty, empty_defs) rep
 
 let check_fullness (rep : unified_parts) : unit =
@@ -150,6 +162,7 @@ let check_fullness (rep : unified_parts) : unit =
 
 type fullness_result = {
   parts : opposable_part t;
+  non_opp_parts : opposable_part t;
   defaults : unified_parts t;
   deficits : unified_parts share option;
 }
@@ -192,9 +205,18 @@ let resolve_fullness_exn (rep : part_or_def t) =
   in
   let parts, deficit =
     match defs.deficit with
-    | None -> parts, None
+    | None ->
+      R.Map.iter (fun p _ ->
+          if R.(p <> zero) then raise (Stop (ImperfectSum R.(p + one))))
+        (fst defs.non_opp_parts);
+      parts, None
     | Some share ->
       let ds, parts = deficit_parts parts share.condition in
+      let ds =
+        R.Map.fold (fun op cond ds ->
+            add_part ds cond op)
+          (fst defs.non_opp_parts) ds
+      in
       let condition =
         R.Map.fold (fun _p -> Condition.disj) ds Condition.never
       in
@@ -211,11 +233,19 @@ let resolve_fullness_exn (rep : part_or_def t) =
     parts =
       List.filter_map (fun { label; part; dest; condition; main_event } ->
           match part with
-          | Part part -> Some { label; part; dest; condition; main_event }
+          | Part { part; non_opp = false } ->
+            Some { label; part; dest; condition; main_event }
           | _ -> None)
         rep;
     defaults = (Option.to_list global_default) @ local_defaults;
     deficits = deficit;
+    non_opp_parts =
+      List.filter_map (fun { label; part; dest; condition; main_event } ->
+          match part with
+          | Part { part; non_opp = true } ->
+            Some { label; part; dest; condition; main_event }
+          | _ -> None)
+        rep;
   }
 
 let resolve_fullness (rep : part_or_def t) =

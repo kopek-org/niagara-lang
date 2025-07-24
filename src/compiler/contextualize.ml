@@ -734,9 +734,9 @@ let rec event_expr acc (e : source event_expr) ~(on_proj : Context.Group.t) =
 let redistribution acc ~(for_ : Variable.t option) (redist : source redistribution)
     ~(on_proj : Context.Group.t) ~(when_guarded : bool) =
   match redist.redistribution_desc with
-  | Part f ->
+  | Part (f, non_opp) ->
     let { acc; formula; _ } = formula acc ~for_ f ~on_proj in
-    acc, { redist with redistribution_desc = Part formula }
+    acc, { redist with redistribution_desc = Part (formula, non_opp) }
   | Flat f ->
     let { acc; formula; is_input_linear; typ } = formula acc ~for_ f ~on_proj in
     if typ <> ValueType.TMoney then Report.raise_typing_error ();

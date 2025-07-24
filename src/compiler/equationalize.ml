@@ -219,12 +219,13 @@ let register_part t ~(label : string option) ~(act : Condition.t) ~(src : Variab
   { t with repartitions }
 
 let register_redist t ~(act : Condition.t) ~(src : Variable.t)
-    ~(dest : Variable.t) (part : R.t) (opps : (Variable.t * R.t) list) =
+    ~(dest : Variable.t) ~(non_opp : bool)
+    (part : R.t) (opps : (Variable.t * R.t) list) =
   let opps =
     List.map (fun (opp_target, opp_value) ->
       Repartition.{ opp_target; opp_value }) opps
   in
-  register_part t ~act ~src ~dest (Part (part, opps))
+  register_part t ~act ~src ~dest (Part { part = part, opps; non_opp })
 
 let register_default t ~(act : Condition.t) ~(src : Variable.t)
     ~(dest : Variable.t) =
@@ -402,6 +403,35 @@ let group_productions ~produce ~aggr_var t ops =
     t, (agv, cond)
 
 let convert_repartitions t =
+  let register_part t src ({ label; condition; part; dest; main_event }
+                           : Repartition.opposable_part Repartition.share) =
+    let part, opposed = part in
+    let t, ov = create_var_from t dest (fun i ->
+        { i with
+          kind = Intermediary;
+          origin = OperationDetail
+              { label;
+                op_kind = Quotepart part;
+                source = src;
+                target = dest;
+                condition = main_event
+              }
+        })
+    in
+    let t =
+      List.fold_left (fun t Repartition.{ opp_value; opp_target } ->
+          let kind =
+            Opposition.QuotePart { source = src; delta = R.(opp_value - part) }
+          in
+          let expr = EMult (EConst (LRational opp_value), EVar src) in
+          let subst = Opposition.{ expr; kind; condition } in
+          register_opposition t ~on:ov ~target:opp_target subst)
+        t opposed
+    in
+    let expr = EMult (EConst (LRational part), EVar src) in
+    let t = register_value t ~act:condition ~dest:ov expr in
+    t, (ov, condition)
+  in
   let conv_shares t src shares =
     let grouped_shares =
       List.fold_left (fun gs (share : _ Repartition.share) ->
@@ -417,35 +447,8 @@ let convert_repartitions t =
             Variable.Map.fold (fun dest shares (t, vars) ->
                 let t, (pvar, pcond) =
                   group_productions
-                    ~produce:(List.fold_left_map (fun t
-                                                   ({ label; condition; part; dest = _; main_event }
-                                                    : Repartition.opposable_part Repartition.share) ->
-                        let part, opposed = part in
-                        let t, ov = create_var_from t dest (fun i ->
-                            { i with
-                              kind = Intermediary;
-                              origin = OperationDetail
-                                  { label;
-                                    op_kind = Quotepart part;
-                                    source = src;
-                                    target = dest;
-                                    condition = main_event
-                                  }
-                            })
-                        in
-                        let t =
-                          List.fold_left (fun t Repartition.{ opp_value; opp_target } ->
-                              let kind =
-                                Opposition.QuotePart { source = src; delta = R.(opp_value - part) }
-                              in
-                              let expr = EMult (EConst (LRational opp_value), EVar src) in
-                              let subst = Opposition.{ expr; kind; condition } in
-                              register_opposition t ~on:ov ~target:opp_target subst)
-                            t opposed
-                        in
-                        let expr = EMult (EConst (LRational part), EVar src) in
-                        let t = register_value t ~act:condition ~dest:ov expr in
-                        t, (ov, condition)))
+                    ~produce:(List.fold_left_map (fun t share ->
+                        register_part t src share))
                     ~aggr_var:(fun t -> create_var_from t dest (fun i ->
                         { i with
                           kind = Intermediary;
@@ -471,7 +474,7 @@ let convert_repartitions t =
     t, pvar
   in
   let conv_defaults t src reps_var def_shares =
-    List.fold_left
+    List.fold_left_map
       (fun t ({ label; dest; condition; part; main_event }
               : Repartition.unified_parts Repartition.share) ->
         let t, ov = create_var_from t dest (fun i ->
@@ -487,11 +490,13 @@ let convert_repartitions t =
         in
         let expr = EAdd (EVar src, ENeg (EVar reps_var)) in
         let t = register_value t ~act:condition ~dest:ov expr in
-        register_aggregation t ~act:condition ~dest ov)
+        let t = register_aggregation t ~act:condition ~dest ov in
+        t, ov)
       t def_shares
   in
-  let conv_deficit t src reps_var
-      (def_share : Repartition.unified_parts Repartition.share option) =
+  let conv_deficit t src reps_vars
+      (def_share : Repartition.unified_parts Repartition.share option)
+      non_opp_shares =
     match def_share with
     | None -> t
     | Some { label; dest; condition; part; main_event } ->
@@ -506,7 +511,19 @@ let convert_repartitions t =
                 target = src }
           })
       in
-      let expr = EAdd (EVar reps_var, ENeg (EVar src)) in
+      let reps_expr =
+        match reps_vars with
+        | [] -> assert false
+        | h::t -> List.fold_left (fun e v -> EAdd (e, EVar v)) (EVar h) t
+      in
+      let expr = EAdd (reps_expr, ENeg (EVar src)) in
+      let t, expr =
+        List.fold_left (fun (t, expr) nop_share ->
+            let t, (v, act) = register_part t src nop_share in
+            let t = register_aggregation t ~act ~dest:nop_share.dest v in
+            t, EAdd (expr, EVar v))
+          (t, expr) non_opp_shares
+      in
       let t = register_value t ~act:condition ~dest:ov expr in
       add_deficit_var t ~act:condition ~provider:dest ov
   in
@@ -520,8 +537,8 @@ let convert_repartitions t =
           Report.raise_multiple_def_rep_error t.pinfos src
       in
       let t, direct_rep = conv_shares t src fullrep.parts in
-      let t = conv_defaults t src direct_rep fullrep.defaults in
-      conv_deficit t src direct_rep fullrep.deficits)
+      let t, def_reps = conv_defaults t src direct_rep fullrep.defaults in
+      conv_deficit t src (direct_rep::def_reps) fullrep.deficits fullrep.non_opp_parts)
     t.repartitions t
 
 let convert_flats t =
@@ -843,13 +860,14 @@ let translate_redistribution ~(trigger : Variable.t option) ~(label : string opt
     | _ -> Report.raise_internal_error "Destination context inapplicable"
   in
   match redist.redistribution_desc with
-  | Part f ->
+  | Part (f, non_opp) ->
     let acc, (partf, fopps) = translate_formula ~ctx ~view:AtInstant acc f in
     let part =
       match reduce_to_r partf with
       | Some p -> p
       | None -> Report.raise_error "Non-constant quotepart"
     in
+    (* TODO: probably shouldn't allow opposition on "non-opposable" QP *)
     let opps =
       Variable.Map.fold (fun target value opps ->
           let opp_part =
@@ -860,7 +878,7 @@ let translate_redistribution ~(trigger : Variable.t option) ~(label : string opt
           (target, opp_part)::opps)
         fopps []
     in
-    Acc.register_redist ~label acc ~act ~src ~dest part opps
+    Acc.register_redist ~label acc ~act ~src ~dest ~non_opp part opps
   | Flat f ->
     let acc, e = translate_formula ~ctx ~view:AtInstant acc f in
     Acc.register_flat ~trigger ~label acc ~act ~src ~dest e
