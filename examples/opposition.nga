@@ -6,11 +6,11 @@ entree assiette rbd
 
 operation 'com'
 sur assiette rbd
-quotepart 40% opposable 20% envers sofica par prod vers distrib
+quotepart 40% opposable 20% envers sofica par prod[sofopp] vers distrib
 quotepart reste vers assiette rnc
 
-evenement recup_frais atteint quand distrib[frais] = 2400$
-                                                     opposable 1800$ envers sofica par prod
+evenement recup_frais atteint quand
+  distrib[frais] = 2400$ opposable 1800$ envers sofica par prod[sofopp]
 
 operation 'frais'
 sur assiette rnc

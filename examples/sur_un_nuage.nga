@@ -157,7 +157,7 @@ quotepart 20% vers barbie[interessement]
 #ce bonus est donné par le producteur
 
 operation 'bonus sur le nombre d entrees'
-par les_productions_du_chameau
+par les_productions_du_chameau[bonus_nombre_entrees]
 quand evenement seuil_100000_entrees
 bonus 10000$ vers barbie[bonus_nombre_entrees]
 

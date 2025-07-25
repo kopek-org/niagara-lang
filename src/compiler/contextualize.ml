@@ -269,7 +269,10 @@ end = struct
           if way <> lway then
             Report.raise_error "Labeled actor has wrong steam way";
           v
-        | BaseActor a -> a
+        | BaseActor a ->
+          if way = Upstream then
+            Report.raise_error "Upstream partner must be under a label";
+          a
     end
     | Some _ -> Report.raise_error "Identifier %s is not an actor" name
     | None -> Report.(raise_unknown_id_error name Partner)
@@ -314,14 +317,16 @@ end = struct
         }
       in
       let t = bind_vinfo vl info t in
+      let t = bind_var lname (RefActor (Label (vl, way))) t in
       let t =
-        bind_var lname (RefActor (Label (vl, way))) t
-        |> bind_compound vl base_actor
+        if way = Upstream then t else
+          (* upstream labels are not part of partner total *)
+          bind_compound vl base_actor t
       in
       t, vl
     | Some (RefActor (Label (v, lway))) ->
       if way <> lway then
-        Report.raise_error "Cannot use label same label %s on both ways" label;
+        Report.raise_error "Cannot use same label %s on both ways" label;
       t, v
     | Some _ ->
       Report.raise_internal_error "'%s[%s]' should have been recognized as a \
