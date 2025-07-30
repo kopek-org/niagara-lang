@@ -240,8 +240,11 @@ let find_case world (case : string) =
   | Some d -> d
   | None -> raise (Error (UnknownCase case))
 
+let cases_of world dom = (DomainMap.find dom world.domains).domain_cases
+
 let case_is_in_domain world (case : case) (dom : domain) =
   (DomainMap.find dom world.domains).domain_cases |> CaseSet.mem case
+  CaseSet.mem case (cases_of world dom)
 
 let domain_of_case world (case : case) =
   (CaseMap.find case world.cases).case_domain
