@@ -692,7 +692,7 @@ let convert_deficits t =
 
 let resolve_oppositions (t : t) =
   let Opposition.{ opp_var_info; opp_value_eqs; opp_event_eqs; opp_relevance_sets } =
-    Opposition.resolve t.pinfos.var_info t.value_eqs t.event_eqs
+    Opposition.resolve t.pinfos t.value_eqs t.event_eqs
       t.oppositions t.cumulation_vars
   in
   { t with

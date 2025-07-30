@@ -12,6 +12,7 @@ type error =
   | MultipleDefRep of { pool : Variable.t }
   | Typing of { loc : Pos.t }
   | ForbiddenNonLinear of { loc : Pos.t }
+  | UselessOpposition of { loc : Pos.t; towards : Variable.t }
   | User of { locs : Pos.t list; msg : string }
 
 let print_error (pinfo : ProgramInfo.t) fmt (err : error) =
@@ -48,6 +49,10 @@ let print_error (pinfo : ProgramInfo.t) fmt (err : error) =
     Format.fprintf fmt "Error, %a:@\nNon-linear expression forbidden, \
                         cannot ensure discretized continuity"
       Pos.Text.pp loc
+  | UselessOpposition { loc; towards } ->
+    Format.fprintf fmt "Error, %a:@\nUseless opposed value towards '%s'"
+      Pos.Text.pp loc
+      (VarInfo.get_any_name pinfo.var_info towards)
   | User { locs = _; msg } ->
     Format.pp_print_string fmt msg
 
@@ -93,6 +98,9 @@ let raise_typing_error ?(loc = Pos.dummy) () =
 
 let raise_nonlinear_error ?(loc = Pos.dummy) () =
   log_error "Non-linear error" ProgramInfo.dummy (ForbiddenNonLinear { loc })
+
+let raise_useless_opposition_error ?(loc = Pos.dummy) pinfo towards =
+  log_error "Useless opposition" pinfo (UselessOpposition { loc; towards })
 
 let raise_error ?(locs = []) fmt =
   let k msg = log_error "Usage error" ProgramInfo.dummy (User { locs; msg }) in

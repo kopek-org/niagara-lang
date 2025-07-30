@@ -425,27 +425,28 @@ let save_relevant_set ~opposable acc ~(target : Variable.t) =
     relevance_sets = Variable.Map.add target pset acc.relevance_sets
   }
 
-let resolve_one_target ~opposable acc ~(target : Variable.t) (user_substs : user_substitutions)
+let resolve_one_target ~opposable pinfos acc ~(target : Variable.t) (user_substs : user_substitutions)
   (cumulatives : Variable.t Variable.Map.t)  =
   let env = { target; user_substs; cumulatives; maybes = Variable.Set.empty } in
   let acc, is_consequent = compute_consequents acc env target in
-  if not is_consequent && opposable then Report.raise_error "Useless opposition";
+  if not is_consequent && opposable then
+    Report.raise_useless_opposition_error { pinfos with var_info = acc.var_info } target;
   let acc = duplication acc env in
   let acc = add_delta acc env in
   save_relevant_set ~opposable acc ~target
 
-let resolve (var_info : VarInfo.collection) (value_eqs : aggregate_eqs)
+let resolve (pinfo : ProgramInfo.t) (value_eqs : aggregate_eqs)
     (event_eqs : expr Variable.Map.t) (oppositions : user_substitutions Variable.Map.t)
     (cumulatives : Variable.t Variable.Map.t) =
   let acc = {
-    var_info; value_eqs; event_eqs;
+    var_info = pinfo.var_info; value_eqs; event_eqs;
     copies = Variable.Map.empty;
     relevance_sets = Variable.Map.empty;
   }
   in
   let acc =
     Variable.Map.fold (fun target substs acc ->
-        resolve_one_target ~opposable:true acc ~target substs cumulatives)
+        resolve_one_target ~opposable:true pinfo acc ~target substs cumulatives)
       oppositions acc
   in
   (* Now adding non opposable varinfos *)
@@ -459,12 +460,13 @@ let resolve (var_info : VarInfo.collection) (value_eqs : aggregate_eqs)
           else
             resolve_one_target
               ~opposable:false
+              pinfo
               acc
               ~target:v
               Variable.Map.empty
               cumulatives
       )
-      var_info acc
+      pinfo.var_info acc
   in
   { opp_var_info = acc.var_info;
     opp_value_eqs = acc.value_eqs;

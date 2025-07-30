@@ -20,13 +20,13 @@ type result = {
 }
 
 val resolve
-  : VarInfo.collection
+  : ProgramInfo.t
   -> Equ.aggregate_eqs
   -> Equ.expr Variable.Map.t
   -> user_substitutions Variable.Map.t
   -> Variable.t Variable.Map.t
   -> result
-(** [resolve var_info val_eqs evt_eqs user_substs cumulatives] returns
+(** [resolve pinfo val_eqs evt_eqs user_substs cumulatives] returns
     the updated [var_infos], [val_eqs] and [evt_eqs] with the
     additionnal variables representing alternative computations
     induced by [user_substs]. This parameter is a map from targets of
