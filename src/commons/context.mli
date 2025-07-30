@@ -167,6 +167,9 @@ val find_domain : world -> string -> domain
 (** Returns the case identifier corresponding to the given case name. *)
 val find_case : world -> string -> case
 
+(** Returns the cases of a given domain. *)
+val cases_of : world -> domain -> CaseSet.t
+
 (** Checks if a case is one of the given domain. *)
 val case_is_in_domain : world -> case -> domain -> bool
 
