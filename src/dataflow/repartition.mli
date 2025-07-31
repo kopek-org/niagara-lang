@@ -1,4 +1,9 @@
-type opposed_part = { opp_value : R.t; opp_target : Variable.t }
+
+type opposed_part = {
+  opp_value : R.t;
+  opp_target : Variable.t;
+  opp_provider : Variable.t
+}
 
 type opposable_part = R.t * opposed_part list
 

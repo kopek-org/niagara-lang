@@ -523,6 +523,12 @@ let projection_of_context_refinement contexts (ctx : context_refinement) =
   in
   Context.group_of_selection contexts proj
 
+let find_actor ~(way : stream_way) acc (a : actor) =
+  match a.actor_desc with
+  | PlainActor name -> acc, Acc.find_actor ~way acc name
+  | LabeledActor (name, label) ->
+    Acc.register_actor_label ~way acc name label
+
 let find_holder0 ~(way : stream_way) acc (h : holder) =
   match h.holder_desc with
   | Pool (name, ctx) ->
@@ -534,10 +540,8 @@ let find_holder0 ~(way : stream_way) acc (h : holder) =
       let acc, v = Acc.register_pool acc name ~computed:false in
       Acc.add_proj_constraint acc v proj, (v, proj)
     end
-  | Actor {actor_desc = PlainActor name; _} ->
-    acc, (Acc.find_actor ~way acc name, Context.any_projection (Acc.contexts acc))
-  | Actor {actor_desc = LabeledActor (name, label); _} ->
-    let acc, v = Acc.register_actor_label ~way acc name label in
+  | Actor a ->
+    let acc, v = find_actor ~way acc a in
     acc, (v, Context.any_projection (Acc.contexts acc))
 
 let find_holder acc (h : holder) = find_holder0 ~way:Downstream acc h
@@ -702,10 +706,7 @@ and opposable acc ~(on_proj : Context.Group.t)
   let { acc; formula = opp_value; _ } =
     formula acc ~for_:None opp_value ~on_proj
   in
-  let acc, opp_provider =
-    find_holder_as_source acc
-      (holder ~loc:opp_provider.actor_loc (Actor opp_provider))
-  in
+  let acc, opp_provider = find_actor ~way:Upstream acc opp_provider in
   let opp_towards =
     match opp_towards.actor_desc with
     | LabeledActor _ -> Report.raise_error "Opposition target must be a partner without label"

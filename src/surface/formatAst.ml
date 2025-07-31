@@ -110,7 +110,7 @@ and print_opposable : type a. ProgramInfo.t -> Format.formatter -> a opposable -
     Format.fprintf fmt "opposable %a @[<hv>envers %a@ par %a@]"
       (print_formula infos) opposable.opp_value
       (ProgramInfo.print_variable infos) opposable.opp_towards
-      (ProgramInfo.print_ctx_variable infos) opposable.opp_provider
+      (ProgramInfo.print_variable infos) opposable.opp_provider
 
 let rec print_event_expr : type a.  ProgramInfo.t -> Format.formatter -> a event_expr -> unit =
   fun infos fmt e ->

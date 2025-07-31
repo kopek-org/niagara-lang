@@ -80,7 +80,7 @@ and _ opposable =
     } -> source opposable
   | VarOpp : {
       opp_towards : Variable.t;
-      opp_provider : contextualized_variable;
+      opp_provider : Variable.t;
       opp_value : contextualized formula;
     } -> contextualized opposable
 

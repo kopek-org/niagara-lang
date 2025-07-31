@@ -32,6 +32,7 @@ type acc = {
 
 type env = {
   target : Variable.t;
+  provider : Variable.t;
   user_substs : user_substitutions;
   cumulatives : Variable.t Variable.Map.t;
   maybes : Variable.Set.t;
@@ -394,7 +395,12 @@ let add_delta acc env =
         |> Variable.Map.add cdv cdvinfo;
       value_eqs =
         Variable.Map.add dv (One { eq_act = Condition.always; eq_expr = dve }) acc.value_eqs
-        |> Variable.Map.add cdv (One { eq_act = Condition.always; eq_expr = cdve });
+        |> Variable.Map.add cdv (One { eq_act = Condition.always; eq_expr = cdve })
+        |> Variable.Map.update env.provider (function
+            | None -> Some (More [dv, Condition.always])
+            | Some (More vars) -> Some (More ((dv, Condition.always)::vars))
+            | Some (One _) ->
+              Report.raise_internal_error "Cannot aggregate on valuation expression")
     }
 
 let save_relevant_set ~opposable acc ~(target : Variable.t) =
@@ -418,16 +424,26 @@ let save_relevant_set ~opposable acc ~(target : Variable.t) =
           in
           Variable.Set.add pv set)
         acc.copies Variable.Set.empty
+      (* ensure upstream labels are included *)
+      |> Variable.Map.fold (fun v (info : VarInfo.t) pset ->
+          match info.origin with
+          | LabelOfPartner { partner; _ } ->
+            if Variable.equal target partner then
+              Variable.Set.add v pset
+            else pset
+          | _ -> pset)
+        acc.var_info
   }
   in
   { acc with
     copies = Variable.Map.empty;
-    relevance_sets = Variable.Map.add target pset acc.relevance_sets
+    relevance_sets =
+      Variable.Map.add target pset acc.relevance_sets
   }
 
-let resolve_one_target ~opposable pinfos acc ~(target : Variable.t) (user_substs : user_substitutions)
-  (cumulatives : Variable.t Variable.Map.t)  =
-  let env = { target; user_substs; cumulatives; maybes = Variable.Set.empty } in
+let resolve_one_target ~opposable pinfos acc ~(target : Variable.t) ~(provider : Variable.t)
+    (user_substs : user_substitutions) (cumulatives : Variable.t Variable.Map.t) =
+  let env = { target; provider; user_substs; cumulatives; maybes = Variable.Set.empty } in
   let acc, is_consequent = compute_consequents acc env target in
   if not is_consequent && opposable then
     Report.raise_useless_opposition_error { pinfos with var_info = acc.var_info } target;
@@ -437,7 +453,7 @@ let resolve_one_target ~opposable pinfos acc ~(target : Variable.t) (user_substs
 
 let resolve (pinfo : ProgramInfo.t) (value_eqs : aggregate_eqs)
     (event_eqs : expr Variable.Map.t) (oppositions : user_substitutions Variable.Map.t)
-    (cumulatives : Variable.t Variable.Map.t) =
+    ~(cumulatives : Variable.t Variable.Map.t) ~(providers : Variable.t Variable.Map.t) =
   let acc = {
     var_info = pinfo.var_info; value_eqs; event_eqs;
     copies = Variable.Map.empty;
@@ -446,7 +462,14 @@ let resolve (pinfo : ProgramInfo.t) (value_eqs : aggregate_eqs)
   in
   let acc =
     Variable.Map.fold (fun target substs acc ->
-        resolve_one_target ~opposable:true pinfo acc ~target substs cumulatives)
+        let provider =
+          match Variable.Map.find_opt target providers with
+          | None ->
+            Report.raise_internal_error "no provider for opposition target '%s'"
+          (VarInfo.get_any_name acc.var_info target)
+          | Some provider -> provider
+        in
+        resolve_one_target ~opposable:true pinfo acc ~target ~provider substs cumulatives)
       oppositions acc
   in
   (* Now adding non opposable varinfos *)
@@ -463,6 +486,7 @@ let resolve (pinfo : ProgramInfo.t) (value_eqs : aggregate_eqs)
               pinfo
               acc
               ~target:v
+              ~provider:v (* should be useless *)
               Variable.Map.empty
               cumulatives
       )
