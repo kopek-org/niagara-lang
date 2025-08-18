@@ -395,7 +395,6 @@ let filter_of_norm_mode (info : ProgramInfo.t) (mode : norm_mode) =
             if own_partner origin org_info then
               Variable.Set.add v (Variable.Set.remove origin partners)
             else partners
-          | OppositionDelta _, _
           | _, (Partner | Value { observable = true; _}) ->
             Variable.Set.add v partners
           | Cumulative s, _ ->
