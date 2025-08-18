@@ -13,6 +13,7 @@ type error = private
   | Typing of { loc : Pos.t }
   | ForbiddenNonLinear of { loc : Pos.t }
   | UselessOpposition of { loc : Pos.t; towards : Variable.t }
+  | MultipleOppositionProvider of { locs : Pos.t list; towards : Variable.t }
   | User of { locs : Pos.t list; msg : string }
 
 val print_error : ProgramInfo.t -> Format.formatter -> error -> unit
@@ -52,6 +53,8 @@ val raise_nonlinear_error : ?loc:Pos.t -> unit -> 'a
 val raise_unknown_id_error : ?loc:Pos.t -> string -> id_kind -> 'a
 
 val raise_useless_opposition_error : ?loc:Pos.t -> ProgramInfo.t -> Variable.t -> 'a
+
+val raise_multiple_opp_provider_error : ?locs:Pos.t list -> ProgramInfo.t -> Variable.t -> 'a
 
 (** Initializes logs. Reporter uses
     standard output/error. For CLI use. *)

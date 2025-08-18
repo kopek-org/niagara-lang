@@ -169,7 +169,7 @@ let register_opposition t ~(on : Variable.t) ~(target : Variable.t)
         | None -> Some provider
         | Some p ->
           if not @@ Variable.equal p provider then
-            Report.raise_error "Several opposition provider for a same target"
+            Report.raise_multiple_opp_provider_error t.pinfos target
           else Some p)
       t.opposition_providers
   in
