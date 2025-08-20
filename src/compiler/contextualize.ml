@@ -31,7 +31,7 @@ module Acc : sig
   val register_actor : t -> string -> t
 
   val register_actor_label :
-    way:stream_way ->
+    way:VarInfo.partner_role ->
     t ->
     string ->
     string ->
@@ -47,7 +47,7 @@ module Acc : sig
 
   val find_pool_opt : t -> string -> Variable.t option
 
-  val find_actor : way:stream_way -> t -> string -> Variable.t
+  val find_actor : way:VarInfo.partner_role -> t -> string -> Variable.t
 
   val find_event : t -> string -> Variable.t
 
@@ -74,7 +74,7 @@ end = struct
 
   type actor_ref =
     | BaseActor of Variable.t
-    | Label of Variable.t * stream_way
+    | Label of Variable.t * VarInfo.partner_role
 
   type name_ref =
     | RefActor of actor_ref (* providers or receivers, with or without labels *)
@@ -217,7 +217,7 @@ end = struct
     let info = VarInfo.{
         origin = Named name;
         typ = TMoney;
-        kind = Partner;
+        kind = Partner Receiver;
       }
     in
     let t = bind_vinfo pv info t in
@@ -261,7 +261,7 @@ end = struct
     | None -> None
     | Some _ -> Report.raise_error "Identifier %s is not a pool" name
 
-  let find_actor ~(way : stream_way) t (name : string) =
+  let find_actor ~(way : VarInfo.partner_role) t (name : string) =
     match StrMap.find_opt name t.var_table with
     | Some (RefActor ar) -> begin
         match ar with
@@ -270,8 +270,8 @@ end = struct
             Report.raise_error "Labeled actor has wrong steam way";
           v
         | BaseActor a ->
-          if way = Upstream then
-            Report.raise_error "Upstream partner must be under a label";
+          if way = Provider then
+            Report.raise_error "Provider partner must be under a label";
           a
     end
     | Some _ -> Report.raise_error "Identifier %s is not an actor" name
@@ -298,7 +298,7 @@ end = struct
       contexts = Context.add_domain t.contexts domain_name cases_names
     }
 
-  let register_actor_label ~(way:stream_way) t (name : string) (label : string) =
+  let register_actor_label ~(way : VarInfo.partner_role) t (name : string) (label : string) =
     let base_actor =
       match StrMap.find_opt name t.var_table with
       | None -> Report.raise_error "Unknown actor %s" name
@@ -313,13 +313,13 @@ end = struct
       let info = VarInfo.{
           origin = LabelOfPartner { partner = base_actor; label };
           typ = ValueType.TMoney;
-          kind = Partner;
+          kind = Partner way;
         }
       in
       let t = bind_vinfo vl info t in
       let t = bind_var lname (RefActor (Label (vl, way))) t in
       let t =
-        if way = Upstream then t else
+        if way = Provider then t else
           (* upstream labels are not part of partner total *)
           bind_compound vl base_actor t
       in
@@ -523,13 +523,13 @@ let projection_of_context_refinement contexts (ctx : context_refinement) =
   in
   Context.group_of_selection contexts proj
 
-let find_actor ~(way : stream_way) acc (a : actor) =
+let find_actor ~(way : VarInfo.partner_role) acc (a : actor) =
   match a.actor_desc with
   | PlainActor name -> acc, Acc.find_actor ~way acc name
   | LabeledActor (name, label) ->
     Acc.register_actor_label ~way acc name label
 
-let find_holder0 ~(way : stream_way) acc (h : holder) =
+let find_holder0 ~(way : VarInfo.partner_role) acc (h : holder) =
   match h.holder_desc with
   | Pool (name, ctx) ->
     let proj = projection_of_context_refinement (Acc.contexts acc) ctx in
@@ -544,9 +544,9 @@ let find_holder0 ~(way : stream_way) acc (h : holder) =
     let acc, v = find_actor ~way acc a in
     acc, (v, Context.any_projection (Acc.contexts acc))
 
-let find_holder acc (h : holder) = find_holder0 ~way:Downstream acc h
+let find_holder acc (h : holder) = find_holder0 ~way:Receiver acc h
 
-let find_holder_as_source acc (h : holder) = find_holder0 ~way:Upstream acc h
+let find_holder_as_source acc (h : holder) = find_holder0 ~way:Provider acc h
 
 let register_input acc (i : input_decl) =
   let acc, _v = Acc.register_input acc i.input_name i.input_type i.input_kind in
@@ -706,11 +706,11 @@ and opposable acc ~(on_proj : Context.Group.t)
   let { acc; formula = opp_value; _ } =
     formula acc ~for_:None opp_value ~on_proj
   in
-  let acc, opp_provider = find_actor ~way:Upstream acc opp_provider in
+  let acc, opp_provider = find_actor ~way:Provider acc opp_provider in
   let opp_towards =
     match opp_towards.actor_desc with
     | LabeledActor _ -> Report.raise_error "Opposition target must be a partner without label"
-    | PlainActor s -> Acc.find_actor acc ~way:Downstream s
+    | PlainActor s -> Acc.find_actor acc ~way:Receiver s
   in
   acc, VarOpp { opp_value; opp_provider; opp_towards }
 

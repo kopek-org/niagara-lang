@@ -14,7 +14,7 @@ let find_var (infos : VarInfo.collection) info_filter  =
 let find_partner (infos : VarInfo.collection) (name : string) =
   let filter_info info =
     match info.VarInfo.kind with
-    | Partner ->
+    | Partner _ ->
       (match info.origin with
       | Named n -> String.equal name n
       |  _ -> false)

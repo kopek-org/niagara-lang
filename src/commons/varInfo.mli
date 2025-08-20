@@ -44,8 +44,10 @@ type origin =
   | OpposingVariant of { target : Variable.t; origin : Variable.t; variant : origin }
   | OppositionDelta of { target : Variable.t }
 
+type partner_role = Provider | Receiver
+
 type kind =
-  | Partner
+  | Partner of partner_role
   | ParameterInput of { shadow : bool }
   | PoolInput of { shadow : bool }
   | Intermediary
@@ -64,6 +66,7 @@ type collection = t Variable.Map.t
 
 val is_input : t -> bool
 val is_partner : t -> bool
+val is_provider : t -> bool
 val is_event : t -> bool
 
 (** Returns the name of the partner if this is a receiving partner (i.e. a

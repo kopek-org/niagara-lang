@@ -44,8 +44,10 @@ type origin =
   | OpposingVariant of { target : Variable.t; origin : Variable.t; variant : origin }
   | OppositionDelta of { target : Variable.t }
 
+type partner_role = Provider | Receiver
+
 type kind =
-  | Partner
+  | Partner of partner_role
   | ParameterInput of { shadow : bool }
   | PoolInput of { shadow : bool }
   | Intermediary
@@ -70,14 +72,19 @@ let is_input t =
 
 let is_partner t =
   match t.kind with
-  | Partner -> true
+  | Partner _ -> true
+  | _ -> false
+
+let is_provider t =
+  match t.kind with
+  | Partner Provider -> true
   | _ -> false
 
 let is_event t = t.kind = Event
 
 let is_original_partner t =
   match t.kind, t.origin with
-  | Partner, Named s -> Some s
+  | Partner Receiver, Named s -> Some s
   | _ -> None
 
 let rec get_name coll v =

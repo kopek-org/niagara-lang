@@ -196,8 +196,6 @@ type actor_decl = {
   actor_decl_desc : string
 }
 
-type stream_way = Upstream | Downstream
-
 type default_decl = {
   default_source : holder;
   default_dest : holder;
