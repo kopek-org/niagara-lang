@@ -31,6 +31,29 @@ module Graph = struct
     in
     G.fold_vertex phi g0 g0
 
+  let topological_depth_ordering (g : G.t) : G.V.t list =
+    let rec aux v ((mem, ord, hold) as acc) =
+      if Set.mem v mem then acc
+      else if List.for_all (fun s -> Set.mem s mem) (G.succ g v) then
+        let acc = Set.add v mem, v::ord, Set.remove v hold in
+        let (mem, ord, hold) =
+          List.fold_left (fun acc p -> aux p acc)
+            acc
+            (G.pred g v)
+        in
+        if G.in_degree g v = 0 then
+          Set.fold aux hold (mem, ord, hold)
+        else (mem, ord, hold)
+      else
+        (mem, ord, Set.add v hold)
+    in
+    let (_, ord, _) =
+      G.fold_vertex (fun v acc ->
+          if G.out_degree g v = 0 then aux v acc else acc)
+        g (Set.empty, [], Set.empty)
+    in
+    List.rev ord
+
 end
 
 let create =

@@ -11,10 +11,10 @@
        - rnpp { 10000, 10000 }:
          4000 -> sofica
          default 6000 -> prod
-       - sofica { 4000, 4000 }:
        - prod { 6000, 6000 }:
          - prod[depassement_rbd] { 2000, 2000 }:
            2000 -> rbd
          
+       - sofica { 4000, 4000 }:
        
      

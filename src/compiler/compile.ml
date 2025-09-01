@@ -34,6 +34,8 @@ let compile : Ast.source Ast.program -> Equ.program * Equ.limits = fun program -
   (* time "graph produced"; *)
   let prog = Activation_propagation.compute equ_res.infos equ_res.aggr_eqs equ_res.event_eqs in
   (* FormatEqu.print_program fmt prog; *)
+  (* List.iter (Format.fprintf fmt "%a@." (FormatEqu.print_var_with_info prog.infos)) *)
+  (*   (Variable.Graph.topological_depth_ordering prog.infos.dep_graph); *)
   time "activations propagated";
   let limits = Limits.compute prog in
   (* FormatEqu.print_limits fmt limits; *)

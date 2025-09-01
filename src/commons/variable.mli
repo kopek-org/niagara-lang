@@ -34,4 +34,6 @@ module Graph : sig
       between two nodes *)
   val transitive_closure : t -> t
 
+  val topological_depth_ordering : t -> V.t list
+
 end
