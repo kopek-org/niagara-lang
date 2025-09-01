@@ -42,6 +42,23 @@ let rec print_expr fmt (e : expr) =
          (fun fmt v -> pp_print_int fmt (Variable.uid v)))
       vs
 
+let print_aggregated_vars fmt (vars : (Variable.t * Condition.t) list) =
+  Format.pp_print_list ~pp_sep:(fun fmt () -> Format.fprintf fmt ",@ ")
+    (fun fmt (var, cond) ->
+       Format.fprintf fmt "v%d{%a}" (Variable.uid var) Condition.print cond)
+    fmt vars
+
+let print_aggregation infos fmt (var : Variable.t) (aggr : aggregation) =
+  fprintf fmt "@[<hov 2>%a"
+    (print_var_with_info infos) var;
+  match aggr with
+  | One ge ->
+    fprintf fmt " ={%a}@ %a@]"
+      Condition.print ge.eq_act
+      print_expr ge.eq_expr
+  | More vars ->
+    fprintf fmt " = [@ %a@ @]]" print_aggregated_vars vars
+
 let print_eq infos fmt (var : Variable.t) (ge : guarded_eq option) =
   fprintf fmt "@[<hov 2>%a"
     (print_var_with_info infos) var;

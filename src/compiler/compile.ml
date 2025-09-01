@@ -20,7 +20,12 @@ let compile : Ast.source Ast.program -> Equ.program * Equ.limits = fun program -
   time "contextualized";
   let equ_res = Equationalize.translate_program ctx_program in
   (* Variable.Map.iter (fun v _ -> *)
-  (*     Format.fprintf fmt "%a@." (FormatEqu.print_var_with_info equ_res.infos) v) *)
+  (*     match Variable.Map.find_opt v equ_res.aggr_eqs with *)
+  (*     | Some aggr -> *)
+  (*       Format.fprintf fmt "%a@." *)
+  (*         (fun fmt -> FormatEqu.print_aggregation equ_res.infos fmt v) aggr *)
+  (*     | None -> *)
+  (*       Format.fprintf fmt "%a@." (FormatEqu.print_var_with_info equ_res.infos) v) *)
   (*   equ_res.infos.var_info; *)
   time "equationalized";
   (* let filter = *)
