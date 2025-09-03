@@ -40,6 +40,7 @@ type origin =
   | OperationSum of { source : Variable.t; target : Variable.t }
   | RepartitionSum of Variable.t
   | DeficitSum of Variable.t
+  | PoolResidual of Variable.t
   | ConditionExistential
   | OpposingVariant of { target : Variable.t; origin : Variable.t; variant : origin }
   | OppositionDelta of { target : Variable.t }
@@ -105,6 +106,7 @@ let rec get_name coll v =
     | OperationSum _ -> None
     | RepartitionSum _ -> None
     | DeficitSum _ -> None
+    | PoolResidual _ -> None
     | ConditionExistential -> None
     | OpposingVariant { origin; _ } -> get_name coll origin
     | OppositionDelta _ -> None
@@ -141,6 +143,7 @@ let print fmt t =
     fprintf fmt "[%d->%d]*" (Variable.uid source) (Variable.uid target)
   | RepartitionSum v -> fprintf fmt "%d->*" (Variable.uid v)
   | DeficitSum v -> fprintf fmt "%d->!" (Variable.uid v)
+  | PoolResidual v -> fprintf fmt "%d->?" (Variable.uid v)
   | ConditionExistential ->
     fprintf fmt "`E"
   | OpposingVariant { target; origin; variant = _ } ->

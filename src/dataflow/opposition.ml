@@ -342,6 +342,9 @@ let origin_variant acc env (var : Variable.t) (vorigin : VarInfo.origin) =
   | DeficitSum s ->
     let s = variant_if_exists s in
     DeficitSum s
+  | PoolResidual s ->
+    let s = variant_if_exists s in
+    PoolResidual s
 
 let duplication acc env =
   Variable.Map.fold (fun org dup acc ->

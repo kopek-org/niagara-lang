@@ -487,25 +487,34 @@ let convert_repartitions t =
     t, pvar
   in
   let conv_defaults t src reps_var def_shares =
-    List.fold_left_map
-      (fun t ({ label; dest; condition; part; main_event }
-              : Repartition.unified_parts Repartition.share) ->
-        let t, ov = create_var_from t dest (fun i ->
+    if def_shares = [] then t, [] else
+      let t, diff_var =
+        create_var_from t src (fun i ->
             { i with
               kind = Intermediary;
-              origin = OperationDetail {
-                  label;
-                  op_kind = Default part;
-                  condition = main_event;
-                  source = src;
-                  target = dest }
+              origin = PoolResidual src;
             })
-        in
-        let expr = EAdd (EVar src, ENeg (EVar reps_var)) in
-        let t = register_value t ~act:condition ~dest:ov expr in
-        let t = register_aggregation t ~act:condition ~dest ov in
-        t, ov)
-      t def_shares
+      in
+      let diff_expr = EAdd (EVar src, ENeg (EVar reps_var)) in
+      let t = register_value t ~act:Condition.always ~dest:diff_var diff_expr in
+      List.fold_left_map
+        (fun t ({ label; dest; condition; part; main_event }
+                : Repartition.unified_parts Repartition.share) ->
+          let t, ov = create_var_from t dest (fun i ->
+              { i with
+                kind = Intermediary;
+                origin = OperationDetail {
+                    label;
+                    op_kind = Default part;
+                    condition = main_event;
+                    source = src;
+                    target = dest }
+              })
+          in
+          let t = register_value t ~act:condition ~dest:ov (EVar diff_var) in
+          let t = register_aggregation t ~act:condition ~dest ov in
+          t, ov)
+        t def_shares
   in
   let conv_deficit t src reps_vars
       (def_share : Repartition.unified_parts Repartition.share option)
