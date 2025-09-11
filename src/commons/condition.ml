@@ -193,6 +193,42 @@ let disj = Memo.memo2 (comb (||))
 
 let excluded = Memo.memo2 (fun _excl t1 t2 -> conj t1 (neg t2))
 
+let past_of = Memo.memo (fun past_of t ->
+    match get t with
+    | F | T -> never
+    | Var (Input _, _, _) -> t
+    | Var (v, l, r) ->
+      let l_past = past_of l in
+      (match get r with
+      | F -> node v l_past (disj l l_past)
+      | T -> never
+      | _ ->
+        let r_past = past_of r in
+        match get r_past with
+        | F -> never
+        | _ -> node v l_past r_past))
+(* The condition that is strictely in the past of any comparable part of the input.
+
+   The rational is the following:
+
+   - If the tree has a "before" branch always true (included) then no
+   past of it exists.
+
+   - If that branch is false, then there is a past where the current
+   event is false and the rest (below) is at the same point or before.
+
+   - If it happens that the past of the before branch in non-existent,
+   then there is no past for the whole tree. (Generalisation of the
+   first point).
+
+   - In every other case, the past of the tree is the past of either
+   branch assuming the current event is in the same state.
+
+   In non-monotonous cases, this excludes the "holes" that are the
+   past of some subset but the future or present of others and
+   incomparable states. *)
+
+
 let of_event v p = node (Event v) (of_bool p) (of_bool (not p))
 
 let of_input v = node (Input v) always never
@@ -248,6 +284,49 @@ and print_with_var v b fmt t =
 
 type t = bdd hcd
 
+let time_split t1 t2 =
+  let past1 = past_of t1 in
+  let past2 = past_of t2 in
+  let b1 = conj t1 past2 in
+  let b2 = conj t2 past1 in
+  let after = disj (excluded t1 b1) (excluded t2 b2) in
+  let before = disj b1 b2 in
+  before, after
+(* Separates [t1 || t2] into [c1, c2] so that [c1] is the part of [t1]
+   in the strict past of [t2] or the other way around, and [c2] the
+   rest. *)
+
+let time_ranking (ts : t list) : t list =
+  let insert_rank ranks t =
+    (* Each condition added may successively slice already present
+       ranks. The recursion add incomparable subsets to the current
+       rank, push the rest to the lower ranks, and makes the strict
+       past bubble up, to be merge to the rank above. *)
+    let rec aux ranks t =
+      if is_never t then never, ranks else
+        match ranks with
+        | [] -> never, [t]
+        | r::rs ->
+          let bubble, after = time_split t r in
+          let r, t =
+            if is_never bubble then
+              if is_never (conj r t) then
+                never, after
+              else
+                (* Handling non exclusive inputs. The past is already
+                   taken care of. The exclusive futures pushed down,
+                   and the conjonction cannot be splited further. *)
+                conj after r, excluded after r
+            else excluded r bubble, excluded t bubble
+          in
+          let rs = if is_never r then rs else r::rs in
+          let b, rs = aux rs t in
+          bubble, if is_never b then rs else b::rs
+    in
+    let b, ranks = aux ranks t in
+    if is_never b then ranks else b::ranks
+  in
+  List.fold_left insert_rank [] ts
 
 type satisfaction =
   | Sat
