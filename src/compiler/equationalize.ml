@@ -487,7 +487,25 @@ let convert_repartitions t =
     t, pvar
   in
   let conv_defaults t src reps_var def_shares =
-    if def_shares = [] then t, [] else
+    let rank_rep t diff_expr rank_cond shares =
+      (* Layering of default repartition to create dependencies
+         between them even when completely time-separated.
+
+         The layers are computed with [Condition.time_ranking] which
+         orders shares conditions (sliced, when necessary) by timing.
+         Default computation ensures that all those shares are
+         mutually exclusives, and so a single layer can match several
+         defaults without risking them coexisting. And the layers
+         themselves are also exclusives.
+
+         The general idea here is to have the default repartitions of
+         a layer being substracted from the diff value they use, and
+         use that as the diff for the next layer. Such diffs would
+         always equal zero by definition, but the trick is that the
+         default repartitions that exists only in their conditions,
+         exclusives from those of the next layer. Thus, all diffs in
+         their respective layer condition are equal to the value of
+         the source pool minus the direct repartitions. *)
       let t, diff_var =
         create_var_from t src (fun i ->
             { i with
@@ -495,26 +513,57 @@ let convert_repartitions t =
               origin = PoolResidual src;
             })
       in
-      let diff_expr = EAdd (EVar src, ENeg (EVar reps_var)) in
       let t = register_value t ~act:Condition.always ~dest:diff_var diff_expr in
-      List.fold_left_map
-        (fun t ({ label; dest; condition; part; main_event }
-                : Repartition.unified_parts Repartition.share) ->
-          let t, ov = create_var_from t dest (fun i ->
-              { i with
-                kind = Intermediary;
-                origin = OperationDetail {
-                    label;
-                    op_kind = Default part;
-                    condition = main_event;
-                    source = src;
-                    target = dest }
-              })
+      let t, def_vars =
+        List.fold_left
+          (fun (t, rv) ({ label; dest; condition; part; main_event }
+                  : Repartition.unified_parts Repartition.share) ->
+            let act = Condition.conj condition rank_cond in
+            if Condition.is_never act then t, rv else
+              let t, ov = create_var_from t dest (fun i ->
+                  { i with
+                    kind = Intermediary;
+                    origin = OperationDetail {
+                        label;
+                        op_kind = Default part;
+                        condition = main_event;
+                        source = src;
+                        target = dest }
+                  })
+              in
+              let t = register_value t ~act ~dest:ov (EVar diff_var) in
+              let t = register_aggregation t ~act ~dest ov in
+              t, ov::rv)
+          (t, []) shares
+      in
+      let next_diff_expr =
+        List.fold_left (fun e rv ->
+            EAdd (e, ENeg (EVar rv)))
+          (EVar diff_var)
+          def_vars
+      in
+      t, def_vars, next_diff_expr
+    in
+    let ranks =
+      Condition.time_ranking @@
+      List.map (fun s -> s.Repartition.condition) def_shares
+    in
+    let diff_expr = EAdd (EVar src, ENeg (EVar reps_var)) in
+    let t, def_vars, _ =
+      List.fold_left (fun (t, def_vars, diff_expr) rank_cond ->
+          (* For each layer we need to go through every shares,
+             because some of them might have non-monotonous conditions
+             that make them appears in several layer, and end up
+             having several equations, one for each subset of
+             conditions. *)
+          let t, dv, diff_expr =
+            rank_rep t diff_expr rank_cond def_shares
           in
-          let t = register_value t ~act:condition ~dest:ov (EVar diff_var) in
-          let t = register_aggregation t ~act:condition ~dest ov in
-          t, ov)
-        t def_shares
+          t, def_vars @ dv, diff_expr)
+        (t, [], diff_expr)
+        ranks
+    in
+    t, def_vars
   in
   let conv_deficit t src reps_vars
       (def_share : Repartition.unified_parts Repartition.share option)
