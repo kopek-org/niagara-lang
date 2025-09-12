@@ -416,7 +416,7 @@ let group_productions ~produce ~aggr_var t ops =
     t, (agv, cond)
 
 let convert_repartitions t =
-  let register_part t src ({ label; condition; part; dest; main_event }
+  let register_part t og_src stage_var ({ label; condition; part; dest; main_event }
                            : Repartition.opposable_part Repartition.share) =
     let part, opposed = part in
     let t, ov = create_var_from t dest (fun i ->
@@ -425,7 +425,7 @@ let convert_repartitions t =
           origin = OperationDetail
               { label;
                 op_kind = Quotepart part;
-                source = src;
+                source = og_src;
                 target = dest;
                 condition = main_event
               }
@@ -434,138 +434,18 @@ let convert_repartitions t =
     let t =
       List.fold_left (fun t Repartition.{ opp_value; opp_target; opp_provider } ->
           let kind =
-            Opposition.QuotePart { source = src; delta = R.(opp_value - part) }
+            Opposition.QuotePart { source = og_src; delta = R.(opp_value - part) }
           in
-          let expr = EMult (EConst (LRational opp_value), EVar src) in
+          let expr = EMult (EConst (LRational opp_value), EVar stage_var) in
           let subst = Opposition.{ expr; kind; condition } in
           register_opposition t ~on:ov ~target:opp_target ~provider:opp_provider subst)
         t opposed
     in
-    let expr = EMult (EConst (LRational part), EVar src) in
+    let expr = EMult (EConst (LRational part), EVar stage_var) in
     let t = register_value t ~act:condition ~dest:ov expr in
     t, (ov, condition)
   in
-  let conv_shares t src shares =
-    let grouped_shares =
-      List.fold_left (fun gs (share : _ Repartition.share) ->
-          Variable.Map.update share.dest (function
-              | None -> Some [share]
-              | Some sh -> Some (share::sh))
-            gs)
-        Variable.Map.empty shares
-    in
-    let t, (pvar, _pcond) =
-      group_productions
-        ~produce:(fun t ops ->
-            Variable.Map.fold (fun dest shares (t, vars) ->
-                let t, (pvar, pcond) =
-                  group_productions
-                    ~produce:(List.fold_left_map (fun t share ->
-                        register_part t src share))
-                    ~aggr_var:(fun t -> create_var_from t dest (fun i ->
-                        { i with
-                          kind = Intermediary;
-                          origin = OperationSum { source = src; target = dest }
-                        }))
-                    t shares
-                in
-                let t = register_aggregation t ~act:pcond ~dest pvar in
-                t, (pvar, pcond)::vars)
-              ops (t,[]))
-        ~aggr_var:(fun t ->
-            let agv = Variable.create () in
-            let t =
-              bind_vinfo t agv {
-                origin = RepartitionSum src;
-                typ = TMoney;
-                kind = Intermediary;
-              }
-            in
-            t, agv)
-        t grouped_shares
-    in
-    t, pvar
-  in
-  let conv_defaults t src reps_var def_shares =
-    let rank_rep t diff_expr rank_cond shares =
-      (* Layering of default repartition to create dependencies
-         between them even when completely time-separated.
-
-         The layers are computed with [Condition.time_ranking] which
-         orders shares conditions (sliced, when necessary) by timing.
-         Default computation ensures that all those shares are
-         mutually exclusives, and so a single layer can match several
-         defaults without risking them coexisting. And the layers
-         themselves are also exclusives.
-
-         The general idea here is to have the default repartitions of
-         a layer being substracted from the diff value they use, and
-         use that as the diff for the next layer. Such diffs would
-         always equal zero by definition, but the trick is that the
-         default repartitions that exists only in their conditions,
-         exclusives from those of the next layer. Thus, all diffs in
-         their respective layer condition are equal to the value of
-         the source pool minus the direct repartitions. *)
-      let t, diff_var =
-        create_var_from t src (fun i ->
-            { i with
-              kind = Intermediary;
-              origin = PoolResidual src;
-            })
-      in
-      let t = register_value t ~act:Condition.always ~dest:diff_var diff_expr in
-      let t, def_vars =
-        List.fold_left
-          (fun (t, rv) ({ label; dest; condition; part; main_event }
-                  : Repartition.unified_parts Repartition.share) ->
-            let act = Condition.conj condition rank_cond in
-            if Condition.is_never act then t, rv else
-              let t, ov = create_var_from t dest (fun i ->
-                  { i with
-                    kind = Intermediary;
-                    origin = OperationDetail {
-                        label;
-                        op_kind = Default part;
-                        condition = main_event;
-                        source = src;
-                        target = dest }
-                  })
-              in
-              let t = register_value t ~act ~dest:ov (EVar diff_var) in
-              let t = register_aggregation t ~act ~dest ov in
-              t, ov::rv)
-          (t, []) shares
-      in
-      let next_diff_expr =
-        List.fold_left (fun e rv ->
-            EAdd (e, ENeg (EVar rv)))
-          (EVar diff_var)
-          def_vars
-      in
-      t, def_vars, next_diff_expr
-    in
-    let ranks =
-      Condition.time_ranking @@
-      List.map (fun s -> s.Repartition.condition) def_shares
-    in
-    let diff_expr = EAdd (EVar src, ENeg (EVar reps_var)) in
-    let t, def_vars, _ =
-      List.fold_left (fun (t, def_vars, diff_expr) rank_cond ->
-          (* For each layer we need to go through every shares,
-             because some of them might have non-monotonous conditions
-             that make them appears in several layer, and end up
-             having several equations, one for each subset of
-             conditions. *)
-          let t, dv, diff_expr =
-            rank_rep t diff_expr rank_cond def_shares
-          in
-          t, def_vars @ dv, diff_expr)
-        (t, [], diff_expr)
-        ranks
-    in
-    t, def_vars
-  in
-  let conv_deficit t src reps_vars
+  let conv_deficit t src stage_var
       (def_share : Repartition.unified_parts Repartition.share option)
       non_opp_shares =
     match def_share with
@@ -582,21 +462,92 @@ let convert_repartitions t =
                 target = src }
           })
       in
-      let reps_expr =
-        match reps_vars with
-        | [] -> assert false
-        | h::t -> List.fold_left (fun e v -> EAdd (e, EVar v)) (EVar h) t
-      in
-      let expr = EAdd (reps_expr, ENeg (EVar src)) in
+      let expr = ENeg (EVar stage_var) in
       let t, expr =
         List.fold_left (fun (t, expr) nop_share ->
-            let t, (v, act) = register_part t src nop_share in
+            let t, (v, act) = register_part t src src nop_share in
             let t = register_aggregation t ~act ~dest:nop_share.dest v in
             t, EAdd (expr, EVar v))
           (t, expr) non_opp_shares
       in
       let t = register_value t ~act:condition ~dest:ov expr in
       add_deficit_var t ~act:condition ~provider:dest ov
+  in
+  let stage_reps t src stage_var stage directs defaults =
+    (* Staging of repartition to create dependencies between them
+       even when completely time-separated.
+
+       The stages are computed with [Condition.time_staging] which
+       orders shares conditions (sliced, when necessary) by timing.
+       Default computation ensures that they are mutually exclusives,
+       and so a single stage can match several defaults without
+       risking them coexisting. And the stages themselves are also
+       exclusives.
+
+       The general idea here is to have the default repartitions of
+       a stage being substracted from the diff value they use, and
+       use that as the diff for the next stage. Such diffs would
+       always equal zero by definition, but the trick is that the
+       default repartitions that exists only in their conditions,
+       exclusives from those of the next stage. Thus, all diffs in
+       their respective stage condition are equal to the value of
+       the source pool minus the direct repartitions. *)
+    let (t, direct_vars), _remaining_directs =
+      List.fold_left_map
+        (fun (t, dv) (share : Repartition.opposable_part Repartition.share) ->
+          let act = Condition.conj share.condition stage in
+          if Condition.is_never act then (t, dv), Some share else
+            let t, (ov, _act) = register_part t src stage_var { share with condition = act } in
+            let t = register_aggregation t ~act ~dest:share.dest ov in
+            (t, ov::dv), None)
+        (t, []) directs
+    in
+    let t, def_vars =
+      (* For each stage we need to go through every default shares,
+         because some of them might have non-monotonous conditions
+         that make them appears in several layer, and end up having
+         several equations, one for each subset of conditions. *)
+      List.fold_left
+        (fun (t, rv) ({ label; dest; condition; part; main_event }
+                      : Repartition.unified_parts Repartition.share) ->
+          let act = Condition.conj condition stage in
+          if Condition.is_never act then t, rv else
+            let t, ov = create_var_from t dest (fun i ->
+                { i with
+                  kind = Intermediary;
+                  origin = OperationDetail {
+                      label;
+                      op_kind = Default part;
+                      condition = main_event;
+                      source = src;
+                      target = dest }
+                })
+            in
+            let expr =
+              List.fold_left (fun e dv -> EAdd (e, ENeg (EVar dv)))
+                (EVar stage_var)
+                direct_vars
+            in
+            let t = register_value t ~act ~dest:ov expr in
+            let t = register_aggregation t ~act ~dest ov in
+            t, ov::rv)
+        (t, []) defaults
+    in
+    let stage_expr =
+      List.fold_left (fun e rv ->
+          EAdd (e, ENeg (EVar rv)))
+        (EVar stage_var)
+        (direct_vars @ def_vars)
+    in
+    let t, stage_var =
+      create_var_from t src (fun i ->
+          { i with
+            kind = Intermediary;
+            origin = PoolStage src;
+          })
+    in
+    let t = register_value t ~act:Condition.always ~dest:stage_var stage_expr in
+    t, stage_var, directs (* List.filter_map Fun.id remaining_directs *)
   in
   Variable.Map.fold (fun src rep t ->
       let fullrep =
@@ -607,9 +558,24 @@ let convert_repartitions t =
         | Error (MultipleDefRep) ->
           Report.raise_multiple_def_rep_error t.pinfos src
       in
-      let t, direct_rep = conv_shares t src fullrep.parts in
-      let t, def_reps = conv_defaults t src direct_rep fullrep.defaults in
-      conv_deficit t src (direct_rep::def_reps) fullrep.deficits fullrep.non_opp_parts)
+      let stages =
+        let stage_generation = true in
+        if stage_generation then
+          Condition.time_ranking @@
+          List.map (fun sh -> sh.Repartition.condition) fullrep.parts
+          @ List.map (fun sh -> sh.Repartition.condition) fullrep.defaults
+        else [ Condition.always ]
+      in
+      let t, last_stage_var, _ =
+        List.fold_left (fun (t, stage_var, directs) stage ->
+            let t, next_stage_var, _remaining_directs =
+              stage_reps t src stage_var stage directs fullrep.defaults
+            in
+            t, next_stage_var, fullrep.parts(* remaining_directs *))
+          (t, src, fullrep.parts)
+          stages
+      in
+      conv_deficit t src last_stage_var fullrep.deficits fullrep.non_opp_parts)
     t.repartitions t
 
 let convert_flats t =

@@ -57,6 +57,7 @@
          default 6000000 -> rnpp @sofica
        - rnpp @sofica { 6000000, 6000000 }:
          1200000 -> sofica[recup] @sofica
+         default 4800000 -> prod[residuel]
        - sofica @sofica { 1200000, 1200000 }:
          - sofica[recup] @sofica { 1200000, 1200000 }:
          

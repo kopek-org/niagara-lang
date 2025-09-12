@@ -40,7 +40,7 @@ type origin =
   | OperationSum of { source : Variable.t; target : Variable.t }
   | RepartitionSum of Variable.t
   | DeficitSum of Variable.t
-  | PoolResidual of Variable.t
+  | PoolStage of Variable.t
   | ConditionExistential
   | OpposingVariant of { target : Variable.t; origin : Variable.t; variant : origin }
   | OppositionDelta of { target : Variable.t }
