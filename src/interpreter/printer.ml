@@ -134,13 +134,9 @@ let event_flips (infos : VarInfo.collection) (past_state : bool Variable.Map.t)
     | Peeking _ | RisingEvent _ -> None
     | _ -> assert false
   in
- Variable.Map.merge (fun v e1 e2 ->
-      match e1,e2 with
-      | None, Some true -> visible_name v true
-      | Some pb, Some nb -> if pb <> nb then visible_name v nb else None
-      | Some true, None -> visible_name v false
-      | _ -> None)
-   past_state new_state
+  Variable.Map.filter_map
+    (fun v b -> visible_name v b)
+    (Results.diff_step_events past_state new_state)
 
 let print_intepreter_outputs (p : Dataflow.Equ.program) fmt (norm_mode : Results.norm_mode)
     (lines : computation_outputs) =
