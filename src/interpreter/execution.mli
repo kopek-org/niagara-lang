@@ -14,6 +14,8 @@ module InputLineMap = IntMap
 
 type computation_outputs = output_line InputLineMap.t
 
+val literal_value : Literal.t -> Value.t
+
 val compute_input_lines :
   Dataflow.Equ.program -> Dataflow.Equ.limits -> Initialization.t
   -> Input.t -> computation_outputs
