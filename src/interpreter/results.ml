@@ -644,3 +644,16 @@ let normalize_layout (info : ProgramInfo.t) (mode : norm_mode) (layout : results
         Variable.Map.add v (Detail i) layout
       | _ -> layout)
     layout layout
+
+let diff_step_events ev1 ev2 =
+  Variable.Map.merge
+    (fun _ e1 e2 ->
+      match (e1, e2) with
+      | None, None -> None
+      | None, Some b -> if b then Some true else None
+      | Some b, None -> if b then Some false else None
+      | Some b1, Some b2 ->
+          if b1 then if b2 then None else Some false
+          else if b2 then Some true
+          else None)
+    ev1 ev2
