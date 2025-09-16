@@ -5,10 +5,10 @@ type item_result_layout = {
      canonical item variable, the one to look for in maps and for infos *)
   cumulated : Variable.t option;
   (* total value, if exists *)
-  reps : Variable.Set.t Variable.Map.t;
-  (* destination -> value mapping of repartition *)
-  defaults : Variable.Set.t Variable.Map.t;
-  (* destination -> value mapping of default repartition *)
+  reps : Variable.t Variable.Map.t Variable.Map.t;
+  (* destination -> staged value -> value mapping of repartition *)
+  defaults : Variable.t Variable.Map.t Variable.Map.t;
+  (* destination -> staged value -> value mapping of default repartition *)
   computed : Variable.Set.t
   (* computation of item value *)
 }

@@ -26,28 +26,32 @@ let print_default fmt rep = print_repartition ~default:true fmt rep
 let rec print_item ?(close=true) infos fmt layout step (item : Results.top_item) =
   let open Format in
   let map_reps reps =
-    Variable.Map.fold (fun dest values replist ->
-        Variable.Set.fold (fun value replist ->
-            match find_step_value value step with
-            | Absent -> replist
-            | Present v ->
-              let name =
-                match Variable.Map.find_opt dest layout with
-                | Some (Results.Top item | Detail item) -> item.display_name
-                | Some (Results.Flat item) -> item.flat_name
-                | Some (Super item) -> item.super_item.display_name
-                | None ->
-                  match VarInfo.get_name infos dest with
-                  | Some name -> name
-                  | None ->
-                    Report.raise_internal_error
-                      "Unable to find suitable name for repartition \
-                       destination variable"
-              in
-              (name, v)::replist)
-          values replist)
-      reps []
-    |> List.rev
+    let vals =
+      Variable.Map.fold (fun dest values vals ->
+        Variable.Map.fold (fun _stage_value rep_value vals ->
+            match find_step_value rep_value step with
+            | Absent -> vals
+            | Present v -> Variable.Map.add rep_value (v, dest) vals)
+          values vals)
+        reps
+        Variable.Map.empty
+    in
+    Variable.Map.fold (fun _rep_value (v,dest) replist ->
+        let name =
+          match Variable.Map.find_opt dest layout with
+          | Some (Results.Top item | Detail item) -> item.display_name
+          | Some (Results.Flat item) -> item.flat_name
+          | Some (Super item) -> item.super_item.display_name
+          | None ->
+            match VarInfo.get_name infos dest with
+            | Some name -> name
+            | None ->
+              Report.raise_internal_error
+                "Unable to find suitable name for repartition \
+                 destination variable"
+        in
+        (name, v)::replist)
+      vals []
   in
   match item with
   | Top item | Detail item ->

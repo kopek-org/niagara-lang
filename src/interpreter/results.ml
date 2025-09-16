@@ -7,10 +7,10 @@ type item_result_layout = {
      canonical item variable, the one to look for in maps and for infos *)
   cumulated : Variable.t option;
   (* total value, if exists *)
-  reps : Variable.Set.t Variable.Map.t;
-  (* destination -> value mapping of repartition *)
-  defaults : Variable.Set.t Variable.Map.t;
-  (* destination -> value mapping of default repartition *)
+  reps : Variable.t Variable.Map.t Variable.Map.t;
+  (* destination -> staged value -> value mapping of repartition *)
+  defaults : Variable.t Variable.Map.t Variable.Map.t;
+  (* destination -> staged value -> value mapping of default repartition *)
   computed : Variable.Set.t
   (* computation of item value *)
 }
@@ -121,13 +121,14 @@ let variant_copy (pinfos : ProgramInfo.t) layout
       let reps_update reps base =
         Variable.Map.fold (fun dest values reps ->
               let dest = variant_if_exists dest in
-              Variable.Set.fold (fun value reps ->
+              Variable.Map.fold (fun value staged_v reps ->
+                  let staged_v = variant_if_exists staged_v in
                   match variant_opt value with
                   | None -> reps
                   | Some value ->
                     Variable.Map.update dest (function
-                        | None -> Some (Variable.Set.singleton value)
-                        | Some values -> Some (Variable.Set.add value values))
+                        | None -> Some (Variable.Map.singleton value staged_v)
+                        | Some values -> Some (Variable.Map.add value staged_v values))
                       reps)
                 values reps)
           reps base
@@ -244,13 +245,34 @@ let build_result_layout (pinfos : ProgramInfo.t) =
                   (VarInfo.get_any_name pinfos.var_info origin)
                   ^ "(" ^ (context_display pinfos.contexts context) ^ ")"
               }), variants
+        | StagedRepartition { rep; stage = _ } ->
+          (match (Variable.Map.find rep pinfos.var_info).origin with
+           | OperationDetail { op_kind; source; target; _ } ->
+             (match op_kind with
+              | Quotepart  _ ->
+                update_detail_of source (fun l ->
+                    { l with reps = Variable.Map.update target (function
+                          | None -> Some (Variable.Map.singleton v rep)
+                          | Some vs -> Some (Variable.Map.add v rep vs))
+                          l.reps
+                    })
+                  layout
+              | Default _ ->
+                update_detail_of source (fun l ->
+                    { l with defaults = Variable.Map.update target (function
+                          | None -> Some (Variable.Map.singleton v rep)
+                          | Some vs -> Some (Variable.Map.add v rep vs))
+                          l.defaults })
+                  layout
+              | _ -> assert false), variants
+           | _ -> assert false)
         | OperationDetail { label; op_kind; source; target; condition = _ } ->
           (match op_kind with
            | Quotepart  _ ->
              update_detail_of source (fun l ->
                  { l with reps = Variable.Map.update target (function
-                       | None -> Some (Variable.Set.singleton v)
-                       | Some vs -> Some (Variable.Set.add v vs))
+                       | None -> Some (Variable.Map.singleton v v)
+                       | Some vs -> Some (Variable.Map.add v v vs))
                        l.reps
                  })
                layout
@@ -266,23 +288,23 @@ let build_result_layout (pinfos : ProgramInfo.t) =
              update_detail_of source (fun l ->
                  { l with
                    reps = Variable.Map.update target (function
-                       | None -> Some (Variable.Set.singleton v)
-                       | Some vs -> Some (Variable.Set.add v vs))
+                       | None -> Some (Variable.Map.singleton v v)
+                       | Some vs -> Some (Variable.Map.add v v vs))
                        l.reps;
                  })
                layout
            | Default _ ->
              update_detail_of source (fun l ->
                  { l with defaults = Variable.Map.update target (function
-                       | None -> Some (Variable.Set.singleton v)
-                       | Some vs -> Some (Variable.Set.add v vs))
+                       | None -> Some (Variable.Map.singleton v v)
+                       | Some vs -> Some (Variable.Map.add v v vs))
                        l.defaults })
                layout
            | Deficit _ ->
              update_detail_of source (fun l ->
                  { l with reps = Variable.Map.update target (function
-                       | None -> Some (Variable.Set.singleton v)
-                       | Some vs -> Some (Variable.Set.add v vs))
+                       | None -> Some (Variable.Map.singleton v v)
+                       | Some vs -> Some (Variable.Map.add v v vs))
                        l.reps })
                layout), variants
         | TriggerOperation { label; source = _; target; trigger; trigger_vars = _ } ->
@@ -320,7 +342,7 @@ let build_result_layout (pinfos : ProgramInfo.t) =
                 display_name = (VarInfo.get_any_name pinfos.var_info target)^" delta";
               }),
           variants
-        | RepartitionSum _ | DeficitSum _ | StagedRepartition _ | PoolStage _
+        | RepartitionSum _ | DeficitSum _ | PoolStage _
         | ConditionExistential | AnonEvent | Peeking _ | RisingEvent _ ->
           layout, variants)
       pinfos.var_info (Variable.Map.empty, Variable.Map.empty)
@@ -565,8 +587,8 @@ let normalize_layout (info : ProgramInfo.t) (mode : norm_mode) (layout : results
   let filter_res_item item =
     let filter_map map =
       Variable.Map.filter_map (fun _d vs ->
-          let vs = Variable.Set.filter filter vs in
-          if Variable.Set.is_empty vs
+          let vs = Variable.Map.filter (fun _ v -> filter v) vs in
+          if Variable.Map.is_empty vs
           then None else Some vs)
         map
     in
