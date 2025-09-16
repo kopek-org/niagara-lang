@@ -416,64 +416,64 @@ let group_productions ~produce ~aggr_var t ops =
     t, (agv, cond)
 
 let convert_repartitions t =
-  let register_part t og_src stage_var ({ label; condition; part; dest; main_event }
-                           : Repartition.opposable_part Repartition.share) =
-    let part, opposed = part in
+  let register_share_var t src get_kind
+      ({ label; part; dest; main_event; condition } as share
+       : _ Repartition.share) =
     let t, ov = create_var_from t dest (fun i ->
         { i with
           kind = Intermediary;
           origin = OperationDetail
               { label;
-                op_kind = Quotepart part;
-                source = og_src;
+                op_kind = get_kind part;
+                source = src;
                 target = dest;
                 condition = main_event
               }
         })
     in
+    let t = register_aggregation t ~act:condition ~dest ov in
+    t, (ov, share)
+  in
+  let register_part t og_src stage_var rep_var
+      (share : Repartition.opposable_part Repartition.share) =
+    let part, opposed = share.part in
     let t =
       List.fold_left (fun t Repartition.{ opp_value; opp_target; opp_provider } ->
           let kind =
             Opposition.QuotePart { source = og_src; delta = R.(opp_value - part) }
           in
           let expr = EMult (EConst (LRational opp_value), EVar stage_var) in
-          let subst = Opposition.{ expr; kind; condition } in
-          register_opposition t ~on:ov ~target:opp_target ~provider:opp_provider subst)
+          let subst = Opposition.{ expr; kind; condition = share.condition } in
+          register_opposition t ~on:rep_var ~target:opp_target ~provider:opp_provider subst)
         t opposed
     in
     let expr = EMult (EConst (LRational part), EVar stage_var) in
-    let t = register_value t ~act:condition ~dest:ov expr in
-    t, (ov, condition)
+    register_value t ~act:share.condition ~dest:rep_var expr
   in
   let conv_deficit t src stage_var
-      (def_share : Repartition.unified_parts Repartition.share option)
-      non_opp_shares =
-    match def_share with
-    | None -> t
-    | Some { label; dest; condition; part; main_event } ->
-      let t, ov = create_var_from t dest (fun i ->
-          { i with
-            kind = Intermediary;
-            origin = OperationDetail {
-                label;
-                condition = main_event;
-                op_kind = Deficit part;
-                source = dest;
-                target = src }
-          })
-      in
-      let expr = ENeg (EVar stage_var) in
-      let t, expr =
-        List.fold_left (fun (t, expr) nop_share ->
-            let t, (v, act) = register_part t src src nop_share in
-            let t = register_aggregation t ~act ~dest:nop_share.dest v in
-            t, EAdd (expr, EVar v))
-          (t, expr) non_opp_shares
-      in
-      let t = register_value t ~act:condition ~dest:ov expr in
-      add_deficit_var t ~act:condition ~provider:dest ov
+      ({ label; dest; condition; part; main_event } :
+         Repartition.unified_parts Repartition.share)
+      non_opp_vars =
+    let t, ov = create_var_from t dest (fun i ->
+        { i with
+          kind = Intermediary;
+          origin = OperationDetail {
+              label;
+              condition = main_event;
+              op_kind = Deficit part;
+              source = dest;
+              target = src }
+        })
+    in
+    let expr =
+      List.fold_left (fun expr nop_var ->
+          EAdd (expr, EVar nop_var))
+        (ENeg (EVar stage_var)) non_opp_vars
+    in
+    let t = register_value t ~act:condition ~dest:ov expr in
+    add_deficit_var t ~act:condition ~provider:dest ov
   in
-  let stage_reps t src stage_var stage directs defaults =
+  let stage_reps t src stage_var stage directs defaults nopps first_stages =
     (* Staging of repartition to create dependencies between them
        even when completely time-separated.
 
@@ -492,45 +492,61 @@ let convert_repartitions t =
        exclusives from those of the next stage. Thus, all diffs in
        their respective stage condition are equal to the value of
        the source pool minus the direct repartitions. *)
-    let (t, direct_vars), _remaining_directs =
-      List.fold_left_map
-        (fun (t, dv) (share : Repartition.opposable_part Repartition.share) ->
+    let get_staged_rep_var t stage share_cond rep_var =
+      let one_rep = Condition.(is_never @@ excluded share_cond stage) in
+      if one_rep then t, rep_var else
+        let act = Condition.conj share_cond stage in
+        let t, staged_rep =
+          create_var_from t rep_var (fun i ->
+              { i with
+                origin = StagedRepartition { rep = rep_var; stage }
+              })
+        in
+        let t = register_aggregation t ~act ~dest:rep_var staged_rep in
+        t, staged_rep
+    in
+    let build_staged_direct_rep t directs first_stages =
+      List.fold_left
+        (fun (t, dv, first_stages)
+          (rep_var, (share : Repartition.opposable_part Repartition.share)) ->
           let act = Condition.conj share.condition stage in
-          if Condition.is_never act then (t, dv), Some share else
-            let t, (ov, _act) = register_part t src stage_var { share with condition = act } in
-            let t = register_aggregation t ~act ~dest:share.dest ov in
-            (t, ov::dv), None)
-        (t, []) directs
+          if Condition.is_never act then t, dv, first_stages else
+            let stage_var, first_stages =
+              match Variable.Map.find_opt rep_var first_stages with
+              | None -> stage_var, Variable.Map.add rep_var stage_var first_stages
+              | Some stage_var -> stage_var, first_stages
+            in
+            let t, staged_rep = get_staged_rep_var t stage share.condition rep_var in
+            let t =
+              register_part t src stage_var staged_rep { share with condition = act }
+            in
+            t, staged_rep::dv, first_stages)
+        (t, [], first_stages) directs
+    in
+    let t, direct_vars, first_stages =
+      build_staged_direct_rep t directs first_stages
+    in
+    let t, _, first_stages =
+      build_staged_direct_rep t nopps first_stages
     in
     let t, def_vars =
       (* For each stage we need to go through every default shares,
          because some of them might have non-monotonous conditions
          that make them appears in several layer, and end up having
          several equations, one for each subset of conditions. *)
+      let def_expr =
+        List.fold_left (fun e dv -> EAdd (e, ENeg (EVar dv)))
+          (EVar stage_var)
+          direct_vars
+      in
       List.fold_left
-        (fun (t, rv) ({ label; dest; condition; part; main_event }
-                      : Repartition.unified_parts Repartition.share) ->
-          let act = Condition.conj condition stage in
+        (fun (t, rv)
+          (rep_var, (share : Repartition.unified_parts Repartition.share)) ->
+          let act = Condition.conj share.condition stage in
           if Condition.is_never act then t, rv else
-            let t, ov = create_var_from t dest (fun i ->
-                { i with
-                  kind = Intermediary;
-                  origin = OperationDetail {
-                      label;
-                      op_kind = Default part;
-                      condition = main_event;
-                      source = src;
-                      target = dest }
-                })
-            in
-            let expr =
-              List.fold_left (fun e dv -> EAdd (e, ENeg (EVar dv)))
-                (EVar stage_var)
-                direct_vars
-            in
-            let t = register_value t ~act ~dest:ov expr in
-            let t = register_aggregation t ~act ~dest ov in
-            t, ov::rv)
+            let t, staged_rep = get_staged_rep_var t stage share.condition rep_var in
+            let t = register_value t ~act ~dest:staged_rep def_expr in
+            t, staged_rep::rv)
         (t, []) defaults
     in
     let stage_expr =
@@ -539,15 +555,7 @@ let convert_repartitions t =
         (EVar stage_var)
         (direct_vars @ def_vars)
     in
-    let t, stage_var =
-      create_var_from t src (fun i ->
-          { i with
-            kind = Intermediary;
-            origin = PoolStage src;
-          })
-    in
-    let t = register_value t ~act:Condition.always ~dest:stage_var stage_expr in
-    t, stage_var, directs (* List.filter_map Fun.id remaining_directs *)
+    t, stage_expr, first_stages
   in
   Variable.Map.fold (fun src rep t ->
       let fullrep =
@@ -566,16 +574,51 @@ let convert_repartitions t =
           @ List.map (fun sh -> sh.Repartition.condition) fullrep.defaults
         else [ Condition.always ]
       in
-      let t, last_stage_var, _ =
-        List.fold_left (fun (t, stage_var, directs) stage ->
-            let t, next_stage_var, _remaining_directs =
-              stage_reps t src stage_var stage directs fullrep.defaults
+      let t, direct_reps =
+        List.fold_left_map (fun t share ->
+            register_share_var t src (fun (p,_) -> VarInfo.Quotepart p) share)
+          t fullrep.parts
+      in
+      let t, default_reps =
+        List.fold_left_map (fun t share ->
+            register_share_var t src (fun p -> VarInfo.Default p) share)
+          t fullrep.defaults
+      in
+      let t, nopp_reps =
+        List.fold_left_map (fun t share ->
+            register_share_var t src (fun (p,_) -> VarInfo.Quotepart p) share)
+          t fullrep.non_opp_parts
+      in
+      let first_stage_expr = EVar src in
+      let t, last_stage_expr, _ =
+        List.fold_left (fun (t, stage_expr, first_stages) stage ->
+            let t, stage_var =
+              create_var_from t src (fun i ->
+                  { i with
+                    kind = Intermediary;
+                    origin = PoolStage src;
+                  })
             in
-            t, next_stage_var, fullrep.parts(* remaining_directs *))
-          (t, src, fullrep.parts)
+            let t = register_value t ~act:Condition.always ~dest:stage_var stage_expr in
+            stage_reps t src stage_var stage direct_reps
+              default_reps nopp_reps first_stages)
+          (t, first_stage_expr, Variable.Map.empty)
           stages
       in
-      conv_deficit t src last_stage_var fullrep.deficits fullrep.non_opp_parts)
+      match fullrep.deficits with
+      | None -> t
+      | Some def ->
+        let t, last_stage_var =
+          create_var_from t src (fun i ->
+              { i with
+                kind = Intermediary;
+                origin = PoolStage src;
+              })
+        in
+        let t =
+          register_value t ~act:Condition.always ~dest:last_stage_var last_stage_expr
+        in
+        conv_deficit t src last_stage_var def (List.map fst nopp_reps))
     t.repartitions t
 
 let convert_flats t =

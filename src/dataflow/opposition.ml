@@ -342,6 +342,9 @@ let origin_variant acc env (var : Variable.t) (vorigin : VarInfo.origin) =
   | DeficitSum s ->
     let s = variant_if_exists s in
     DeficitSum s
+  | StagedRepartition { rep; stage } ->
+    let rep = variant_if_exists rep in
+    StagedRepartition { rep; stage }
   | PoolStage s ->
     let s = variant_if_exists s in
     PoolStage s

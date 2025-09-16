@@ -320,8 +320,8 @@ let build_result_layout (pinfos : ProgramInfo.t) =
                 display_name = (VarInfo.get_any_name pinfos.var_info target)^" delta";
               }),
           variants
-        | RepartitionSum _ | DeficitSum _ | PoolStage _ | ConditionExistential
-        | AnonEvent | Peeking _ | RisingEvent _ ->
+        | RepartitionSum _ | DeficitSum _ | StagedRepartition _ | PoolStage _
+        | ConditionExistential | AnonEvent | Peeking _ | RisingEvent _ ->
           layout, variants)
       pinfos.var_info (Variable.Map.empty, Variable.Map.empty)
   in
@@ -455,6 +455,7 @@ let merge_valuations (info : ProgramInfo.t)
             | OperationSum _
             | RepartitionSum _
             | DeficitSum _
+            | StagedRepartition _
             | PoolStage _
             | ConditionExistential
             | OppositionDelta _ ->

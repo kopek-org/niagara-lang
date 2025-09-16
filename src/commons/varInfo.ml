@@ -40,6 +40,7 @@ type origin =
   | OperationSum of { source : Variable.t; target : Variable.t }
   | RepartitionSum of Variable.t
   | DeficitSum of Variable.t
+  | StagedRepartition of { rep : Variable.t; stage : Condition.t }
   | PoolStage of Variable.t
   | ConditionExistential
   | OpposingVariant of { target : Variable.t; origin : Variable.t; variant : origin }
@@ -106,6 +107,7 @@ let rec get_name coll v =
     | OperationSum _ -> None
     | RepartitionSum _ -> None
     | DeficitSum _ -> None
+    | StagedRepartition _ -> None
     | PoolStage _ -> None
     | ConditionExistential -> None
     | OpposingVariant { origin; _ } -> get_name coll origin
@@ -143,6 +145,7 @@ let print fmt t =
     fprintf fmt "[%d->%d]*" (Variable.uid source) (Variable.uid target)
   | RepartitionSum v -> fprintf fmt "%d->*" (Variable.uid v)
   | DeficitSum v -> fprintf fmt "%d->!" (Variable.uid v)
+  | StagedRepartition { rep; _ } -> fprintf fmt "~>%d" (Variable.uid rep)
   | PoolStage v -> fprintf fmt "~%d~" (Variable.uid v)
   | ConditionExistential ->
     fprintf fmt "`E"
