@@ -52,6 +52,6 @@ let pp : t Fmt.t = fun ppf pos ->
         Fmt.pf ppf "line@ %d,@ character@ %d@ to@ line@ %d,@ character %d"
           start_line start_column stop_line stop_column
     end
-  | _ -> failwith "Not a textual location"
+  | _ -> Fmt.pf ppf "unknown loc"
 
 end
