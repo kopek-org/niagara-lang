@@ -641,6 +641,7 @@ let convert_flats t =
           })
     in
     let t = register_value t ~act:flat.flat_cond ~dest:ldest flat.flat_expr in
+    let t = register_aggregation t ~act:flat.flat_cond ~dest:src ldest in
     let t =
       Variable.Map.fold (fun target (expr, provider) t ->
           let kind = Opposition.Flat { source = src } in
