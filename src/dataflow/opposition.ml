@@ -103,13 +103,15 @@ and eq_consequents acc env (var : Variable.t) (eq : aggregation) =
   match eq with
   | One { eq_act; eq_expr } ->
     let env = { env with maybes = Variable.Set.add var env.maybes } in
-    let acc, cond_consequent = condition_consequents acc env eq_act in
     let acc, is_consequent, delays = expr_consequents acc env eq_expr in
     let acc, delay_consequent = compute_consequent_delays acc env delays in
+    (* Computing conditions after equations in case current variable
+       (or deps) appears in events *)
+    let acc, cond_consequent = condition_consequents acc env eq_act in
     acc, is_consequent || delay_consequent || cond_consequent
   | More vars ->
     let env = { env with maybes = Variable.Set.add var env.maybes } in
-    List.fold_left (fun (acc, aggr_is_consequent) (var, _) ->
+    List.fold_left (fun (acc, aggr_is_consequent) (var, _cond) ->
         let acc, is_consequent = compute_consequents acc env var in
         acc, (aggr_is_consequent || is_consequent))
       (acc, false) vars
@@ -125,6 +127,10 @@ and compute_consequents acc env (var : Variable.t) =
   | Some c -> acc, Option.is_some c
   | None ->
     if Variable.Set.mem var env.maybes then
+      (* This may be fragile, we need to be careful not to drop the
+         variable before having the chance to actually evaluate it,
+         because of looping dependencies (through events) for
+         instance. *)
       acc, false
     else
       match Variable.Map.find_opt var acc.value_eqs with
