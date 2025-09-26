@@ -67,11 +67,11 @@ val iter_layout :
 (* iter on result items in a predefined order *)
 
 val force_step_merge :
-  ProgramInfo.t
-  -> filter:(Variable.t -> bool)
-  -> Execution.output_step
-  -> Execution.output_step
-  -> Execution.output_step
+  VarInfo.collection ->
+  filter:(Variable.t -> bool) ->
+  Execution.output_step ->
+  Execution.output_step ->
+  Execution.output_step
 
 val normalize_valuations :
   ProgramInfo.t
