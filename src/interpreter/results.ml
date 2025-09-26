@@ -448,10 +448,12 @@ let filter_of_norm_mode (info : ProgramInfo.t) (mode : norm_mode) =
    ultimatly decides what is displayed or not.
 *)
 
-let merge_valuations (info : ProgramInfo.t)
-    (val1 : value_presence Variable.Map.t) (val2 : value_presence Variable.Map.t) =
-  Variable.Map.merge (fun v p1 p2 ->
-      let vinfo = Variable.Map.find v info.var_info in
+let merge_valuations (var_info : VarInfo.collection)
+    (val1 : value_presence Variable.Map.t)
+    (val2 : value_presence Variable.Map.t) =
+  Variable.Map.merge
+    (fun v p1 p2 ->
+      let vinfo = Variable.Map.find v var_info in
       match vinfo.kind with
       | Constant | Value { cumulative = true; _ } -> p2
       | _ ->
@@ -485,23 +487,23 @@ let merge_valuations (info : ProgramInfo.t)
           Some (merge_on_org vinfo.origin))
     val1 val2
 
-let try_step_merge (info : ProgramInfo.t) ~(filter : Variable.t -> bool)
-    (step1 : output_step) (step2 : output_step) =
+let try_step_merge (var_info : VarInfo.collection)
+    ~(filter : Variable.t -> bool) (step1 : output_step) (step2 : output_step) =
   let ev1 = Variable.Map.filter (fun v _ -> filter v) step1.step_events in
   let ev2 = Variable.Map.filter (fun v _ -> filter v) step2.step_events in
   if Variable.Map.equal (=) ev1 ev2 then
     let step_valuations =
-      merge_valuations info step1.step_valuations step2.step_valuations
+      merge_valuations var_info step1.step_valuations step2.step_valuations
     in
     Some { step_valuations; step_events = ev2 }
   else
     None
 
-let force_step_merge (info : ProgramInfo.t) ~(filter : Variable.t -> bool)
-    (step1 : output_step) (step2 : output_step) =
+let force_step_merge (var_info : VarInfo.collection)
+    ~(filter : Variable.t -> bool) (step1 : output_step) (step2 : output_step) =
   let ev2 = Variable.Map.filter (fun v _ -> filter v) step2.step_events in
   let step_valuations =
-    merge_valuations info step1.step_valuations step2.step_valuations
+    merge_valuations var_info step1.step_valuations step2.step_valuations
   in
   { step_valuations; step_events = ev2 }
 
@@ -518,7 +520,7 @@ let normalize_valuations (info : ProgramInfo.t) (mode : norm_mode)
     match pending with
     | None -> Some (i, filter_step step)
     | Some (_, pending) ->
-      Some (i, force_step_merge info ~filter:var_filter pending step)
+        Some (i, force_step_merge info.var_info ~filter:var_filter pending step)
   in
   let push_pending pending vals =
     match pending with
@@ -538,11 +540,11 @@ let normalize_valuations (info : ProgramInfo.t) (mode : norm_mode)
   in
   let try_merge_rev_step step steps =
     match steps with
-    | [] -> [filter_step step]
-    | lstep::steps ->
-      match try_step_merge info ~filter:var_filter lstep step with
-      | None -> (filter_step step)::lstep::steps
-      | Some mstep -> mstep::steps
+    | [] -> [ filter_step step ]
+    | lstep :: steps -> (
+        match try_step_merge info.var_info ~filter:var_filter lstep step with
+        | None -> filter_step step :: lstep :: steps
+        | Some mstep -> mstep :: steps)
   in
   let line_steps ~i ~squashing pending line =
     match squashing with
@@ -550,15 +552,18 @@ let normalize_valuations (info : ProgramInfo.t) (mode : norm_mode)
       let pending = List.fold_left (add_to_pending i) pending line in
       [], pending
     | SquashSteps ->
-      let lsteps =
-        match line with
-        | [] -> []
-        | fstep::steps ->
-          [ List.fold_left (fun mstep step ->
-                force_step_merge info ~filter:var_filter mstep step)
-                (filter_step fstep) steps ]
-      in
-      lsteps, pending
+        let lsteps =
+          match line with
+          | [] -> []
+          | fstep :: steps ->
+              [
+                List.fold_left
+                  (fun mstep step ->
+                    force_step_merge info.var_info ~filter:var_filter mstep step)
+                  (filter_step fstep) steps;
+              ]
+        in
+        (lsteps, pending)
     | AllSteps ->
       let rsteps =
         List.fold_left (fun rsteps step -> try_merge_rev_step step rsteps) [] line
