@@ -378,6 +378,7 @@ type norm_mode =
       lines : line_squashing IntMap.t;
       in_out_details : bool;
       partner_display : bool;
+      relevancy_check : Variable.t -> bool;
     }
 
 let filter_of_norm_mode (info : ProgramInfo.t) (mode : norm_mode) =
@@ -419,33 +420,31 @@ let filter_of_norm_mode (info : ProgramInfo.t) (mode : norm_mode) =
   match mode with
   | Canonical -> canonical_filter, all_lines
   | SquashAllButPartners -> only_partners_filter (), no_lines
-  | Explain { for_partner; lines; in_out_details; partner_display } ->
+  | Explain { for_partner = _; lines; in_out_details;
+              partner_display; relevancy_check } ->
     let line_filter i =
       match IntMap.find_opt i lines with
       | Some s -> s
       | None -> MeldInNext
     in
-    match Variable.Map.find_opt for_partner info.relevance_sets with
-    | None -> canonical_filter, line_filter
-    | Some ps ->
-      let rec org_check v =
-        let vinfo = Variable.Map.find v info.var_info in
-        let rec variant_check variant =
-          match variant with
-          | Peeking  _ | RisingEvent _ -> false
-          | OpposingVariant { variant; _ } -> variant_check variant
-          | RepartitionSum _ | DeficitSum _
-          | OperationDetail _ | OperationSum _ | TriggerOperation _ ->
-            in_out_details && Variable.Set.mem v ps.relevant_vars
-          | Cumulative v -> org_check v
-          | _ -> Variable.Set.mem v ps.relevant_vars
-        in
-        if not partner_display && VarInfo.is_partner vinfo then false
-        else match vinfo.kind with
-          | Value { observable = true; _ } -> true
-          | _ -> variant_check vinfo.origin
+    let rec org_check v =
+      let vinfo = Variable.Map.find v info.var_info in
+      let rec variant_check variant =
+        match variant with
+        | Peeking  _ | RisingEvent _ -> false
+        | OpposingVariant { variant; _ } -> variant_check variant
+        | RepartitionSum _ | DeficitSum _
+        | OperationDetail _ | OperationSum _ | TriggerOperation _ ->
+          in_out_details && relevancy_check v
+        | Cumulative v -> org_check v
+        | _ -> relevancy_check v
       in
-      org_check, line_filter
+      if not partner_display && VarInfo.is_partner vinfo then false
+      else match vinfo.kind with
+        | Value { observable = true; _ } -> true
+        | _ -> variant_check vinfo.origin
+    in
+    org_check, line_filter
 
 (* We don't filter valuations because it causes more problems than it
    solves. Only events may be filtered out for now. The actual filter

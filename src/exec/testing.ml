@@ -37,10 +37,19 @@ let test_stdin (p : Equ.program) (l : Equ.limits) (for_partner : string option) 
         match find_partner p.infos.var_info s with
         | None -> Report.raise_error "Unable to find partner %s" s
         | Some for_partner ->
+          let relevancy_check =
+            let rs =
+              match Variable.Map.find_opt for_partner p.infos.relevance_sets with
+              | None -> Report.raise_error "No relevant set for partner %s" s
+              | Some rs -> rs
+            in
+            fun v -> Variable.Set.mem v rs.relevant_vars
+          in
           Results.Explain {
             for_partner; lines;
             in_out_details = true;
             partner_display = true;
+            relevancy_check;
           }
   in
   let outputs = Interpreter.Execution.compute_input_lines p l inputs in

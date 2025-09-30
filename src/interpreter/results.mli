@@ -54,6 +54,7 @@ type norm_mode =
       lines : line_squashing IntMap.t; (* Each line its own policy *)
       in_out_details : bool;
       partner_display : bool;
+      relevancy_check : Variable.t -> bool;
     }
 (* Normalization form for computation valuations and result layout *)
 
