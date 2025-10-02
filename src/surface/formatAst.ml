@@ -134,9 +134,9 @@ let rec print_event_expr : type a.  ProgramInfo.t -> Format.formatter -> a event
 let print_redist (type a) infos fmt (redist : a redistribution) ~dest =
   match redist.redistribution_desc with
   | Part (f, non_opp) ->
-    Format.fprintf fmt "quotepart %s%a %t"
-      (if non_opp then "non-opposable " else " ")
+    Format.fprintf fmt "quotepart %a%s %t"
       (print_formula infos) f
+      (if non_opp then " non opposable" else "")
       dest
   | Flat f -> Format.fprintf fmt "bonus %a %t" (print_formula infos) f dest
   | Retrocession (f, p) ->
