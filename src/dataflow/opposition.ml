@@ -42,23 +42,17 @@ let is_user_subst env var = Variable.Map.mem var env.user_substs
 
 let add_copy acc { cumulatives; _ } (var : Variable.t) =
   let one_copy acc var =
-    let copy = Variable.create () in
-    let copies = Variable.Map.add var (Some copy) acc.copies in
+    let copies =
+      Variable.Map.update var (function
+          | None | Some None -> Some (Some (Variable.create ()))
+          | c -> c)
+        acc.copies in
     { acc with copies }
   in
   let acc = one_copy acc var in
   match Variable.Map.find_opt var cumulatives with
   | None -> acc
   | Some c -> one_copy acc c
-
-let maybes_are_certain acc env =
-  let acc =
-    Variable.Set.fold (fun var acc ->
-        add_copy acc env var)
-      env.maybes acc
-  in
-  let env = { env with maybes = Variable.Set.empty } in
-  acc, env
 
 let not_consequent acc env (var : Variable.t) =
   { acc with
@@ -100,17 +94,21 @@ let rec expr_consequents acc env (expr : expr) =
   aux acc env Variable.Set.empty expr
 
 and eq_consequents acc env (var : Variable.t) (eq : aggregation) =
+  let env = { env with maybes = Variable.Set.add var env.maybes } in
   match eq with
   | One { eq_act; eq_expr } ->
-    let env = { env with maybes = Variable.Set.add var env.maybes } in
     let acc, is_consequent, delays = expr_consequents acc env eq_expr in
     let acc, delay_consequent = compute_consequent_delays acc env delays in
+    let acc =
+      if (is_consequent || delay_consequent)
+      then register_consequence acc env var true
+      else acc
+    in
     (* Computing conditions after equations in case current variable
        (or deps) appears in events *)
     let acc, cond_consequent = condition_consequents acc env eq_act in
     acc, is_consequent || delay_consequent || cond_consequent
   | More vars ->
-    let env = { env with maybes = Variable.Set.add var env.maybes } in
     List.fold_left (fun (acc, aggr_is_consequent) (var, _cond) ->
         let acc, is_consequent = compute_consequents acc env var in
         acc, (aggr_is_consequent || is_consequent))
@@ -137,11 +135,6 @@ and compute_consequents acc env (var : Variable.t) =
       | None -> not_consequent acc env var, false
       | Some eq ->
         let is_user_subst = is_user_subst env var in
-        let acc, env =
-          if is_user_subst
-          then maybes_are_certain acc env
-          else acc, env
-        in
         let acc, is_consequent = eq_consequents acc env var eq in
         let is_consequent = is_consequent || is_user_subst in
         let acc = register_consequence acc env var is_consequent in
@@ -159,11 +152,6 @@ and event_consequents acc env (ev : Variable.t) =
   | Some c -> acc, Option.is_some c
   | None ->
     let is_user_subst = is_user_subst env ev in
-    let acc, env =
-      if is_user_subst
-      then maybes_are_certain acc env
-      else acc, env
-    in
     let ev_expr = Variable.Map.find ev acc.event_eqs in
     let acc, is_consequent, delays = expr_consequents acc env ev_expr in
     let acc, delay_consequent = compute_consequent_delays acc env delays in
