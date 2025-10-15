@@ -30,6 +30,9 @@ module Graph : sig
     val scc_list : t -> vertex list list
   end
 
+  (** set of vertexes reachable from given start vertex *)
+  val reachables : t -> V.t -> Set.t
+
   (** transitive closure keeping as edges all events on the paths
       between two nodes *)
   val transitive_closure : t -> t

@@ -17,6 +17,15 @@ module Graph = struct
   include G
   module Topology = Graph.Components.Make(G)
 
+  let reachables (g : G.t) (start : G.V.t) : Set.t =
+    let rec aux acc v =
+      if Set.mem v acc then acc else
+        List.fold_left aux
+          (Set.add v acc)
+          (G.succ g v)
+    in
+    aux Set.empty start
+
   (* ocamlgraph code with edge merging *)
   let transitive_closure (g0 : G.t) : G.t =
     let phi v g =
