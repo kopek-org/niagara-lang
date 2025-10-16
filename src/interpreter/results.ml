@@ -350,7 +350,7 @@ let build_result_layout (pinfos : ProgramInfo.t) =
   variant_copy pinfos layout variants
 
 let sort_layout ~(graph : Variable.Graph.t) (layout : results_layout) =
-  let order = Variable.Graph.topological_depth_ordering graph in
+  let order = Variable.Graph.DAG.topological_depth_ordering graph in
   List.filter_map (fun v ->
       let item = Variable.Map.find_opt v layout in
       Option.bind item (function

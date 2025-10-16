@@ -33,10 +33,11 @@ module Graph : sig
   (** set of vertexes reachable from given start vertex *)
   val reachables : t -> V.t -> Set.t
 
-  (** transitive closure keeping as edges all events on the paths
-      between two nodes *)
-  val transitive_closure : t -> t
+  module DAG : sig
+    (** transitive closure keeping as edges all events on the paths
+        between two nodes *)
+    val transitive_closure : t -> t
 
-  val topological_depth_ordering : t -> V.t list
-
+    val topological_depth_ordering : t -> V.t list
+  end
 end
