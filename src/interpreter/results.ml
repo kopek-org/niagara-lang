@@ -586,7 +586,7 @@ let normalize_layout (info : ProgramInfo.t) (mode : norm_mode) (layout : results
   let filter_res_item item =
     let filter_map map =
       Variable.Map.filter_map (fun _d vs ->
-          let vs = Variable.Map.filter (fun _ v -> filter v) vs in
+          let vs = Variable.Map.filter (fun rv v -> filter rv || filter v) vs in
           if Variable.Map.is_empty vs
           then None else Some vs)
         map
