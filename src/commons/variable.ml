@@ -19,7 +19,7 @@ module Graph = struct
 
   let reachables (g : G.t) (start : G.V.t) : Set.t =
     let rec aux acc v =
-      if Set.mem v acc then acc else
+      if Set.mem v acc || not (G.mem_vertex g v) then acc else
         List.fold_left aux
           (Set.add v acc)
           (G.succ g v)
