@@ -282,7 +282,30 @@ and print_with_var v b fmt t =
       print_conj ()
       print t
 
+let bdd_encoding =
+  let open Json_encoding in
+  mu "bdd" (fun self ->
+      union
+        [
+          case bool
+            (function T -> Some true | F -> Some false | Var _ -> None)
+            (fun b -> if b then T else F);
+          case
+            (tup4
+               (string_enum [ ("input", true); ("event", false) ])
+               Variable.encoding self self)
+            (function
+              | Var (Input v, t, f) -> Some (true, v, t.ctn, f.ctn)
+              | Var (Event v, t, f) -> Some (false, v, t.ctn, f.ctn)
+              | F | T -> None)
+            (fun (b, v, t, f) ->
+              let v = if b then Input v else Event v in
+              Var (v, hc t, hc f));
+        ])
+
 type t = bdd hcd
+
+let encoding = Json_encoding.conv (fun x -> x.ctn) (fun x -> hc x) bdd_encoding
 
 let time_split t1 t2 =
   let past1 = past_of t1 in

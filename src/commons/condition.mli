@@ -1,5 +1,6 @@
 type t
 
+val encoding : t Json_encoding.encoding
 val never : t
 val always : t
 val of_input : Variable.t -> t
