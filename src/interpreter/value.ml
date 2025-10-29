@@ -76,3 +76,5 @@ let human_print fmt (v : t) =
   match v with
   | VRat r -> R.print_dec_approx fmt r
 
+let encoding =
+  Json_encoding.conv (function VRat x -> x) (fun x -> VRat x) R.encoding
