@@ -14,6 +14,9 @@ type input_line = {
   input_value : Literal.t;
 }
 
+val output_line_encoding : output_line Json_encoding.encoding
+val input_line_encoding : input_line Json_encoding.encoding
+
 module InputLineMap = IntMap
 
 type computation_inputs = input_line InputLineMap.t
