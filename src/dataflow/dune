@@ -5,6 +5,7 @@
   (libraries
     zarith
     calendar
+    json-data-encoding
     commons
     surface
   )
