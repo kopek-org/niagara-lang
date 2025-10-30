@@ -7,6 +7,5 @@
     surface
     dataflow
     ocamlgraph
-    dot
   )
 )

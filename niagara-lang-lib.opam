@@ -7,7 +7,6 @@ homepage: "https://github.com/kopek-org/niagara-lang"
 bug-reports: "https://github.com/kopek-org/niagara-lang/issues"
 depends: [
   "dune" {>= "2.9"}
-  "ocamldot"
   "ocaml" {>= "4.13"}
   "sedlex" {>= "3.0"}
   "menhir"
