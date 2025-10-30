@@ -19,7 +19,6 @@
  (synopsis "The Niagara language compiler library")
  (depends
   dune
-  ocamldot
   (ocaml
    (>= 4.13))
   (sedlex
