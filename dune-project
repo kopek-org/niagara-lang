@@ -6,18 +6,24 @@
 
 (name niagara-lang)
 
-(maintainers "keryan.didier@ocamlpro.com")
+(maintainers keryan.didier@ocamlpro.com)
 
-(authors "keryan.didier@ocamlpro.com" "julien.blond@ocamlpro.com")
+(authors keryan.didier@ocamlpro.com julien.blond@ocamlpro.com)
 
-(homepage "https://github.com/kopek-org/niagara-lang")
+(homepage https://github.com/kopek-org/niagara-lang)
 
-(bug_reports "https://github.com/kopek-org/niagara-lang/issues")
+(bug_reports https://github.com/kopek-org/niagara-lang/issues)
+
+(license AGPL-3.0-only)
 
 (package
  (name niagara-lang-lib)
  (synopsis "The Niagara language compiler library")
  (depends
+  (menhirLib
+   (>= 20250912))
+  (gen
+   (>= 1.1))
   dune
   (ocaml
    (>= 4.13))
@@ -31,14 +37,28 @@
   (fmt
    (>= 0.8.9))
   (cmdliner
-   (>= 1.0.4))
+   (>= 2.0.0))
   ocamlgraph
-  zarith))
+  (zarith
+   (>= 1.14))))
 
 (package
  (name niagara-lang)
  (synopsis "A compiler for cinema revenue distribution language")
- (depends dune niagara-lang-lib))
+ (depends
+  (zarith
+   (>= 1.14))
+  (logs
+   (>= 0.9.0))
+  (fmt
+   (>= 0.11.0))
+  (cmdliner
+   (>= 1.3.0))
+  (calendar
+   (>= 3.0.0))
+  dune
+  niagara-lang-lib))
 
 (generate_opam_files true)
+
 (cram enable)
