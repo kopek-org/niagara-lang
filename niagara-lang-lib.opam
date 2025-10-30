@@ -3,9 +3,12 @@ opam-version: "2.0"
 synopsis: "The Niagara language compiler library"
 maintainer: ["keryan.didier@ocamlpro.com"]
 authors: ["keryan.didier@ocamlpro.com" "julien.blond@ocamlpro.com"]
+license: "AGPL-3.0-only"
 homepage: "https://github.com/kopek-org/niagara-lang"
 bug-reports: "https://github.com/kopek-org/niagara-lang/issues"
 depends: [
+  "menhirLib" {>= "20250912"}
+  "gen" {>= "1.1"}
   "dune" {>= "2.9"}
   "ocaml" {>= "4.13"}
   "sedlex" {>= "3.0"}
@@ -13,9 +16,9 @@ depends: [
   "calendar" {>= "3.0"}
   "logs" {>= "0.7.0"}
   "fmt" {>= "0.8.9"}
-  "cmdliner" {>= "1.0.4"}
+  "cmdliner" {>= "2.0.0"}
   "ocamlgraph"
-  "zarith"
+  "zarith" {>= "1.14"}
   "odoc" {with-doc}
 ]
 build: [

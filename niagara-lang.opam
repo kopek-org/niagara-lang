@@ -3,9 +3,15 @@ opam-version: "2.0"
 synopsis: "A compiler for cinema revenue distribution language"
 maintainer: ["keryan.didier@ocamlpro.com"]
 authors: ["keryan.didier@ocamlpro.com" "julien.blond@ocamlpro.com"]
+license: "AGPL-3.0-only"
 homepage: "https://github.com/kopek-org/niagara-lang"
 bug-reports: "https://github.com/kopek-org/niagara-lang/issues"
 depends: [
+  "zarith" {>= "1.14"}
+  "logs" {>= "0.9.0"}
+  "fmt" {>= "0.11.0"}
+  "cmdliner" {>= "1.3.0"}
+  "calendar" {>= "3.0.0"}
   "dune" {>= "2.9"}
   "niagara-lang-lib"
   "odoc" {with-doc}
