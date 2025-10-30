@@ -8,6 +8,16 @@ type raw = {
   value : string;
 }
 
+let raw_encoding =
+  let open Json_encoding in
+  conv
+    (List.map (fun { id = _; name; context; value } -> (name, context, value)))
+    (List.mapi (fun id (name, context, value) -> { id; name; context; value }))
+    (list
+       (obj3 (req "name" string)
+          (dft "context" (list string) [])
+          (req "value" string)))
+
 let find_var (infos : VarInfo.collection) info_filter  =
   let vars =
     Variable.Map.filter (fun _ info -> info_filter info)

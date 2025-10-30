@@ -5,6 +5,13 @@ type relevance_set = {
   (* minimal set of variable needed to explain computation *)
 }
 
+let relevance_set_encoding =
+  let open Json_encoding in
+  conv
+    (fun { endpoint; relevant_vars } -> (endpoint, relevant_vars))
+    (fun (endpoint, relevant_vars) -> { endpoint; relevant_vars })
+    (obj2 (req "endpoint" Variable.encoding) (req "vars" Variable.Set.encoding))
+
 type t = {
   var_info : VarInfo.collection;
   var_shapes : Context.shape Variable.Map.t;
@@ -14,6 +21,51 @@ type t = {
   relevance_sets : relevance_set Variable.Map.t;
   dep_graph : Variable.Graph.t;
 }
+
+let encoding =
+  let open Json_encoding in
+  conv
+    (fun {
+           var_info;
+           var_shapes;
+           contexts;
+           compounds;
+           constants;
+           relevance_sets;
+           dep_graph;
+         } ->
+      ( var_info,
+        var_shapes,
+        contexts,
+        compounds,
+        constants,
+        relevance_sets,
+        dep_graph ))
+    (fun ( var_info,
+           var_shapes,
+           contexts,
+           compounds,
+           constants,
+           relevance_sets,
+           dep_graph ) ->
+      {
+        var_info;
+        var_shapes;
+        contexts;
+        compounds;
+        constants;
+        relevance_sets;
+        dep_graph;
+      })
+    (obj7
+       (req "var_info" (Variable.Map.array_encoding VarInfo.encoding))
+       (req "var_shapes" (Variable.Map.array_encoding Context.shape_encoding))
+       (req "contexts" Context.world_encoding)
+       (req "compounds" (Variable.Map.array_encoding Variable.Set.encoding))
+       (req "constants" (Variable.Map.array_encoding Literal.encoding))
+       (req "relevance_sets"
+          (Variable.Map.array_encoding relevance_set_encoding))
+       (req "dep_graph" Variable.Graph.encoding))
 
 let dummy = {
   var_info = Variable.Map.empty;

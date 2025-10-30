@@ -34,7 +34,8 @@
   (cmdliner
    (>= 1.0.4))
   ocamlgraph
-  zarith))
+  zarith
+  json-data-encoding))
 
 (package
  (name niagara-lang)

@@ -65,4 +65,26 @@ let ceil r =
     let rr = r - remain in
     if r < zero then rr else rr + one
 
-module Map = Map.Make(Q)
+let z_encoding = Json_encoding.(conv Z.to_string Z.of_string string)
+
+let encoding =
+  let open Json_encoding in
+  union
+    [
+      case z_encoding
+        (fun { num; den } -> if Z.equal den Z.one then Some num else None)
+        (fun num -> make num Z.one);
+      case
+        (tup2 z_encoding z_encoding)
+        (fun { num; den } -> Some (num, den))
+        (fun (num, den) -> make num den);
+    ]
+
+module Map = struct
+  include Map.Make (Q)
+
+  let encoding enc =
+    Json_encoding.conv bindings
+      (List.fold_left (fun m (i, v) -> add i v m) empty)
+      Json_encoding.(list (tup2 encoding enc))
+end

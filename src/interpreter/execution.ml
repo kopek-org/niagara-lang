@@ -83,6 +83,32 @@ type input_line = {
   input_value : Literal.t;
 }
 
+let output_step_encoding =
+  let open Json_encoding in
+  conv
+    (fun { step_valuations; step_events } ->
+      ( Variable.Map.filter_map
+          (fun _ -> function Present x -> Some x | Absent -> None)
+          step_valuations,
+        step_events ))
+    (fun (step_valuations, step_events) ->
+      {
+        step_valuations = Variable.Map.map (fun x -> Present x) step_valuations;
+        step_events;
+      })
+    (obj2
+       (req "valuations" (Variable.Map.tup_list_encoding Value.encoding))
+       (req "events_states" (Variable.Map.tup_list_encoding bool)))
+
+let output_line_encoding = Json_encoding.list output_step_encoding
+
+let input_line_encoding =
+  let open Json_encoding in
+  conv
+    (fun { input_variable; input_value } -> (input_variable, input_value))
+    (fun (input_variable, input_value) -> { input_variable; input_value })
+    (merge_objs (obj1 (req "variable" Variable.encoding)) Literal.encoding)
+
 module InputLineMap = IntMap
 (* any uid linking input and output lines would do *)
 

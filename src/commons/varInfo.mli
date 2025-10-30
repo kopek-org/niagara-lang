@@ -64,6 +64,8 @@ type t = {
   kind : kind;
 }
 
+val encoding : t Json_encoding.encoding
+
 type collection = t Variable.Map.t
 
 val is_input : t -> bool

@@ -1,7 +1,9 @@
 type t = int
 
-module Map = Map.Make(Int)
-module Set = Set.Make(Int)
+let encoding = Json_encoding.int
+
+module Map = IntMap
+module Set = IntSet
 
 module G = Graph.Persistent.Digraph.ConcreteBidirectionalLabeled(struct
     include Int
@@ -66,6 +68,27 @@ module Graph = struct
         order
   end
 
+  let encoding =
+    Json_encoding.conv
+      (fun g ->
+        let arity = fold_vertex max g 0 in
+        let out = Array.make (arity + 1) [] in
+        let () =
+          iter_vertex
+            (fun v ->
+              out.(v) <- fold_succ_e (fun (_, l, d) a -> (l, d) :: a) g v [])
+            g
+        in
+        out)
+      (fun a ->
+        snd
+          (Array.fold_left
+             (fun (s, g) e ->
+               ( s + 1,
+                 List.fold_left (fun g' (l, d) -> add_edge_e g' (s, l, d)) g e
+               ))
+             (0, empty) a))
+      Json_encoding.(array (list (tup2 Set.encoding int)))
 end
 
 let create =

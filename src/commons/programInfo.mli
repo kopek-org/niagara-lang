@@ -15,6 +15,7 @@ type t = {
   dep_graph : Variable.Graph.t;
 }
 
+val encoding : t Json_encoding.encoding
 val dummy : t
 
 val print_variable : t -> Format.formatter -> Variable.t -> unit

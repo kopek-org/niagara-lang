@@ -1,6 +1,8 @@
 (** Variable representation across the compiler *)
 type t
 
+val encoding : t Json_encoding.encoding
+
 (** Generate a fresh variable *)
 val create : unit -> t
 
@@ -13,9 +15,20 @@ val unique_anon_name : string -> string
 val compare : t -> t -> int
 val equal : t -> t -> bool
 
-module Map : Map.S with type key = t
+module Map : sig
+  include Map.S with type key = t
 
-module Set : Set.S with type elt = t
+  val tup_list_encoding :
+    'a Json_encoding.encoding -> 'a t Json_encoding.encoding
+
+  val array_encoding : 'a Json_encoding.encoding -> 'a t Json_encoding.encoding
+end
+
+module Set : sig
+  include Set.S with type elt = t
+
+  val encoding : t Json_encoding.encoding
+end
 
 (** Directed graph whose nodes are variables and edges events conditionning the link *)
 module Graph : sig
@@ -23,6 +36,10 @@ module Graph : sig
   with type V.t = t
    and type E.label = Set.t
    and type E.t = t * Set.t * t
+
+  (** Adjacency list representation.
+      Edges are couples of their label and the destination *)
+  val encoding : t Json_encoding.encoding
 
   module Topology : sig
     val scc : t -> int * (vertex -> int)
