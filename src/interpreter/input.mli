@@ -10,6 +10,19 @@ type raw = {
   (** The input value. *)
   }
 
-val to_interpreter_inputs : ProgramInfo.t -> raw list -> Execution.computation_inputs
+type line = {
+  input_variable : Variable.t;
+  input_value : Literal.t;
+}
 
-val of_interpreter_inputs : ProgramInfo.t -> Execution.computation_inputs -> raw list
+module InputLineMap = IntMap
+(* any uid linking input and output lines would do *)
+
+type t = line InputLineMap.t
+
+val largest_domain :
+  Context.world -> Context.CaseSet.t Context.DomainMap.t list -> string list
+
+val of_raw : ProgramInfo.t -> raw list -> t
+
+val to_raw : ProgramInfo.t -> t -> raw list

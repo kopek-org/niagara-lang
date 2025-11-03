@@ -1,6 +1,6 @@
 program: VERS
 ##
-## Ends in an error in state: 0.
+## Ends in an error in state: 26.
 ##
 ## program' -> . program [ # ]
 ##
@@ -13,7 +13,7 @@ Expected section or declaration.
 
 program: OPERATION LABEL VERS VERS
 ##
-## Ends in an error in state: 70.
+## Ends in an error in state: 74.
 ##
 ## destinataire -> VERS . holder [ VALEUR SUR RPAR RETROCESSION QUOTEPART QUAND POUR PAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -23,7 +23,7 @@ program: OPERATION LABEL VERS VERS
 #
 program: EVENEMENT VERS
 ##
-## Ends in an error in state: 152.
+## Ends in an error in state: 156.
 ##
 ## event_decl -> EVENEMENT . LIDENT ATTEINT QUAND event_expr [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -33,9 +33,9 @@ program: EVENEMENT VERS
 #
 program: OPERATION LABEL VERS ASSIETTE VERS
 ##
-## Ends in an error in state: 31.
+## Ends in an error in state: 16.
 ##
-## pool -> ASSIETTE . raw_pool0 [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS PAR OU OPPOSABLE OPERATION NON MULT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
+## pool -> ASSIETTE . raw_pool [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS PAR OU OPPOSABLE OPERATION NON MULT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## ASSIETTE
@@ -43,7 +43,7 @@ program: OPERATION LABEL VERS ASSIETTE VERS
 #
 program: OPERATION LABEL VERS LIDENT LBRA VERS
 ##
-## Ends in an error in state: 19.
+## Ends in an error in state: 12.
 ##
 ## labeled_actor_desc -> LIDENT LBRA . LIDENT RBRA [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS PAR OU OPPOSABLE OPERATION NON MULT MONTANT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -57,7 +57,7 @@ Expected lowercase identifier.
 
 program: OPERATION LABEL POUR VERS
 ##
-## Ends in an error in state: 75.
+## Ends in an error in state: 79.
 ##
 ## op_context -> POUR . context [ SUR QUAND POUR PAR COLON AVANT APRES ]
 ##
@@ -67,7 +67,7 @@ program: OPERATION LABEL POUR VERS
 #
 program: OPERATION LABEL POUR UIDENT VERS
 ##
-## Ends in an error in state: 76.
+## Ends in an error in state: 80.
 ##
 ## context -> UIDENT . LPAR separated_nonempty_list(COMMA,UIDENT) RPAR [ VALEUR UIDENT TOUT SUR QUAND POUR PAR OPERATION MINUS EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE COLON AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -77,7 +77,7 @@ program: OPERATION LABEL POUR UIDENT VERS
 #
 program: OPERATION LABEL POUR TOUT VERS
 ##
-## Ends in an error in state: 83.
+## Ends in an error in state: 87.
 ##
 ## context -> TOUT . UIDENT [ VALEUR UIDENT TOUT SUR QUAND POUR PAR OPERATION MINUS EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE COLON AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -92,7 +92,7 @@ Examples:
 
 program: EVENEMENT LIDENT ATTEINT QUAND EVENEMENT LIDENT VERS
 ##
-## Ends in an error in state: 156.
+## Ends in an error in state: 160.
 ##
 ## event_decl -> EVENEMENT LIDENT ATTEINT QUAND event_expr . [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ## event_expr_desc -> event_expr . ET event_expr [ VALEUR OU OPERATION EVENEMENT ET EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
@@ -106,7 +106,7 @@ Unexpected word after event expression.
 
 program: OPERATION LABEL UIDENT
 ##
-## Ends in an error in state: 69.
+## Ends in an error in state: 73.
 ##
 ## operation -> OPERATION LABEL . option(destinataire) list(op_context) source expression(simple_exprs) [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -118,7 +118,7 @@ Expected some context, or a destination, or a redistribution expression.
 
 program: OPERATION LABEL POUR TOUT UIDENT VERS
 ##
-## Ends in an error in state: 86.
+## Ends in an error in state: 90.
 ##
 ## list(op_context) -> op_context . list(op_context) [ SUR QUAND PAR COLON AVANT APRES ]
 ##
@@ -130,7 +130,7 @@ Unexpected word after context.
 
 program: EVENEMENT LIDENT VERS
 ##
-## Ends in an error in state: 153.
+## Ends in an error in state: 157.
 ##
 ## event_decl -> EVENEMENT LIDENT . ATTEINT QUAND event_expr [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -140,7 +140,7 @@ program: EVENEMENT LIDENT VERS
 #
 program: EVENEMENT LIDENT ATTEINT VERS
 ##
-## Ends in an error in state: 154.
+## Ends in an error in state: 158.
 ##
 ## event_decl -> EVENEMENT LIDENT ATTEINT . QUAND event_expr [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -150,7 +150,7 @@ program: EVENEMENT LIDENT ATTEINT VERS
 #
 program: EVENEMENT LIDENT ATTEINT QUAND VERS
 ##
-## Ends in an error in state: 155.
+## Ends in an error in state: 159.
 ##
 ## event_decl -> EVENEMENT LIDENT ATTEINT QUAND . event_expr [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -164,7 +164,7 @@ Malformed event declaration. Well-formed examples:
 
 program: ENTREE VERS
 ##
-## Ends in an error in state: 157.
+## Ends in an error in state: 161.
 ##
 ## input_decl -> ENTREE . LIDENT input_type loption(input_context_decl) [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ## input_decl -> ENTREE . ASSIETTE LIDENT loption(input_context_decl) [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
@@ -175,7 +175,7 @@ program: ENTREE VERS
 #
 program: ENTREE LIDENT VERS
 ##
-## Ends in an error in state: 158.
+## Ends in an error in state: 162.
 ##
 ## input_decl -> ENTREE LIDENT . input_type loption(input_context_decl) [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -191,7 +191,7 @@ Well-formed examples:
 
 program: ENTREE LIDENT TYPE VERS
 ##
-## Ends in an error in state: 159.
+## Ends in an error in state: 163.
 ##
 ## input_type -> TYPE . base_type [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTUALISEE CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -206,7 +206,7 @@ Expected a type identifier. It can be:
 
 program: CONTEXTE VERS
 ##
-## Ends in an error in state: 191.
+## Ends in an error in state: 195.
 ##
 ## context_decl -> CONTEXTE . UIDENT COLON nonempty_list(context_case) [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -216,7 +216,7 @@ program: CONTEXTE VERS
 #
 program: CONTEXTE UIDENT VERS
 ##
-## Ends in an error in state: 192.
+## Ends in an error in state: 196.
 ##
 ## context_decl -> CONTEXTE UIDENT . COLON nonempty_list(context_case) [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -226,7 +226,7 @@ program: CONTEXTE UIDENT VERS
 #
 program: CONTEXTE UIDENT COLON VERS
 ##
-## Ends in an error in state: 193.
+## Ends in an error in state: 197.
 ##
 ## context_decl -> CONTEXTE UIDENT COLON . nonempty_list(context_case) [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -236,7 +236,7 @@ program: CONTEXTE UIDENT COLON VERS
 #
 program: CONTEXTE UIDENT COLON MINUS VERS
 ##
-## Ends in an error in state: 194.
+## Ends in an error in state: 198.
 ##
 ## context_case -> MINUS . UIDENT [ VALEUR OPERATION MINUS EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -246,7 +246,7 @@ program: CONTEXTE UIDENT COLON MINUS VERS
 #
 program: CONTEXTE UIDENT COLON MINUS UIDENT VERS
 ##
-## Ends in an error in state: 197.
+## Ends in an error in state: 201.
 ##
 ## nonempty_list(context_case) -> context_case . [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ## nonempty_list(context_case) -> context_case . nonempty_list(context_case) [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
@@ -262,7 +262,7 @@ contexte My_context_type :
 
 program: CONSTANTE VERS
 ##
-## Ends in an error in state: 199.
+## Ends in an error in state: 203.
 ##
 ## constant_decl -> CONSTANTE . LIDENT COLON literal [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -272,7 +272,7 @@ program: CONSTANTE VERS
 #
 program: CONSTANTE LIDENT VERS
 ##
-## Ends in an error in state: 200.
+## Ends in an error in state: 204.
 ##
 ## constant_decl -> CONSTANTE LIDENT . COLON literal [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -282,7 +282,7 @@ program: CONSTANTE LIDENT VERS
 #
 program: CONSTANTE LIDENT COLON VERS
 ##
-## Ends in an error in state: 201.
+## Ends in an error in state: 205.
 ##
 ## constant_decl -> CONSTANTE LIDENT COLON . literal [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -296,7 +296,7 @@ Malformed constant declaration. Example:
 
 program: OPERATION LABEL SUR VERS
 ##
-## Ends in an error in state: 89.
+## Ends in an error in state: 93.
 ##
 ## source -> SUR . pool [ RETROCESSION QUOTEPART QUAND BONUS AVANT APRES ]
 ##
@@ -309,7 +309,7 @@ Malformed source of repartition. Example:
 
 program: OPERATION LABEL VERS LIDENT LBRA LIDENT VERS
 ##
-## Ends in an error in state: 20.
+## Ends in an error in state: 13.
 ##
 ## labeled_actor_desc -> LIDENT LBRA LIDENT . RBRA [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS PAR OU OPPOSABLE OPERATION NON MULT MONTANT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -321,7 +321,7 @@ Expected closing bracket.
 
 program: OPERATION LABEL VERS ASSIETTE LIDENT VERS
 ##
-## Ends in an error in state: 74.
+## Ends in an error in state: 78.
 ##
 ## operation -> OPERATION LABEL option(destinataire) . list(op_context) source expression(simple_exprs) [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -332,18 +332,18 @@ program: OPERATION LABEL VERS ASSIETTE LIDENT VERS
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 32, spurious reduction of production raw_pool0 -> LIDENT
-## In state 34, spurious reduction of production pool -> ASSIETTE raw_pool0
-## In state 71, spurious reduction of production holder -> pool
-## In state 72, spurious reduction of production destinataire -> VERS holder
-## In state 99, spurious reduction of production option(destinataire) -> destinataire
+## In state 17, spurious reduction of production raw_pool -> LIDENT
+## In state 19, spurious reduction of production pool -> ASSIETTE raw_pool
+## In state 75, spurious reduction of production holder -> pool
+## In state 76, spurious reduction of production destinataire -> VERS holder
+## In state 103, spurious reduction of production option(destinataire) -> destinataire
 ##
 
 Unexpected word after destination.
 
 program: OPERATION LABEL SUR ASSIETTE LIDENT VERS
 ##
-## Ends in an error in state: 93.
+## Ends in an error in state: 97.
 ##
 ## operation -> OPERATION LABEL option(destinataire) list(op_context) source . expression(simple_exprs) [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -354,16 +354,16 @@ program: OPERATION LABEL SUR ASSIETTE LIDENT VERS
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 32, spurious reduction of production raw_pool0 -> LIDENT
-## In state 34, spurious reduction of production pool -> ASSIETTE raw_pool0
-## In state 90, spurious reduction of production source -> SUR pool
+## In state 17, spurious reduction of production raw_pool -> LIDENT
+## In state 19, spurious reduction of production pool -> ASSIETTE raw_pool
+## In state 94, spurious reduction of production source -> SUR pool
 ##
 
 Unexpected word after source.
 
 program: OPERATION VERS
 ##
-## Ends in an error in state: 68.
+## Ends in an error in state: 72.
 ##
 ## operation -> OPERATION . LABEL option(destinataire) list(op_context) source expression(simple_exprs) [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -375,7 +375,7 @@ Expected label for operation.
 
 program: DEFAUT VERS
 ##
-## Ends in an error in state: 186.
+## Ends in an error in state: 190.
 ##
 ## default_decl -> DEFAUT . SUR pool VERS holder [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -385,10 +385,10 @@ program: DEFAUT VERS
 #
 program: DEFAUT SUR ASSIETTE LIDENT UIDENT
 ##
-## Ends in an error in state: 32.
+## Ends in an error in state: 17.
 ##
-## raw_pool0 -> LIDENT . [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS PAR OU OPPOSABLE OPERATION NON MULT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
-## raw_pool0 -> LIDENT . context_refinement [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS PAR OU OPPOSABLE OPERATION NON MULT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
+## raw_pool -> LIDENT . [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS PAR OU OPPOSABLE OPERATION NON MULT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
+## raw_pool -> LIDENT . context_refinement [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS PAR OU OPPOSABLE OPERATION NON MULT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
 ## The known suffix of the stack is as follows:
 ## LIDENT
@@ -396,7 +396,7 @@ program: DEFAUT SUR ASSIETTE LIDENT UIDENT
 #
 program: DEFAUT SUR ASSIETTE LIDENT VERS VERS
 ##
-## Ends in an error in state: 189.
+## Ends in an error in state: 193.
 ##
 ## default_decl -> DEFAUT SUR pool VERS . holder [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -410,7 +410,7 @@ Malformed default declaration. Examples:
 
 program: AVANCE VERS
 ##
-## Ends in an error in state: 203.
+## Ends in an error in state: 207.
 ##
 ## advance -> AVANCE . LABEL SUR holder PAR actor MONTANT formula [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -420,7 +420,7 @@ program: AVANCE VERS
 #
 program: AVANCE LABEL VERS
 ##
-## Ends in an error in state: 204.
+## Ends in an error in state: 208.
 ##
 ## advance -> AVANCE LABEL . SUR holder PAR actor MONTANT formula [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -430,7 +430,7 @@ program: AVANCE LABEL VERS
 #
 program: AVANCE LABEL SUR ASSIETTE LIDENT VERS
 ##
-## Ends in an error in state: 206.
+## Ends in an error in state: 210.
 ##
 ## advance -> AVANCE LABEL SUR holder . PAR actor MONTANT formula [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -441,14 +441,14 @@ program: AVANCE LABEL SUR ASSIETTE LIDENT VERS
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 32, spurious reduction of production raw_pool0 -> LIDENT
-## In state 34, spurious reduction of production pool -> ASSIETTE raw_pool0
-## In state 71, spurious reduction of production holder -> pool
+## In state 17, spurious reduction of production raw_pool -> LIDENT
+## In state 19, spurious reduction of production pool -> ASSIETTE raw_pool
+## In state 75, spurious reduction of production holder -> pool
 ##
 #
 program: AVANCE LABEL SUR ASSIETTE LIDENT PAR VERS
 ##
-## Ends in an error in state: 207.
+## Ends in an error in state: 211.
 ##
 ## advance -> AVANCE LABEL SUR holder PAR . actor MONTANT formula [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -461,7 +461,7 @@ Malformed advance declaration. Example:
 
 program: DEFICIT VERS
 ##
-## Ends in an error in state: 181.
+## Ends in an error in state: 185.
 ##
 ## deficit_decl -> DEFICIT . SUR pool PAR holder [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -471,7 +471,7 @@ program: DEFICIT VERS
 #
 program: DEFICIT SUR ASSIETTE LIDENT VERS
 ##
-## Ends in an error in state: 183.
+## Ends in an error in state: 187.
 ##
 ## deficit_decl -> DEFICIT SUR pool . PAR holder [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -482,13 +482,13 @@ program: DEFICIT SUR ASSIETTE LIDENT VERS
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 32, spurious reduction of production raw_pool0 -> LIDENT
-## In state 34, spurious reduction of production pool -> ASSIETTE raw_pool0
+## In state 17, spurious reduction of production raw_pool -> LIDENT
+## In state 19, spurious reduction of production pool -> ASSIETTE raw_pool
 ##
 #
 program: DEFICIT SUR ASSIETTE LIDENT PAR VERS
 ##
-## Ends in an error in state: 184.
+## Ends in an error in state: 188.
 ##
 ## deficit_decl -> DEFICIT SUR pool PAR . holder [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -501,7 +501,7 @@ Malformed deficit declaration. Syntax:
 
 program: DEFAUT SUR ASSIETTE LIDENT LPAR VERS
 ##
-## Ends in an error in state: 9.
+## Ends in an error in state: 2.
 ##
 ## context_refinement -> LPAR . separated_nonempty_list(COMMA,context_refine_item) RPAR [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS PAR OU OPPOSABLE OPERATION NON MULT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -511,7 +511,7 @@ program: DEFAUT SUR ASSIETTE LIDENT LPAR VERS
 #
 program: DEFAUT SUR ASSIETTE LIDENT LPAR TOUT VERS
 ##
-## Ends in an error in state: 11.
+## Ends in an error in state: 4.
 ##
 ## context_refinement_item_desc -> TOUT . UIDENT [ RPAR COMMA ]
 ##
@@ -521,7 +521,7 @@ program: DEFAUT SUR ASSIETTE LIDENT LPAR TOUT VERS
 #
 program: DEFAUT SUR ASSIETTE LIDENT LPAR UIDENT VERS
 ##
-## Ends in an error in state: 16.
+## Ends in an error in state: 9.
 ##
 ## separated_nonempty_list(COMMA,context_refine_item) -> context_refine_item . [ RPAR ]
 ## separated_nonempty_list(COMMA,context_refine_item) -> context_refine_item . COMMA separated_nonempty_list(COMMA,context_refine_item) [ RPAR ]
@@ -532,7 +532,7 @@ program: DEFAUT SUR ASSIETTE LIDENT LPAR UIDENT VERS
 #
 program: DEFAUT SUR ASSIETTE LIDENT LPAR UIDENT COMMA VERS
 ##
-## Ends in an error in state: 17.
+## Ends in an error in state: 10.
 ##
 ## separated_nonempty_list(COMMA,context_refine_item) -> context_refine_item COMMA . separated_nonempty_list(COMMA,context_refine_item) [ RPAR ]
 ##
@@ -576,9 +576,40 @@ Malformed context refinement. Syntax:
 
 
 
+
+named_start: VERS
+##
+## Ends in an error in state: 0.
+##
+## named_start' -> . named_start [ # ]
+##
+## The known suffix of the stack is as follows:
+##
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+named_start: LIDENT VERS
+##
+## Ends in an error in state: 22.
+##
+## named_start -> named . EOF [ # ]
+##
+## The known suffix of the stack is as follows:
+## named
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 1, spurious reduction of production named -> LIDENT
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
 program: VALEUR VERS
 ##
-## Ends in an error in state: 1.
+## Ends in an error in state: 27.
 ##
 ## value_decl -> VALEUR . boption(OBSERVABLE) LIDENT value_def [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -590,7 +621,7 @@ program: VALEUR VERS
 
 program: VALEUR OBSERVABLE VERS
 ##
-## Ends in an error in state: 3.
+## Ends in an error in state: 29.
 ##
 ## value_decl -> VALEUR boption(OBSERVABLE) . LIDENT value_def [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -602,7 +633,7 @@ program: VALEUR OBSERVABLE VERS
 
 program: VALEUR LIDENT VERS
 ##
-## Ends in an error in state: 4.
+## Ends in an error in state: 30.
 ##
 ## value_decl -> VALEUR boption(OBSERVABLE) LIDENT . value_def [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -614,7 +645,7 @@ program: VALEUR LIDENT VERS
 
 program: VALEUR LIDENT COLON VERS
 ##
-## Ends in an error in state: 5.
+## Ends in an error in state: 31.
 ##
 ## value_def -> COLON . formula [ VALEUR RPAR QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -626,7 +657,7 @@ program: VALEUR LIDENT COLON VERS
 
 program: VALEUR LIDENT COLON LPAR VERS
 ##
-## Ends in an error in state: 7.
+## Ends in an error in state: 33.
 ##
 ## formula -> LPAR . formula RPAR [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND PLUS OU OPPOSABLE OPERATION NON MULT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -638,7 +669,7 @@ program: VALEUR LIDENT COLON LPAR VERS
 
 program: CONSTANTE LIDENT COLON INT ANS UIDENT
 ##
-## Ends in an error in state: 25.
+## Ends in an error in state: 36.
 ##
 ## duration_year -> INT ANS . option(duration_month) [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND PLUS OU OPPOSABLE OPERATION NON MULT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -650,7 +681,7 @@ program: CONSTANTE LIDENT COLON INT ANS UIDENT
 
 program: CONSTANTE LIDENT COLON INT ANS INT VERS
 ##
-## Ends in an error in state: 26.
+## Ends in an error in state: 37.
 ##
 ## duration_month -> INT . MOIS [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND PLUS OU OPPOSABLE OPERATION NON MULT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -662,7 +693,7 @@ program: CONSTANTE LIDENT COLON INT ANS INT VERS
 
 program: VALEUR LIDENT COLON LPAR DATE VERS
 ##
-## Ends in an error in state: 41.
+## Ends in an error in state: 45.
 ##
 ## formula -> LPAR formula . RPAR [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND PLUS OU OPPOSABLE OPERATION NON MULT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ## formula_desc -> formula . PLUS formula [ TOTAL RPAR PLUS OPPOSABLE MULT MINUS DIV COURANT ]
@@ -681,7 +712,7 @@ program: VALEUR LIDENT COLON LPAR DATE VERS
 
 program: VALEUR LIDENT COLON DATE PLUS VERS
 ##
-## Ends in an error in state: 44.
+## Ends in an error in state: 48.
 ##
 ## formula_desc -> formula PLUS . formula [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND PLUS OU OPPOSABLE OPERATION NON MULT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -693,7 +724,7 @@ program: VALEUR LIDENT COLON DATE PLUS VERS
 
 program: VALEUR LIDENT COLON DATE PLUS DATE MOIS
 ##
-## Ends in an error in state: 45.
+## Ends in an error in state: 49.
 ##
 ## formula_desc -> formula . PLUS formula [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND PLUS OU OPPOSABLE OPERATION NON MULT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ## formula_desc -> formula PLUS formula . [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND PLUS OU OPPOSABLE OPERATION NON MULT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
@@ -712,7 +743,7 @@ program: VALEUR LIDENT COLON DATE PLUS DATE MOIS
 
 program: VALEUR LIDENT COLON DATE OPPOSABLE VERS
 ##
-## Ends in an error in state: 46.
+## Ends in an error in state: 50.
 ##
 ## opposable -> OPPOSABLE . formula ENVERS actor PAR actor [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND PLUS OU OPPOSABLE OPERATION NON MULT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -724,7 +755,7 @@ program: VALEUR LIDENT COLON DATE OPPOSABLE VERS
 
 program: VALEUR LIDENT COLON DATE OPPOSABLE DATE VERS
 ##
-## Ends in an error in state: 47.
+## Ends in an error in state: 51.
 ##
 ## formula_desc -> formula . PLUS formula [ TOTAL PLUS OPPOSABLE MULT MINUS ENVERS DIV COURANT ]
 ## formula_desc -> formula . MINUS formula [ TOTAL PLUS OPPOSABLE MULT MINUS ENVERS DIV COURANT ]
@@ -743,7 +774,7 @@ program: VALEUR LIDENT COLON DATE OPPOSABLE DATE VERS
 
 program: VALEUR LIDENT COLON DATE MULT VERS
 ##
-## Ends in an error in state: 48.
+## Ends in an error in state: 52.
 ##
 ## formula_desc -> formula MULT . formula [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND PLUS OU OPPOSABLE OPERATION NON MULT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -755,7 +786,7 @@ program: VALEUR LIDENT COLON DATE MULT VERS
 
 program: VALEUR LIDENT COLON DATE MULT DATE MOIS
 ##
-## Ends in an error in state: 49.
+## Ends in an error in state: 53.
 ##
 ## formula_desc -> formula . PLUS formula [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND PLUS OU OPPOSABLE OPERATION NON MULT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ## formula_desc -> formula . MINUS formula [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND PLUS OU OPPOSABLE OPERATION NON MULT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
@@ -774,7 +805,7 @@ program: VALEUR LIDENT COLON DATE MULT DATE MOIS
 
 program: VALEUR LIDENT COLON DATE MINUS VERS
 ##
-## Ends in an error in state: 55.
+## Ends in an error in state: 59.
 ##
 ## formula_desc -> formula MINUS . formula [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND PLUS OU OPPOSABLE OPERATION NON MULT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -786,7 +817,7 @@ program: VALEUR LIDENT COLON DATE MINUS VERS
 
 program: VALEUR LIDENT COLON DATE MINUS DATE MOIS
 ##
-## Ends in an error in state: 56.
+## Ends in an error in state: 60.
 ##
 ## formula_desc -> formula . PLUS formula [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND PLUS OU OPPOSABLE OPERATION NON MULT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ## formula_desc -> formula . MINUS formula [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND PLUS OU OPPOSABLE OPERATION NON MULT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
@@ -805,7 +836,7 @@ program: VALEUR LIDENT COLON DATE MINUS DATE MOIS
 
 program: VALEUR LIDENT COLON DATE DIV VERS
 ##
-## Ends in an error in state: 57.
+## Ends in an error in state: 61.
 ##
 ## formula_desc -> formula DIV . formula [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND PLUS OU OPPOSABLE OPERATION NON MULT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -817,7 +848,7 @@ program: VALEUR LIDENT COLON DATE DIV VERS
 
 program: VALEUR LIDENT COLON DATE DIV DATE MOIS
 ##
-## Ends in an error in state: 58.
+## Ends in an error in state: 62.
 ##
 ## formula_desc -> formula . PLUS formula [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND PLUS OU OPPOSABLE OPERATION NON MULT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ## formula_desc -> formula . MINUS formula [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND PLUS OU OPPOSABLE OPERATION NON MULT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
@@ -836,7 +867,7 @@ program: VALEUR LIDENT COLON DATE DIV DATE MOIS
 
 program: VALEUR LIDENT COLON DATE OPPOSABLE DATE ENVERS VERS
 ##
-## Ends in an error in state: 59.
+## Ends in an error in state: 63.
 ##
 ## opposable -> OPPOSABLE formula ENVERS . actor PAR actor [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND PLUS OU OPPOSABLE OPERATION NON MULT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -848,7 +879,7 @@ program: VALEUR LIDENT COLON DATE OPPOSABLE DATE ENVERS VERS
 
 program: AVANCE LABEL SUR LIDENT UIDENT
 ##
-## Ends in an error in state: 60.
+## Ends in an error in state: 64.
 ##
 ## actor_desc -> LIDENT . [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS PAR OU OPPOSABLE OPERATION NON MULT MONTANT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ## labeled_actor_desc -> LIDENT . LBRA LIDENT RBRA [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND POUR PLUS PAR OU OPPOSABLE OPERATION NON MULT MONTANT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
@@ -861,7 +892,7 @@ program: AVANCE LABEL SUR LIDENT UIDENT
 
 program: VALEUR LIDENT COLON DATE OPPOSABLE DATE ENVERS LIDENT VERS
 ##
-## Ends in an error in state: 63.
+## Ends in an error in state: 67.
 ##
 ## opposable -> OPPOSABLE formula ENVERS actor . PAR actor [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND PLUS OU OPPOSABLE OPERATION NON MULT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -872,15 +903,15 @@ program: VALEUR LIDENT COLON DATE OPPOSABLE DATE ENVERS LIDENT VERS
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 60, spurious reduction of production actor_desc -> LIDENT
-## In state 62, spurious reduction of production actor -> actor_desc
+## In state 64, spurious reduction of production actor_desc -> LIDENT
+## In state 66, spurious reduction of production actor -> actor_desc
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
 program: VALEUR LIDENT COLON DATE OPPOSABLE DATE ENVERS LIDENT PAR VERS
 ##
-## Ends in an error in state: 64.
+## Ends in an error in state: 68.
 ##
 ## opposable -> OPPOSABLE formula ENVERS actor PAR . actor [ VERS VALEUR TOTAL SUR RPAR RETROCESSION QUOTEPART QUAND PLUS OU OPPOSABLE OPERATION NON MULT MINUS LPAR EVENEMENT ET EQ EOF ENVERS ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -892,7 +923,7 @@ program: VALEUR LIDENT COLON DATE OPPOSABLE DATE ENVERS LIDENT PAR VERS
 
 program: VALEUR LIDENT COLON DATE VERS
 ##
-## Ends in an error in state: 66.
+## Ends in an error in state: 70.
 ##
 ## formula_desc -> formula . PLUS formula [ VALEUR TOTAL RPAR QUAND PLUS OPPOSABLE OPERATION MULT MINUS EVENEMENT EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ## formula_desc -> formula . MINUS formula [ VALEUR TOTAL RPAR QUAND PLUS OPPOSABLE OPERATION MULT MINUS EVENEMENT EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE AVANT AVANCE ASSIETTE APRES ACTEUR ]
@@ -911,7 +942,7 @@ program: VALEUR LIDENT COLON DATE VERS
 
 program: OPERATION LABEL POUR UIDENT LPAR VERS
 ##
-## Ends in an error in state: 77.
+## Ends in an error in state: 81.
 ##
 ## context -> UIDENT LPAR . separated_nonempty_list(COMMA,UIDENT) RPAR [ VALEUR UIDENT TOUT SUR QUAND POUR PAR OPERATION MINUS EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE COLON AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -923,7 +954,7 @@ program: OPERATION LABEL POUR UIDENT LPAR VERS
 
 program: OPERATION LABEL POUR UIDENT LPAR UIDENT VERS
 ##
-## Ends in an error in state: 78.
+## Ends in an error in state: 82.
 ##
 ## separated_nonempty_list(COMMA,UIDENT) -> UIDENT . [ RPAR ]
 ## separated_nonempty_list(COMMA,UIDENT) -> UIDENT . COMMA separated_nonempty_list(COMMA,UIDENT) [ RPAR ]
@@ -936,7 +967,7 @@ program: OPERATION LABEL POUR UIDENT LPAR UIDENT VERS
 
 program: OPERATION LABEL POUR UIDENT LPAR UIDENT COMMA VERS
 ##
-## Ends in an error in state: 79.
+## Ends in an error in state: 83.
 ##
 ## separated_nonempty_list(COMMA,UIDENT) -> UIDENT COMMA . separated_nonempty_list(COMMA,UIDENT) [ RPAR ]
 ##
@@ -948,7 +979,7 @@ program: OPERATION LABEL POUR UIDENT LPAR UIDENT COMMA VERS
 
 program: OPERATION LABEL POUR TOUT UIDENT QUAND
 ##
-## Ends in an error in state: 88.
+## Ends in an error in state: 92.
 ##
 ## operation -> OPERATION LABEL option(destinataire) list(op_context) . source expression(simple_exprs) [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -959,15 +990,15 @@ program: OPERATION LABEL POUR TOUT UIDENT QUAND
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 86, spurious reduction of production list(op_context) ->
-## In state 87, spurious reduction of production list(op_context) -> op_context list(op_context)
+## In state 90, spurious reduction of production list(op_context) ->
+## In state 91, spurious reduction of production list(op_context) -> op_context list(op_context)
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
 program: OPERATION LABEL PAR VERS
 ##
-## Ends in an error in state: 91.
+## Ends in an error in state: 95.
 ##
 ## source -> PAR . actor [ RETROCESSION QUOTEPART QUAND BONUS AVANT APRES ]
 ##
@@ -979,7 +1010,7 @@ program: OPERATION LABEL PAR VERS
 
 program: OPERATION LABEL PAR LIDENT RETROCESSION VERS
 ##
-## Ends in an error in state: 94.
+## Ends in an error in state: 98.
 ##
 ## simple_expr -> RETROCESSION . formula SUR holder option(destinataire) [ VALEUR RPAR RETROCESSION QUOTEPART QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -991,7 +1022,7 @@ program: OPERATION LABEL PAR LIDENT RETROCESSION VERS
 
 program: OPERATION LABEL PAR LIDENT RETROCESSION DATE VERS
 ##
-## Ends in an error in state: 95.
+## Ends in an error in state: 99.
 ##
 ## formula_desc -> formula . PLUS formula [ TOTAL SUR PLUS OPPOSABLE MULT MINUS DIV COURANT ]
 ## formula_desc -> formula . MINUS formula [ TOTAL SUR PLUS OPPOSABLE MULT MINUS DIV COURANT ]
@@ -1010,7 +1041,7 @@ program: OPERATION LABEL PAR LIDENT RETROCESSION DATE VERS
 
 program: OPERATION LABEL PAR LIDENT RETROCESSION DATE SUR VERS
 ##
-## Ends in an error in state: 96.
+## Ends in an error in state: 100.
 ##
 ## simple_expr -> RETROCESSION formula SUR . holder option(destinataire) [ VALEUR RPAR RETROCESSION QUOTEPART QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -1022,7 +1053,7 @@ program: OPERATION LABEL PAR LIDENT RETROCESSION DATE SUR VERS
 
 program: OPERATION LABEL PAR LIDENT RETROCESSION DATE SUR LIDENT TOTAL
 ##
-## Ends in an error in state: 97.
+## Ends in an error in state: 101.
 ##
 ## simple_expr -> RETROCESSION formula SUR holder . option(destinataire) [ VALEUR RPAR RETROCESSION QUOTEPART QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -1033,16 +1064,16 @@ program: OPERATION LABEL PAR LIDENT RETROCESSION DATE SUR LIDENT TOTAL
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 60, spurious reduction of production actor_desc -> LIDENT
-## In state 62, spurious reduction of production actor -> actor_desc
-## In state 73, spurious reduction of production holder -> actor
+## In state 64, spurious reduction of production actor_desc -> LIDENT
+## In state 66, spurious reduction of production actor -> actor_desc
+## In state 77, spurious reduction of production holder -> actor
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
 program: OPERATION LABEL PAR LIDENT QUOTEPART VERS
 ##
-## Ends in an error in state: 100.
+## Ends in an error in state: 104.
 ##
 ## simple_expr -> QUOTEPART . formula boption(pair(NON,OPPOSABLE)) option(destinataire) [ VALEUR RPAR RETROCESSION QUOTEPART QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ## simple_expr -> QUOTEPART . RESTE option(destinataire) [ VALEUR RPAR RETROCESSION QUOTEPART QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
@@ -1055,7 +1086,7 @@ program: OPERATION LABEL PAR LIDENT QUOTEPART VERS
 
 program: OPERATION LABEL PAR LIDENT QUOTEPART RESTE UIDENT
 ##
-## Ends in an error in state: 101.
+## Ends in an error in state: 105.
 ##
 ## simple_expr -> QUOTEPART RESTE . option(destinataire) [ VALEUR RPAR RETROCESSION QUOTEPART QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -1067,7 +1098,7 @@ program: OPERATION LABEL PAR LIDENT QUOTEPART RESTE UIDENT
 
 program: OPERATION LABEL PAR LIDENT QUOTEPART DATE SUR
 ##
-## Ends in an error in state: 103.
+## Ends in an error in state: 107.
 ##
 ## formula_desc -> formula . PLUS formula [ VERS VALEUR TOTAL RPAR RETROCESSION QUOTEPART QUAND PLUS OPPOSABLE OPERATION NON MULT MINUS EVENEMENT EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ## formula_desc -> formula . MINUS formula [ VERS VALEUR TOTAL RPAR RETROCESSION QUOTEPART QUAND PLUS OPPOSABLE OPERATION NON MULT MINUS EVENEMENT EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
@@ -1086,7 +1117,7 @@ program: OPERATION LABEL PAR LIDENT QUOTEPART DATE SUR
 
 program: OPERATION LABEL PAR LIDENT QUOTEPART DATE NON VERS
 ##
-## Ends in an error in state: 104.
+## Ends in an error in state: 108.
 ##
 ## boption(pair(NON,OPPOSABLE)) -> NON . OPPOSABLE [ VERS VALEUR RPAR RETROCESSION QUOTEPART QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -1098,7 +1129,7 @@ program: OPERATION LABEL PAR LIDENT QUOTEPART DATE NON VERS
 
 program: OPERATION LABEL PAR LIDENT QUOTEPART DATE NON OPPOSABLE UIDENT
 ##
-## Ends in an error in state: 106.
+## Ends in an error in state: 110.
 ##
 ## simple_expr -> QUOTEPART formula boption(pair(NON,OPPOSABLE)) . option(destinataire) [ VALEUR RPAR RETROCESSION QUOTEPART QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -1110,7 +1141,7 @@ program: OPERATION LABEL PAR LIDENT QUOTEPART DATE NON OPPOSABLE UIDENT
 
 program: OPERATION LABEL PAR LIDENT QUAND VERS
 ##
-## Ends in an error in state: 108.
+## Ends in an error in state: 112.
 ##
 ## when_expr(simple_exprs) -> QUAND . event_expr sub_expression(simple_exprs) [ VALEUR RPAR QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -1122,7 +1153,7 @@ program: OPERATION LABEL PAR LIDENT QUAND VERS
 
 program: EVENEMENT LIDENT ATTEINT QUAND EVENEMENT VERS
 ##
-## Ends in an error in state: 109.
+## Ends in an error in state: 113.
 ##
 ## event_expr_desc -> EVENEMENT . LIDENT [ VALEUR RETROCESSION QUOTEPART OU OPERATION LPAR EVENEMENT ET EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE COLON BONUS AVANCE ASSIETTE ACTEUR ]
 ##
@@ -1134,7 +1165,7 @@ program: EVENEMENT LIDENT ATTEINT QUAND EVENEMENT VERS
 
 program: EVENEMENT LIDENT ATTEINT QUAND DATE VERS
 ##
-## Ends in an error in state: 111.
+## Ends in an error in state: 115.
 ##
 ## event_expr_desc -> formula . EQ formula [ VALEUR RETROCESSION QUOTEPART OU OPERATION LPAR EVENEMENT ET EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE COLON BONUS AVANCE ASSIETTE ACTEUR ]
 ## formula_desc -> formula . PLUS formula [ TOTAL PLUS OPPOSABLE MULT MINUS EQ DIV COURANT ]
@@ -1153,7 +1184,7 @@ program: EVENEMENT LIDENT ATTEINT QUAND DATE VERS
 
 program: EVENEMENT LIDENT ATTEINT QUAND DATE EQ VERS
 ##
-## Ends in an error in state: 112.
+## Ends in an error in state: 116.
 ##
 ## event_expr_desc -> formula EQ . formula [ VALEUR RETROCESSION QUOTEPART OU OPERATION LPAR EVENEMENT ET EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE COLON BONUS AVANCE ASSIETTE ACTEUR ]
 ##
@@ -1165,7 +1196,7 @@ program: EVENEMENT LIDENT ATTEINT QUAND DATE EQ VERS
 
 program: EVENEMENT LIDENT ATTEINT QUAND DATE EQ DATE VERS
 ##
-## Ends in an error in state: 113.
+## Ends in an error in state: 117.
 ##
 ## event_expr_desc -> formula EQ formula . [ VALEUR RETROCESSION QUOTEPART OU OPERATION LPAR EVENEMENT ET EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE COLON BONUS AVANCE ASSIETTE ACTEUR ]
 ## formula_desc -> formula . PLUS formula [ VALEUR TOTAL RETROCESSION QUOTEPART PLUS OU OPPOSABLE OPERATION MULT MINUS LPAR EVENEMENT ET EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE COLON BONUS AVANCE ASSIETTE ACTEUR ]
@@ -1184,7 +1215,7 @@ program: EVENEMENT LIDENT ATTEINT QUAND DATE EQ DATE VERS
 
 program: OPERATION LABEL PAR LIDENT QUAND EVENEMENT LIDENT VALEUR
 ##
-## Ends in an error in state: 115.
+## Ends in an error in state: 119.
 ##
 ## event_expr_desc -> event_expr . ET event_expr [ RETROCESSION QUOTEPART OU LPAR ET BONUS ]
 ## event_expr_desc -> event_expr . OU event_expr [ RETROCESSION QUOTEPART OU LPAR ET BONUS ]
@@ -1198,7 +1229,7 @@ program: OPERATION LABEL PAR LIDENT QUAND EVENEMENT LIDENT VALEUR
 
 program: EVENEMENT LIDENT ATTEINT QUAND EVENEMENT LIDENT OU VERS
 ##
-## Ends in an error in state: 116.
+## Ends in an error in state: 120.
 ##
 ## event_expr_desc -> event_expr OU . event_expr [ VALEUR RETROCESSION QUOTEPART OU OPERATION LPAR EVENEMENT ET EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE COLON BONUS AVANCE ASSIETTE ACTEUR ]
 ##
@@ -1210,7 +1241,7 @@ program: EVENEMENT LIDENT ATTEINT QUAND EVENEMENT LIDENT OU VERS
 
 program: EVENEMENT LIDENT ATTEINT QUAND EVENEMENT LIDENT OU EVENEMENT LIDENT VERS
 ##
-## Ends in an error in state: 117.
+## Ends in an error in state: 121.
 ##
 ## event_expr_desc -> event_expr . ET event_expr [ VALEUR RETROCESSION QUOTEPART OU OPERATION LPAR EVENEMENT ET EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE COLON BONUS AVANCE ASSIETTE ACTEUR ]
 ## event_expr_desc -> event_expr . OU event_expr [ VALEUR RETROCESSION QUOTEPART OU OPERATION LPAR EVENEMENT ET EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE COLON BONUS AVANCE ASSIETTE ACTEUR ]
@@ -1224,7 +1255,7 @@ program: EVENEMENT LIDENT ATTEINT QUAND EVENEMENT LIDENT OU EVENEMENT LIDENT VER
 
 program: EVENEMENT LIDENT ATTEINT QUAND EVENEMENT LIDENT ET VERS
 ##
-## Ends in an error in state: 118.
+## Ends in an error in state: 122.
 ##
 ## event_expr_desc -> event_expr ET . event_expr [ VALEUR RETROCESSION QUOTEPART OU OPERATION LPAR EVENEMENT ET EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE COLON BONUS AVANCE ASSIETTE ACTEUR ]
 ##
@@ -1236,7 +1267,7 @@ program: EVENEMENT LIDENT ATTEINT QUAND EVENEMENT LIDENT ET VERS
 
 program: OPERATION LABEL PAR LIDENT APRES EVENEMENT LIDENT LPAR VERS
 ##
-## Ends in an error in state: 120.
+## Ends in an error in state: 124.
 ##
 ## sub_expression(simple_exprs) -> LPAR . expression(simple_exprs) RPAR [ VALEUR RPAR QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -1248,7 +1279,7 @@ program: OPERATION LABEL PAR LIDENT APRES EVENEMENT LIDENT LPAR VERS
 
 program: OPERATION LABEL PAR LIDENT BONUS VERS
 ##
-## Ends in an error in state: 121.
+## Ends in an error in state: 125.
 ##
 ## simple_expr -> BONUS . formula option(destinataire) [ VALEUR RPAR RETROCESSION QUOTEPART QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -1260,7 +1291,7 @@ program: OPERATION LABEL PAR LIDENT BONUS VERS
 
 program: OPERATION LABEL PAR LIDENT BONUS DATE SUR
 ##
-## Ends in an error in state: 122.
+## Ends in an error in state: 126.
 ##
 ## formula_desc -> formula . PLUS formula [ VERS VALEUR TOTAL RPAR RETROCESSION QUOTEPART QUAND PLUS OPPOSABLE OPERATION MULT MINUS EVENEMENT EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ## formula_desc -> formula . MINUS formula [ VERS VALEUR TOTAL RPAR RETROCESSION QUOTEPART QUAND PLUS OPPOSABLE OPERATION MULT MINUS EVENEMENT EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE BONUS AVANT AVANCE ASSIETTE APRES ACTEUR ]
@@ -1279,7 +1310,7 @@ program: OPERATION LABEL PAR LIDENT BONUS DATE SUR
 
 program: OPERATION LABEL PAR LIDENT AVANT VERS
 ##
-## Ends in an error in state: 124.
+## Ends in an error in state: 128.
 ##
 ## before_expr(simple_exprs) -> AVANT . event_expr sub_expression(simple_exprs) [ VALEUR RPAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -1291,7 +1322,7 @@ program: OPERATION LABEL PAR LIDENT AVANT VERS
 
 program: OPERATION LABEL PAR LIDENT AVANT EVENEMENT LIDENT VALEUR
 ##
-## Ends in an error in state: 125.
+## Ends in an error in state: 129.
 ##
 ## before_expr(simple_exprs) -> AVANT event_expr . sub_expression(simple_exprs) [ VALEUR RPAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ## event_expr_desc -> event_expr . ET event_expr [ RETROCESSION QUOTEPART OU LPAR ET BONUS ]
@@ -1305,7 +1336,7 @@ program: OPERATION LABEL PAR LIDENT AVANT EVENEMENT LIDENT VALEUR
 
 program: OPERATION LABEL PAR LIDENT BONUS DATE VERS LIDENT VERS
 ##
-## Ends in an error in state: 128.
+## Ends in an error in state: 132.
 ##
 ## nonempty_list(simple_expr) -> simple_expr . [ VALEUR RPAR QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ## nonempty_list(simple_expr) -> simple_expr . nonempty_list(simple_expr) [ VALEUR RPAR QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANT AVANCE ASSIETTE APRES ACTEUR ]
@@ -1317,19 +1348,19 @@ program: OPERATION LABEL PAR LIDENT BONUS DATE VERS LIDENT VERS
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 60, spurious reduction of production actor_desc -> LIDENT
-## In state 62, spurious reduction of production actor -> actor_desc
-## In state 73, spurious reduction of production holder -> actor
-## In state 72, spurious reduction of production destinataire -> VERS holder
-## In state 99, spurious reduction of production option(destinataire) -> destinataire
-## In state 123, spurious reduction of production simple_expr -> BONUS formula option(destinataire)
+## In state 64, spurious reduction of production actor_desc -> LIDENT
+## In state 66, spurious reduction of production actor -> actor_desc
+## In state 77, spurious reduction of production holder -> actor
+## In state 76, spurious reduction of production destinataire -> VERS holder
+## In state 103, spurious reduction of production option(destinataire) -> destinataire
+## In state 127, spurious reduction of production simple_expr -> BONUS formula option(destinataire)
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
 program: OPERATION LABEL PAR LIDENT APRES VERS
 ##
-## Ends in an error in state: 131.
+## Ends in an error in state: 135.
 ##
 ## after_expr(simple_exprs) -> APRES . event_expr sub_expression(simple_exprs) [ VALEUR RPAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -1341,7 +1372,7 @@ program: OPERATION LABEL PAR LIDENT APRES VERS
 
 program: OPERATION LABEL PAR LIDENT APRES EVENEMENT LIDENT VALEUR
 ##
-## Ends in an error in state: 132.
+## Ends in an error in state: 136.
 ##
 ## after_expr(simple_exprs) -> APRES event_expr . sub_expression(simple_exprs) [ VALEUR RPAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE APRES ACTEUR ]
 ## event_expr_desc -> event_expr . ET event_expr [ RETROCESSION QUOTEPART OU LPAR ET BONUS ]
@@ -1355,7 +1386,7 @@ program: OPERATION LABEL PAR LIDENT APRES EVENEMENT LIDENT VALEUR
 
 program: OPERATION LABEL PAR LIDENT QUAND EVENEMENT LIDENT BONUS DATE AVANT
 ##
-## Ends in an error in state: 134.
+## Ends in an error in state: 138.
 ##
 ## nonempty_list(when_expr(simple_exprs)) -> when_expr(simple_exprs) . [ VALEUR RPAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ## nonempty_list(when_expr(simple_exprs)) -> when_expr(simple_exprs) . nonempty_list(when_expr(simple_exprs)) [ VALEUR RPAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
@@ -1367,19 +1398,19 @@ program: OPERATION LABEL PAR LIDENT QUAND EVENEMENT LIDENT BONUS DATE AVANT
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 122, spurious reduction of production option(destinataire) ->
-## In state 123, spurious reduction of production simple_expr -> BONUS formula option(destinataire)
-## In state 128, spurious reduction of production nonempty_list(simple_expr) -> simple_expr
-## In state 130, spurious reduction of production simple_exprs -> nonempty_list(simple_expr)
-## In state 127, spurious reduction of production sub_expression(simple_exprs) -> simple_exprs
-## In state 150, spurious reduction of production when_expr(simple_exprs) -> QUAND event_expr sub_expression(simple_exprs)
+## In state 126, spurious reduction of production option(destinataire) ->
+## In state 127, spurious reduction of production simple_expr -> BONUS formula option(destinataire)
+## In state 132, spurious reduction of production nonempty_list(simple_expr) -> simple_expr
+## In state 134, spurious reduction of production simple_exprs -> nonempty_list(simple_expr)
+## In state 131, spurious reduction of production sub_expression(simple_exprs) -> simple_exprs
+## In state 154, spurious reduction of production when_expr(simple_exprs) -> QUAND event_expr sub_expression(simple_exprs)
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
 program: OPERATION LABEL PAR LIDENT AVANT EVENEMENT LIDENT BONUS DATE APRES EVENEMENT LIDENT BONUS DATE QUAND
 ##
-## Ends in an error in state: 140.
+## Ends in an error in state: 144.
 ##
 ## list(after_expr(simple_exprs)) -> after_expr(simple_exprs) . list(after_expr(simple_exprs)) [ VALEUR RPAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -1390,19 +1421,19 @@ program: OPERATION LABEL PAR LIDENT AVANT EVENEMENT LIDENT BONUS DATE APRES EVEN
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 122, spurious reduction of production option(destinataire) ->
-## In state 123, spurious reduction of production simple_expr -> BONUS formula option(destinataire)
-## In state 128, spurious reduction of production nonempty_list(simple_expr) -> simple_expr
-## In state 130, spurious reduction of production simple_exprs -> nonempty_list(simple_expr)
-## In state 127, spurious reduction of production sub_expression(simple_exprs) -> simple_exprs
-## In state 133, spurious reduction of production after_expr(simple_exprs) -> APRES event_expr sub_expression(simple_exprs)
+## In state 126, spurious reduction of production option(destinataire) ->
+## In state 127, spurious reduction of production simple_expr -> BONUS formula option(destinataire)
+## In state 132, spurious reduction of production nonempty_list(simple_expr) -> simple_expr
+## In state 134, spurious reduction of production simple_exprs -> nonempty_list(simple_expr)
+## In state 131, spurious reduction of production sub_expression(simple_exprs) -> simple_exprs
+## In state 137, spurious reduction of production after_expr(simple_exprs) -> APRES event_expr sub_expression(simple_exprs)
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
 program: OPERATION LABEL PAR LIDENT APRES EVENEMENT LIDENT LPAR BONUS DATE VALEUR
 ##
-## Ends in an error in state: 143.
+## Ends in an error in state: 147.
 ##
 ## sub_expression(simple_exprs) -> LPAR expression(simple_exprs) . RPAR [ VALEUR RPAR QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -1413,18 +1444,18 @@ program: OPERATION LABEL PAR LIDENT APRES EVENEMENT LIDENT LPAR BONUS DATE VALEU
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 122, spurious reduction of production option(destinataire) ->
-## In state 123, spurious reduction of production simple_expr -> BONUS formula option(destinataire)
-## In state 128, spurious reduction of production nonempty_list(simple_expr) -> simple_expr
-## In state 130, spurious reduction of production simple_exprs -> nonempty_list(simple_expr)
-## In state 136, spurious reduction of production expression(simple_exprs) -> simple_exprs
+## In state 126, spurious reduction of production option(destinataire) ->
+## In state 127, spurious reduction of production simple_expr -> BONUS formula option(destinataire)
+## In state 132, spurious reduction of production nonempty_list(simple_expr) -> simple_expr
+## In state 134, spurious reduction of production simple_exprs -> nonempty_list(simple_expr)
+## In state 140, spurious reduction of production expression(simple_exprs) -> simple_exprs
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
 program: OPERATION LABEL PAR LIDENT AVANT EVENEMENT LIDENT BONUS DATE QUAND
 ##
-## Ends in an error in state: 146.
+## Ends in an error in state: 150.
 ##
 ## nonempty_list(before_expr(simple_exprs)) -> before_expr(simple_exprs) . [ VALEUR RPAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE APRES ACTEUR ]
 ## nonempty_list(before_expr(simple_exprs)) -> before_expr(simple_exprs) . nonempty_list(before_expr(simple_exprs)) [ VALEUR RPAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE APRES ACTEUR ]
@@ -1436,19 +1467,19 @@ program: OPERATION LABEL PAR LIDENT AVANT EVENEMENT LIDENT BONUS DATE QUAND
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 122, spurious reduction of production option(destinataire) ->
-## In state 123, spurious reduction of production simple_expr -> BONUS formula option(destinataire)
-## In state 128, spurious reduction of production nonempty_list(simple_expr) -> simple_expr
-## In state 130, spurious reduction of production simple_exprs -> nonempty_list(simple_expr)
-## In state 127, spurious reduction of production sub_expression(simple_exprs) -> simple_exprs
-## In state 126, spurious reduction of production before_expr(simple_exprs) -> AVANT event_expr sub_expression(simple_exprs)
+## In state 126, spurious reduction of production option(destinataire) ->
+## In state 127, spurious reduction of production simple_expr -> BONUS formula option(destinataire)
+## In state 132, spurious reduction of production nonempty_list(simple_expr) -> simple_expr
+## In state 134, spurious reduction of production simple_exprs -> nonempty_list(simple_expr)
+## In state 131, spurious reduction of production sub_expression(simple_exprs) -> simple_exprs
+## In state 130, spurious reduction of production before_expr(simple_exprs) -> AVANT event_expr sub_expression(simple_exprs)
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
 program: OPERATION LABEL PAR LIDENT APRES EVENEMENT LIDENT BONUS DATE QUAND
 ##
-## Ends in an error in state: 148.
+## Ends in an error in state: 152.
 ##
 ## nonempty_list(after_expr(simple_exprs)) -> after_expr(simple_exprs) . [ VALEUR RPAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ## nonempty_list(after_expr(simple_exprs)) -> after_expr(simple_exprs) . nonempty_list(after_expr(simple_exprs)) [ VALEUR RPAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
@@ -1460,19 +1491,19 @@ program: OPERATION LABEL PAR LIDENT APRES EVENEMENT LIDENT BONUS DATE QUAND
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 122, spurious reduction of production option(destinataire) ->
-## In state 123, spurious reduction of production simple_expr -> BONUS formula option(destinataire)
-## In state 128, spurious reduction of production nonempty_list(simple_expr) -> simple_expr
-## In state 130, spurious reduction of production simple_exprs -> nonempty_list(simple_expr)
-## In state 127, spurious reduction of production sub_expression(simple_exprs) -> simple_exprs
-## In state 133, spurious reduction of production after_expr(simple_exprs) -> APRES event_expr sub_expression(simple_exprs)
+## In state 126, spurious reduction of production option(destinataire) ->
+## In state 127, spurious reduction of production simple_expr -> BONUS formula option(destinataire)
+## In state 132, spurious reduction of production nonempty_list(simple_expr) -> simple_expr
+## In state 134, spurious reduction of production simple_exprs -> nonempty_list(simple_expr)
+## In state 131, spurious reduction of production sub_expression(simple_exprs) -> simple_exprs
+## In state 137, spurious reduction of production after_expr(simple_exprs) -> APRES event_expr sub_expression(simple_exprs)
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
 program: ENTREE LIDENT TYPE ARGENT VERS
 ##
-## Ends in an error in state: 164.
+## Ends in an error in state: 168.
 ##
 ## input_decl -> ENTREE LIDENT input_type . loption(input_context_decl) [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -1484,7 +1515,7 @@ program: ENTREE LIDENT TYPE ARGENT VERS
 
 program: ENTREE ASSIETTE LIDENT CONTEXTUALISEE VERS
 ##
-## Ends in an error in state: 165.
+## Ends in an error in state: 169.
 ##
 ## input_context_decl -> CONTEXTUALISEE . PAR input_context_list [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -1496,7 +1527,7 @@ program: ENTREE ASSIETTE LIDENT CONTEXTUALISEE VERS
 
 program: ENTREE ASSIETTE LIDENT CONTEXTUALISEE PAR VERS
 ##
-## Ends in an error in state: 166.
+## Ends in an error in state: 170.
 ##
 ## input_context_decl -> CONTEXTUALISEE PAR . input_context_list [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -1508,7 +1539,7 @@ program: ENTREE ASSIETTE LIDENT CONTEXTUALISEE PAR VERS
 
 program: ENTREE ASSIETTE LIDENT CONTEXTUALISEE PAR MINUS VERS
 ##
-## Ends in an error in state: 167.
+## Ends in an error in state: 171.
 ##
 ## nonempty_list(preceded(MINUS,input_context)) -> MINUS . input_context [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ## nonempty_list(preceded(MINUS,input_context)) -> MINUS . input_context nonempty_list(preceded(MINUS,input_context)) [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
@@ -1521,7 +1552,7 @@ program: ENTREE ASSIETTE LIDENT CONTEXTUALISEE PAR MINUS VERS
 
 program: ENTREE ASSIETTE LIDENT CONTEXTUALISEE PAR TOUT UIDENT VERS
 ##
-## Ends in an error in state: 171.
+## Ends in an error in state: 175.
 ##
 ## nonempty_list(context) -> context . [ VALEUR OPERATION MINUS EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ## nonempty_list(context) -> context . nonempty_list(context) [ VALEUR OPERATION MINUS EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
@@ -1534,7 +1565,7 @@ program: ENTREE ASSIETTE LIDENT CONTEXTUALISEE PAR TOUT UIDENT VERS
 
 program: ENTREE ASSIETTE VERS
 ##
-## Ends in an error in state: 178.
+## Ends in an error in state: 182.
 ##
 ## input_decl -> ENTREE ASSIETTE . LIDENT loption(input_context_decl) [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -1546,7 +1577,7 @@ program: ENTREE ASSIETTE VERS
 
 program: ENTREE ASSIETTE LIDENT VERS
 ##
-## Ends in an error in state: 179.
+## Ends in an error in state: 183.
 ##
 ## input_decl -> ENTREE ASSIETTE LIDENT . loption(input_context_decl) [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -1558,7 +1589,7 @@ program: ENTREE ASSIETTE LIDENT VERS
 
 program: DEFICIT SUR VERS
 ##
-## Ends in an error in state: 182.
+## Ends in an error in state: 186.
 ##
 ## deficit_decl -> DEFICIT SUR . pool PAR holder [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -1570,7 +1601,7 @@ program: DEFICIT SUR VERS
 
 program: DEFAUT SUR VERS
 ##
-## Ends in an error in state: 187.
+## Ends in an error in state: 191.
 ##
 ## default_decl -> DEFAUT SUR . pool VERS holder [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -1582,7 +1613,7 @@ program: DEFAUT SUR VERS
 
 program: DEFAUT SUR ASSIETTE LIDENT VALEUR
 ##
-## Ends in an error in state: 188.
+## Ends in an error in state: 192.
 ##
 ## default_decl -> DEFAUT SUR pool . VERS holder [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -1593,15 +1624,15 @@ program: DEFAUT SUR ASSIETTE LIDENT VALEUR
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 32, spurious reduction of production raw_pool0 -> LIDENT
-## In state 34, spurious reduction of production pool -> ASSIETTE raw_pool0
+## In state 17, spurious reduction of production raw_pool -> LIDENT
+## In state 19, spurious reduction of production pool -> ASSIETTE raw_pool
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
 program: AVANCE LABEL SUR VERS
 ##
-## Ends in an error in state: 205.
+## Ends in an error in state: 209.
 ##
 ## advance -> AVANCE LABEL SUR . holder PAR actor MONTANT formula [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -1613,7 +1644,7 @@ program: AVANCE LABEL SUR VERS
 
 program: AVANCE LABEL SUR LIDENT PAR LIDENT VERS
 ##
-## Ends in an error in state: 208.
+## Ends in an error in state: 212.
 ##
 ## advance -> AVANCE LABEL SUR holder PAR actor . MONTANT formula [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -1624,15 +1655,15 @@ program: AVANCE LABEL SUR LIDENT PAR LIDENT VERS
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 60, spurious reduction of production actor_desc -> LIDENT
-## In state 62, spurious reduction of production actor -> actor_desc
+## In state 64, spurious reduction of production actor_desc -> LIDENT
+## In state 66, spurious reduction of production actor -> actor_desc
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
 program: AVANCE LABEL SUR LIDENT PAR LIDENT MONTANT VERS
 ##
-## Ends in an error in state: 209.
+## Ends in an error in state: 213.
 ##
 ## advance -> AVANCE LABEL SUR holder PAR actor MONTANT . formula [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -1644,7 +1675,7 @@ program: AVANCE LABEL SUR LIDENT PAR LIDENT MONTANT VERS
 
 program: AVANCE LABEL SUR LIDENT PAR LIDENT MONTANT DATE VERS
 ##
-## Ends in an error in state: 210.
+## Ends in an error in state: 214.
 ##
 ## advance -> AVANCE LABEL SUR holder PAR actor MONTANT formula . [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ## formula_desc -> formula . PLUS formula [ VALEUR TOTAL PLUS OPPOSABLE OPERATION MULT MINUS EVENEMENT EOF ENTREE DIV DEFICIT DEFAUT COURANT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
@@ -1663,7 +1694,7 @@ program: AVANCE LABEL SUR LIDENT PAR LIDENT MONTANT DATE VERS
 
 program: ASSIETTE VERS
 ##
-## Ends in an error in state: 211.
+## Ends in an error in state: 215.
 ##
 ## comp_pool_decl -> ASSIETTE . CALCULEE LIDENT list(op_context) expression(value_def) [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -1675,7 +1706,7 @@ program: ASSIETTE VERS
 
 program: ASSIETTE CALCULEE VERS
 ##
-## Ends in an error in state: 212.
+## Ends in an error in state: 216.
 ##
 ## comp_pool_decl -> ASSIETTE CALCULEE . LIDENT list(op_context) expression(value_def) [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -1687,7 +1718,7 @@ program: ASSIETTE CALCULEE VERS
 
 program: ASSIETTE CALCULEE LIDENT VERS
 ##
-## Ends in an error in state: 213.
+## Ends in an error in state: 217.
 ##
 ## comp_pool_decl -> ASSIETTE CALCULEE LIDENT . list(op_context) expression(value_def) [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -1699,7 +1730,7 @@ program: ASSIETTE CALCULEE LIDENT VERS
 
 program: ASSIETTE CALCULEE LIDENT POUR TOUT UIDENT SUR
 ##
-## Ends in an error in state: 214.
+## Ends in an error in state: 218.
 ##
 ## comp_pool_decl -> ASSIETTE CALCULEE LIDENT list(op_context) . expression(value_def) [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -1710,15 +1741,15 @@ program: ASSIETTE CALCULEE LIDENT POUR TOUT UIDENT SUR
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 86, spurious reduction of production list(op_context) ->
-## In state 87, spurious reduction of production list(op_context) -> op_context list(op_context)
+## In state 90, spurious reduction of production list(op_context) ->
+## In state 91, spurious reduction of production list(op_context) -> op_context list(op_context)
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
 program: ASSIETTE CALCULEE LIDENT QUAND VERS
 ##
-## Ends in an error in state: 215.
+## Ends in an error in state: 219.
 ##
 ## when_expr(value_def) -> QUAND . event_expr sub_expression(value_def) [ VALEUR RPAR QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -1730,7 +1761,7 @@ program: ASSIETTE CALCULEE LIDENT QUAND VERS
 
 program: ASSIETTE CALCULEE LIDENT QUAND EVENEMENT LIDENT VALEUR
 ##
-## Ends in an error in state: 216.
+## Ends in an error in state: 220.
 ##
 ## event_expr_desc -> event_expr . ET event_expr [ OU LPAR ET COLON ]
 ## event_expr_desc -> event_expr . OU event_expr [ OU LPAR ET COLON ]
@@ -1744,7 +1775,7 @@ program: ASSIETTE CALCULEE LIDENT QUAND EVENEMENT LIDENT VALEUR
 
 program: ASSIETTE CALCULEE LIDENT APRES EVENEMENT LIDENT LPAR VERS
 ##
-## Ends in an error in state: 217.
+## Ends in an error in state: 221.
 ##
 ## sub_expression(value_def) -> LPAR . expression(value_def) RPAR [ VALEUR RPAR QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -1756,7 +1787,7 @@ program: ASSIETTE CALCULEE LIDENT APRES EVENEMENT LIDENT LPAR VERS
 
 program: ASSIETTE CALCULEE LIDENT AVANT VERS
 ##
-## Ends in an error in state: 218.
+## Ends in an error in state: 222.
 ##
 ## before_expr(value_def) -> AVANT . event_expr sub_expression(value_def) [ VALEUR RPAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -1768,7 +1799,7 @@ program: ASSIETTE CALCULEE LIDENT AVANT VERS
 
 program: ASSIETTE CALCULEE LIDENT AVANT EVENEMENT LIDENT VALEUR
 ##
-## Ends in an error in state: 219.
+## Ends in an error in state: 223.
 ##
 ## before_expr(value_def) -> AVANT event_expr . sub_expression(value_def) [ VALEUR RPAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ## event_expr_desc -> event_expr . ET event_expr [ OU LPAR ET COLON ]
@@ -1782,7 +1813,7 @@ program: ASSIETTE CALCULEE LIDENT AVANT EVENEMENT LIDENT VALEUR
 
 program: ASSIETTE CALCULEE LIDENT APRES VERS
 ##
-## Ends in an error in state: 222.
+## Ends in an error in state: 226.
 ##
 ## after_expr(value_def) -> APRES . event_expr sub_expression(value_def) [ VALEUR RPAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -1794,7 +1825,7 @@ program: ASSIETTE CALCULEE LIDENT APRES VERS
 
 program: ASSIETTE CALCULEE LIDENT APRES EVENEMENT LIDENT VALEUR
 ##
-## Ends in an error in state: 223.
+## Ends in an error in state: 227.
 ##
 ## after_expr(value_def) -> APRES event_expr . sub_expression(value_def) [ VALEUR RPAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE APRES ACTEUR ]
 ## event_expr_desc -> event_expr . ET event_expr [ OU LPAR ET COLON ]
@@ -1808,7 +1839,7 @@ program: ASSIETTE CALCULEE LIDENT APRES EVENEMENT LIDENT VALEUR
 
 program: ASSIETTE CALCULEE LIDENT QUAND EVENEMENT LIDENT COLON DATE AVANT
 ##
-## Ends in an error in state: 225.
+## Ends in an error in state: 229.
 ##
 ## nonempty_list(when_expr(value_def)) -> when_expr(value_def) . [ VALEUR RPAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ## nonempty_list(when_expr(value_def)) -> when_expr(value_def) . nonempty_list(when_expr(value_def)) [ VALEUR RPAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
@@ -1820,16 +1851,16 @@ program: ASSIETTE CALCULEE LIDENT QUAND EVENEMENT LIDENT COLON DATE AVANT
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 66, spurious reduction of production value_def -> COLON formula
-## In state 220, spurious reduction of production sub_expression(value_def) -> value_def
-## In state 241, spurious reduction of production when_expr(value_def) -> QUAND event_expr sub_expression(value_def)
+## In state 70, spurious reduction of production value_def -> COLON formula
+## In state 224, spurious reduction of production sub_expression(value_def) -> value_def
+## In state 245, spurious reduction of production when_expr(value_def) -> QUAND event_expr sub_expression(value_def)
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
 program: ASSIETTE CALCULEE LIDENT AVANT EVENEMENT LIDENT COLON DATE APRES EVENEMENT LIDENT COLON DATE QUAND
 ##
-## Ends in an error in state: 231.
+## Ends in an error in state: 235.
 ##
 ## list(after_expr(value_def)) -> after_expr(value_def) . list(after_expr(value_def)) [ VALEUR RPAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -1840,16 +1871,16 @@ program: ASSIETTE CALCULEE LIDENT AVANT EVENEMENT LIDENT COLON DATE APRES EVENEM
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 66, spurious reduction of production value_def -> COLON formula
-## In state 220, spurious reduction of production sub_expression(value_def) -> value_def
-## In state 224, spurious reduction of production after_expr(value_def) -> APRES event_expr sub_expression(value_def)
+## In state 70, spurious reduction of production value_def -> COLON formula
+## In state 224, spurious reduction of production sub_expression(value_def) -> value_def
+## In state 228, spurious reduction of production after_expr(value_def) -> APRES event_expr sub_expression(value_def)
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
 program: ASSIETTE CALCULEE LIDENT APRES EVENEMENT LIDENT LPAR COLON DATE VALEUR
 ##
-## Ends in an error in state: 234.
+## Ends in an error in state: 238.
 ##
 ## sub_expression(value_def) -> LPAR expression(value_def) . RPAR [ VALEUR RPAR QUAND OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANT AVANCE ASSIETTE APRES ACTEUR ]
 ##
@@ -1860,15 +1891,15 @@ program: ASSIETTE CALCULEE LIDENT APRES EVENEMENT LIDENT LPAR COLON DATE VALEUR
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 66, spurious reduction of production value_def -> COLON formula
-## In state 227, spurious reduction of production expression(value_def) -> value_def
+## In state 70, spurious reduction of production value_def -> COLON formula
+## In state 231, spurious reduction of production expression(value_def) -> value_def
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
 program: ASSIETTE CALCULEE LIDENT AVANT EVENEMENT LIDENT COLON DATE QUAND
 ##
-## Ends in an error in state: 237.
+## Ends in an error in state: 241.
 ##
 ## nonempty_list(before_expr(value_def)) -> before_expr(value_def) . [ VALEUR RPAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE APRES ACTEUR ]
 ## nonempty_list(before_expr(value_def)) -> before_expr(value_def) . nonempty_list(before_expr(value_def)) [ VALEUR RPAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE APRES ACTEUR ]
@@ -1880,16 +1911,16 @@ program: ASSIETTE CALCULEE LIDENT AVANT EVENEMENT LIDENT COLON DATE QUAND
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 66, spurious reduction of production value_def -> COLON formula
-## In state 220, spurious reduction of production sub_expression(value_def) -> value_def
-## In state 221, spurious reduction of production before_expr(value_def) -> AVANT event_expr sub_expression(value_def)
+## In state 70, spurious reduction of production value_def -> COLON formula
+## In state 224, spurious reduction of production sub_expression(value_def) -> value_def
+## In state 225, spurious reduction of production before_expr(value_def) -> AVANT event_expr sub_expression(value_def)
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
 program: ASSIETTE CALCULEE LIDENT APRES EVENEMENT LIDENT COLON DATE QUAND
 ##
-## Ends in an error in state: 239.
+## Ends in an error in state: 243.
 ##
 ## nonempty_list(after_expr(value_def)) -> after_expr(value_def) . [ VALEUR RPAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ## nonempty_list(after_expr(value_def)) -> after_expr(value_def) . nonempty_list(after_expr(value_def)) [ VALEUR RPAR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
@@ -1901,16 +1932,16 @@ program: ASSIETTE CALCULEE LIDENT APRES EVENEMENT LIDENT COLON DATE QUAND
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 66, spurious reduction of production value_def -> COLON formula
-## In state 220, spurious reduction of production sub_expression(value_def) -> value_def
-## In state 224, spurious reduction of production after_expr(value_def) -> APRES event_expr sub_expression(value_def)
+## In state 70, spurious reduction of production value_def -> COLON formula
+## In state 224, spurious reduction of production sub_expression(value_def) -> value_def
+## In state 228, spurious reduction of production after_expr(value_def) -> APRES event_expr sub_expression(value_def)
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
 program: ACTEUR VERS
 ##
-## Ends in an error in state: 243.
+## Ends in an error in state: 247.
 ##
 ## actor_decl -> ACTEUR . LIDENT [ VALEUR OPERATION EVENEMENT EOF ENTREE DEFICIT DEFAUT CONTEXTE CONSTANTE AVANCE ASSIETTE ACTEUR ]
 ##
@@ -1922,7 +1953,7 @@ program: ACTEUR VERS
 
 program: ACTEUR LIDENT RPAR
 ##
-## Ends in an error in state: 246.
+## Ends in an error in state: 250.
 ##
 ## list(toplevel_decl) -> toplevel_decl . list(toplevel_decl) [ EOF ]
 ##
@@ -1932,11 +1963,11 @@ program: ACTEUR LIDENT RPAR
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-raw_pool: VERS
+raw_pool_start: VERS
 ##
-## Ends in an error in state: 261.
+## Ends in an error in state: 265.
 ##
-## raw_pool' -> . raw_pool [ # ]
+## raw_pool_start' -> . raw_pool_start [ # ]
 ##
 ## The known suffix of the stack is as follows:
 ##
@@ -1944,20 +1975,20 @@ raw_pool: VERS
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-raw_pool: LIDENT VERS
+raw_pool_start: LIDENT VERS
 ##
-## Ends in an error in state: 262.
+## Ends in an error in state: 267.
 ##
-## raw_pool -> raw_pool0 . EOF [ # ]
+## raw_pool_start -> raw_pool . EOF [ # ]
 ##
 ## The known suffix of the stack is as follows:
-## raw_pool0
+## raw_pool
 ##
 ## WARNING: This example involves spurious reductions.
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 32, spurious reduction of production raw_pool0 -> LIDENT
+## In state 17, spurious reduction of production raw_pool -> LIDENT
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>

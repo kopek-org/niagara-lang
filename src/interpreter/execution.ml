@@ -78,15 +78,8 @@ type output_step = {
 
 type output_line = output_step list
 
-type input_line = {
-  input_variable : Variable.t;
-  input_value : Literal.t;
-}
-
 module InputLineMap = IntMap
 (* any uid linking input and output lines would do *)
-
-type computation_inputs = input_line InputLineMap.t
 
 type computation_outputs = output_line InputLineMap.t
 
@@ -167,10 +160,7 @@ let compute_value (s : state) (cond_state : cond_state)
   | Unsat -> Absent
   | Sat -> Present (valuate s eq_expr)
 
-let compute_values (p : program) (s : state) (cond_state : cond_state)
-    (input : Variable.t) (in_value : Value.t) =
-  let s = value_inputs p s in
-  let s = update_value s input (Present in_value) in
+let compute_values (p : program) (s : state) (cond_state : cond_state) =
   Array.fold_left (fun s var ->
       let eq = Variable.Map.find var p.val_eqs in
       let value = compute_value s cond_state eq in
@@ -320,7 +310,9 @@ let compute_action (p : program) (l : limits) (s : state) (action : action) =
           threshold
         else s, value
     in
-    compute_values p s cond_state var value
+    let s = value_inputs p s in
+    let s = update_value s var (Present value) in
+    compute_values p s cond_state
 
 let compute_queue (p : program) (l : limits) (s : state) =
   let rec aux outs s =
@@ -338,11 +330,11 @@ let compute_input_value (p : program) (l : limits) (s : state) (i : Variable.t)
   let s = push_rep_action p s i (literal_value value) in
   compute_queue p l s
 
-let init_state (p : program) =
+let init_state (p : program) (init : Initialization.t) =
   let init_map map init_val =
     Variable.Map.filter_map
-      (fun _ { eq_act; _ } ->
-         if Condition.is_always eq_act then Some init_val else None)
+      (fun v { eq_act; _ } ->
+         if Condition.is_always eq_act then Some (init_val v) else None)
       map
   in
   let const_init vals =
@@ -350,23 +342,37 @@ let init_state (p : program) =
         Variable.Map.add c (Present (literal_value l)) vals)
       p.infos.constants vals
   in
-  {
-    (* Setting events to passed is a hack to avoid Raising event to
-       trigger at the very first step. Works because the first thing
-       computed at each steps are events. *)
-    events = init_map p.act_eqs true;
-    valuations =
-      init_map p.val_eqs (Present Value.zero)
-      |> const_init;
-    queue = [];
-  }
+  let val_init =
+    let f =
+      match init with
+      | Zeros -> fun _ -> Present Value.zero
+      | FromValues vals ->
+        fun v ->
+          match Variable.Map.find_opt v vals with
+          | None -> Present Value.zero
+          | Some l -> Present (literal_value l)
+    in
+    init_map p.val_eqs f
+  in
+  let s =
+    {
+      (* Setting events to passed is a hack to avoid Raising event to
+         trigger at the very first step. Works because the first thing
+         computed at each steps are events. *)
+      events = init_map p.act_eqs (fun _ -> true);
+      valuations = const_init val_init;
+      queue = [];
+    }
+  in
+  (* compute once to propagate init values, without triggering when conditions *)
+  compute_values p s (Variable.Map.map (fun _ -> false) s.events)
 
-let compute_input_lines (p : program) (l : limits) (lines : computation_inputs) =
-  let s = init_state p in
+let compute_input_lines (p : program) (l : limits) (init : Initialization.t) (lines : Input.t) =
+  let s = init_state p init in
   let _s, output_lines =
     InputLineMap.fold (fun i line (s, outputs) ->
         let s, output =
-          compute_input_value p l s line.input_variable line.input_value
+          compute_input_value p l s line.Input.input_variable line.Input.input_value
         in
         s, InputLineMap.add i output outputs)
       lines (s, InputLineMap.empty)

@@ -1,5 +1,3 @@
-open Execution
-
 type raw = {
   id : int;
   name : string;
@@ -8,33 +6,41 @@ type raw = {
   value : string;
 }
 
+type line = {
+  input_variable : Variable.t;
+  input_value : Literal.t;
+}
+
+module InputLineMap = IntMap
+(* any uid linking input and output lines would do *)
+
+type t = line InputLineMap.t
+
+
 let find_var (infos : VarInfo.collection) info_filter  =
-  let vars =
-    Variable.Map.filter (fun _ info -> info_filter info)
-      infos
-  in
-  match Variable.Map.cardinal vars with
-  | 0 -> None
-  | 1 -> Some (fst (Variable.Map.choose vars))
+  let vars = Variable.Map.filter info_filter infos in
+  match Variable.Map.bindings vars with
+  | [] -> None
+  | [v, _] -> Some v
   | _ -> None
 
 let find_input (infos : VarInfo.collection) (name : string) (ctx : Context.Group.t) =
-  let filter_info info =
+  let filter_info _ info =
     if not (VarInfo.is_input info) then false else
       match info.origin with
       | Named n -> String.equal name n
       | ContextSpecialized { origin; context } ->
         let n =
-              match (Variable.Map.find origin infos).origin with
-              | Named n -> n
-              | _ -> assert false
+          match (Variable.Map.find origin infos).origin with
+          | Named n -> n
+          | _ -> assert false
         in
         String.equal n name && Context.Group.includes context ctx
-      |  _ -> false
+      | _ -> false
   in
   find_var infos filter_info
 
-let to_interpreter_input (pinfos : ProgramInfo.t) (i : raw) : input_line =
+let line_of_raw (pinfos : ProgramInfo.t) (i : raw) : line =
   let ctx =
     List.map (fun c ->
         Surface.Ast.{ cri_desc = CCase c; cri_loc = Pos.dummy })
@@ -62,36 +68,36 @@ let to_interpreter_input (pinfos : ProgramInfo.t) (i : raw) : input_line =
   in
   { input_variable = var; input_value = amount }
 
-let to_interpreter_inputs (pinfos : ProgramInfo.t) (is : raw list) : computation_inputs =
+let of_raw (pinfos : ProgramInfo.t) (is : raw list) : t =
   List.fold_left (fun ci i ->
-      InputLineMap.add i.id (to_interpreter_input pinfos i) ci)
-    Execution.InputLineMap.empty
+      InputLineMap.add i.id (line_of_raw pinfos i) ci)
+    InputLineMap.empty
     is
 
 (** Computes the largest convex domain from a list of domains. *)
 let largest_domain
-      (world : Context.world)
-      (dl : Context.CaseSet.t Context.DomainMap.t list) : string list =
+    (world : Context.world)
+    (dl : Context.CaseSet.t Context.DomainMap.t list) : string list =
   let _, l =
     List.fold_left
       (fun ((size, _l) as acc) dm ->
-        let (size', _l') as acc' =
-          Context.DomainMap.fold
-            (fun _ s (size', l') ->
-              (size' + Context.CaseSet.cardinal s),
-              Context.CaseSet.elements s @ l'
-            )
-            dm
-            (0, [])
-        in
-        if size >= size' then acc else acc'
+         let (size', _l') as acc' =
+           Context.DomainMap.fold
+             (fun _ s (size', l') ->
+                (size' + Context.CaseSet.cardinal s),
+                Context.CaseSet.elements s @ l'
+             )
+             dm
+             (0, [])
+         in
+         if size >= size' then acc else acc'
       )
       (0, [])
       dl
   in
   List.map (Context.case_name world) l
 
-let of_interpreter_input (pinfos : ProgramInfo.t) (id : int) (i : input_line) : raw =
+let line_to_raw (pinfos : ProgramInfo.t) (id : int) (i : line) : raw =
   let name =
     match VarInfo.get_name pinfos.var_info i.input_variable with
     | Some n -> n
@@ -109,9 +115,9 @@ let of_interpreter_input (pinfos : ProgramInfo.t) (id : int) (i : input_line) : 
   in
   {id; name; context; value}
 
-let of_interpreter_inputs (pinfos : ProgramInfo.t) (ci : computation_inputs) : raw list =
+let to_raw (pinfos : ProgramInfo.t) (ci : t) : raw list =
   InputLineMap.fold
-    (fun id i acc -> of_interpreter_input pinfos id i :: acc)
+    (fun id i acc -> line_to_raw pinfos id i :: acc)
     ci
     []
   |> List.rev

@@ -25,7 +25,8 @@ let pos (start, stop) = Pos.Text.make ~start ~stop
 %on_error_reduce literal formula named actor
 
 %start<source program> program
-%start<string * context_refinement> raw_pool
+%start<string * context_refinement> raw_pool_start
+%start<named> named_start
 %%
 
 // Dispatch
@@ -164,6 +165,8 @@ named:
 }
 | p = pool { named ~loc:(pos $sloc) (Holder p) }
 
+named_start: n = named EOF { n }
+
 holder:
 | a = actor { holder ~loc:(pos $sloc) (Actor a) }
 | p = pool { p }
@@ -185,17 +188,17 @@ labeled_actor_desc:
 | a = LIDENT LBRA l = LIDENT RBRA { LabeledActor(a, l) }
 ;
 
-raw_pool0:
+raw_pool:
 | p = LIDENT c = ioption(context_refinement)
     { let ctx = Option.fold c ~none:[] ~some:(fun c -> c) in
       (p, ctx)
     }
 
-raw_pool:
-| p = raw_pool0 EOF { p }
+raw_pool_start:
+| p = raw_pool EOF { p }
 
 pool:
-| ASSIETTE p = raw_pool0
+| ASSIETTE p = raw_pool
     { let p, ctx = p in
       holder ~loc:(pos $sloc) (Pool(p, ctx))
     }

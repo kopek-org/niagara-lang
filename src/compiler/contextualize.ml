@@ -456,14 +456,13 @@ end = struct
       { t with deps }
 
   let to_contextualized_program t =
-    let infos : ProgramInfo.t = {
+    let infos = {
+      ProgramInfo.dummy with
       var_info = t.var_info;
       var_shapes = resolve_constraints t;
       contexts = t.contexts;
       compounds = t.compounds;
       constants = t.constants;
-      relevance_sets = Variable.Map.empty;
-      dep_graph = Variable.Graph.empty;
     }
     in
     Contextualized (infos, List.rev t.program_decls)

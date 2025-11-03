@@ -1,0 +1,31 @@
+acteur distrib
+acteur sofica
+acteur prod
+
+entree entrees type entier
+
+assiette calculee rbd
+: 5$ * entrees
+
+operation 'com'
+sur assiette rbd
+quotepart 20% opposable 10% envers sofica par prod[opp] vers distrib
+
+defaut sur assiette rbd vers assiette rnpp
+
+valeur observable palier : prod - 100$
+
+evenement seuil atteint quand palier = 800$
+
+operation 'rep'
+sur assiette rnpp
+avant evenement seuil
+quotepart 10% vers distrib
+apres evenement seuil
+quotepart 30% vers distrib
+
+operation 'rnpp'
+sur assiette rnpp
+quotepart 20% vers sofica
+
+defaut sur assiette rnpp vers prod

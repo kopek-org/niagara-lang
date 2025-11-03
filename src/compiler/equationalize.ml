@@ -755,6 +755,74 @@ let convert_constants t =
   in
   { t with value_eqs }
 
+let build_init_requirements t =
+  let open ProgramInfo in
+  let add_event_reqs v reqs =
+    match Variable.Map.find_opt v t.event_eqs with
+    | None -> reqs
+    | Some expr ->
+      { reqs with
+        mandatory_values =
+          Variable.Set.union
+            (vars_of_expr expr)
+            reqs.mandatory_values
+      }
+  in
+  let add_cumulative_reqs v reqs =
+    { reqs with
+      initializable_values =
+        Variable.Set.add v reqs.initializable_values
+    }
+  in
+  let add_init_vs init_vs =
+    let rec aux ivs v =
+      if Variable.Set.mem v init_vs
+      then Variable.Set.add v ivs
+      else
+        match Variable.Map.find v t.value_eqs with
+        | One { eq_expr; _ } ->
+          Variable.Set.fold (fun v ivs -> aux ivs v)
+            (vars_of_expr eq_expr)
+            ivs
+        | More vl ->
+          List.fold_left
+            (fun ivs (v,_) -> aux ivs v)
+            ivs vl
+    in
+    aux
+  in
+  let raw_initr =
+    Variable.Map.fold (fun v info reqs ->
+        match info.VarInfo.kind with
+        | Event ->
+          (match info.origin with
+            | Named _ | AnonEvent
+            | OpposingVariant { variant = (Named _ | AnonEvent); _ } ->
+              add_event_reqs v reqs
+            | _ -> reqs)
+        | _ ->
+          match info.origin with
+          | Cumulative _
+          | OpposingVariant { variant = (Cumulative _); _ } ->
+            add_cumulative_reqs v reqs
+          | _ -> reqs)
+      t.pinfos.var_info
+      t.pinfos.init_requirements
+  in
+  let mandatory_values =
+    let add_init_vs = add_init_vs raw_initr.initializable_values in
+    Variable.Set.fold (fun v mv -> add_init_vs mv v)
+      raw_initr.mandatory_values
+      Variable.Set.empty
+  in
+  let init_requirements =
+    { raw_initr with mandatory_values }
+  in
+  { t with
+    pinfos =
+      { t.pinfos with init_requirements }
+  }
+
 let produce_aggregated_eqs t =
   let t = convert_constants t in
   let t = convert_repartitions t in
@@ -765,6 +833,7 @@ let produce_aggregated_eqs t =
   let t = convert_cumulations t in
   let t = convert_deficits t in
   let t = resolve_oppositions t in
+  let t = build_init_requirements t in
   { infos = t.pinfos;
     aggr_eqs = t.value_eqs;
     event_eqs = t.event_eqs;

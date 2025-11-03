@@ -24,8 +24,9 @@ let find_partner (infos : VarInfo.collection) (name : string) =
 
 let test_stdin (p : Equ.program) (l : Equ.limits) (for_partner : string option) (for_all : bool) =
   Format.printf "Awaiting inputs:@.";
-  let raw_inputs = Testlex.parse stdin in
-  let inputs = Interpreter.Input.to_interpreter_inputs p.infos raw_inputs in
+  let raw_init, raw_inputs = Testlex.parse stdin in
+  let init = Interpreter.Initialization.of_raw p.infos raw_init in
+  let inputs = Interpreter.Input.of_raw p.infos raw_inputs in
   let lines =
     IntMap.fold (fun i _ is -> IntMap.add i Results.AllSteps is) inputs IntMap.empty
   in
@@ -52,6 +53,6 @@ let test_stdin (p : Equ.program) (l : Equ.limits) (for_partner : string option) 
             relevancy_check;
           }
   in
-  let outputs = Interpreter.Execution.compute_input_lines p l inputs in
+  let outputs = Interpreter.Execution.compute_input_lines p l init inputs in
   Interpreter.Printer.print_intepreter_outputs
     p (Format.formatter_of_out_channel stdout) norm_mode outputs

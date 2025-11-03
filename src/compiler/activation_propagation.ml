@@ -41,13 +41,6 @@ let bind_vinfo t (v : Variable.t) (info : VarInfo.t) =
     }
   }
 
-let create_var_from t (ov : Variable.t) (build : VarInfo.t -> VarInfo.t) =
-  let v = Variable.create () in
-  let oi = find_vinfo t ov in
-  let i = build oi in
-  let t = bind_vinfo t v i in
-  t, v
-
 let add_dep acc from events to_ =
   { acc with
     pinfos =
