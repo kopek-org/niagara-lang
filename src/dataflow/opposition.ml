@@ -283,19 +283,13 @@ let origin_variant acc env (var : Variable.t) (vorigin : VarInfo.origin) =
       | NoEvent -> condition
       | Before e -> Before (variant_if_exists e)
       | After e -> After (variant_if_exists e)
+      | When e -> When (variant_if_exists e)
     in
     OperationDetail { label; op_kind; source; target; condition }
-  | TriggerOperation { label; trigger; trigger_vars; source; target } ->
-    let trigger = variant_if_exists trigger in
-    let trigger_vars = Variable.Set.map variant_if_exists trigger_vars in
-    let source = variant_if_exists source in
-    let target = variant_if_exists target in
-    TriggerOperation { label; trigger; source; target; trigger_vars }
-  | LocalValuation { trigger; target; deps } ->
-    let trigger = Option.map variant_if_exists trigger in
+  | LocalValuation { target; deps } ->
     let target = variant_if_exists target in
     let deps = Variable.Set.map variant_if_exists deps in
-    LocalValuation { trigger; target; deps }
+    LocalValuation { target; deps }
   | OperationSum { source; target } ->
     let source = variant_if_exists source in
     let target = variant_if_exists target in

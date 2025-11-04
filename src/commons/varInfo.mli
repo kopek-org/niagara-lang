@@ -9,6 +9,7 @@ type event_loc =
   | NoEvent
   | Before of Variable.t
   | After of Variable.t
+  | When of Variable.t
 
 type origin =
   | Named of string
@@ -25,16 +26,8 @@ type origin =
       source : Variable.t;
       target : Variable.t
     }
-  | TriggerOperation of {
-      source : Variable.t;
-      target : Variable.t;
-      label : string option;
-      trigger : Variable.t;
-      trigger_vars : Variable.Set.t;
-    }
   | LocalValuation of {
       target : Variable.t;
-      trigger : Variable.t option;
       deps : Variable.Set.t;
     }
   | OperationSum of { source : Variable.t; target : Variable.t }

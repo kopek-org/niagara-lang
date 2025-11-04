@@ -27,14 +27,12 @@ type flat_op = {
   flat_src : Variable.t;
   flat_cond : Condition.t;
   flat_main_event : VarInfo.event_loc;
-  flat_trigger : Variable.t option;
   flat_opposed : opposed_expr;
 }
 
 type comp_val = {
   cv_expr : expr;
   cv_cond : Condition.t;
-  cv_trigger : Variable.t option;
   cv_opposed : opposed_expr;
 }
 
@@ -248,7 +246,7 @@ let register_deficit t ~(act : Condition.t) ~(provider : Variable.t)
     ~(pool : Variable.t) =
   register_part t ~act ~src:pool ~dest:provider Deficit
 
-let register_flat ~(trigger : Variable.t option) ~(label : string option) t
+let register_flat ~(label : string option) t
     ~(act : Condition.t) ~(src : Variable.t)
     ~(dest : Variable.t) ~(main_event : VarInfo.event_loc)
     (expr, opps : expr_with_opps) =
@@ -258,7 +256,6 @@ let register_flat ~(trigger : Variable.t option) ~(label : string option) t
     flat_expr = expr;
     flat_cond = act;
     flat_main_event = main_event;
-    flat_trigger = trigger;
     flat_opposed = opps;
   }
   in
@@ -270,12 +267,11 @@ let register_flat ~(trigger : Variable.t option) ~(label : string option) t
   in
   { t with flat_eqs; }
 
-let register_comp_val ~(trigger : Variable.t option) t
+let register_comp_val t
     ~(act : Condition.t) ~(dest : Variable.t) (expr, opps : expr_with_opps) =
   let cv = {
     cv_expr = expr;
     cv_cond = act;
-    cv_trigger = trigger;
     cv_opposed = opps;
   }
   in
@@ -608,30 +604,13 @@ let convert_flats t =
   in
   let produce_op dest src t flat =
     let origin : VarInfo.origin =
-      match flat.flat_trigger with
-      | None -> OperationDetail {
-          label = flat.flat_label;
-          condition = flat.flat_main_event;
-          op_kind = Bonus (vars_of_expr flat.flat_expr);
-          source = src;
-          target = dest
-        }
-      | Some trigger -> TriggerOperation {
-          label = flat.flat_label;
-          trigger;
-          source = src;
-          target = dest;
-          trigger_vars =
-            match Variable.Map.find_opt trigger t.event_eqs with
-            | None -> Variable.Set.empty
-            | Some e ->
-              Variable.Set.map (fun v ->
-                  match (Variable.Map.find v t.pinfos.var_info).origin with
-                  | Cumulative v -> v
-                  | _ -> v
-                )
-                (vars_of_expr e)
-        }
+      OperationDetail {
+        label = flat.flat_label;
+        condition = flat.flat_main_event;
+        op_kind = Bonus (vars_of_expr flat.flat_expr);
+        source = src;
+        target = dest
+      }
     in
     let t, ldest =
       create_var_from t dest (fun i ->
@@ -687,7 +666,6 @@ let convert_comp_val t =
       create_var_from t dest (fun i ->
           { i with
             origin = LocalValuation {
-                trigger = cv.cv_trigger;
                 target = dest;
                 deps = vars_of_expr cv.cv_expr
               };
@@ -913,7 +891,7 @@ let rec translate_event acc (eexpr : Ast.contextualized Ast.event_expr) =
     acc, e
   | EventDisj _ -> assert false
 
-let translate_redistribution ~(trigger : Variable.t option) ~(label : string option)
+let translate_redistribution ~(label : string option)
     acc ~(ctx : Context.Group.t)
     ~(act : Condition.t)
     ~(src : Variable.t) ~(dest : Ast.contextualized_variable)
@@ -948,10 +926,10 @@ let translate_redistribution ~(trigger : Variable.t option) ~(label : string opt
     Acc.register_redist ~label acc ~act ~src ~dest ~non_opp part opps
   | Flat f ->
     let acc, e = translate_formula ~ctx ~view:AtInstant acc f in
-    Acc.register_flat ~trigger ~label acc ~act ~src ~dest e
+    Acc.register_flat ~label acc ~act ~src ~dest e
   | Default -> Acc.register_default ~label acc ~act ~src ~dest
 
-let translate_redist_w_dest ~(trigger : Variable.t option) acc
+let translate_redist_w_dest acc
     ~(ctx : Context.Group.t) ~(act : Condition.t)
     ~(src : Variable.t)
     ~(def_dest : Ast.contextualized_variable option)
@@ -964,7 +942,7 @@ let translate_redist_w_dest ~(trigger : Variable.t option) acc
     | Some default, None -> default
     | None, None -> Report.raise_missing_dest_error ()
   in
-  translate_redistribution ~trigger ~ctx ~act ~src ~dest acc redist
+  translate_redistribution ~ctx ~act ~src ~dest acc redist
 
 let translate_condition acc (cond : Ast.contextualized Ast.event_expr) =
   let acc, eexpr = translate_event acc cond in
@@ -982,41 +960,47 @@ let conds_of_event ~act (evt : Variable.t) =
   let condf = Condition.(conj (of_event evt false) act) in
   condt, condf
 
-let translate_redists acc ~(trigger : Variable.t option)
-    ~(label : string option)  ~(ctx : Context.Group.t)
+let translate_redists acc
+    ~(label : string option) ~(ctx : Context.Group.t)
     ~(act : Condition.t) ~(src : Variable.t)
     ~(def_dest : Ast.contextualized_variable option)
     ~(main_event : VarInfo.event_loc)
     (rs : Ast.contextualized Ast.redistrib_with_dest list) =
   List.fold_left
-    (translate_redist_w_dest ~trigger ~label ~ctx ~act ~src ~def_dest ~main_event)
+    (translate_redist_w_dest ~label ~ctx ~act ~src ~def_dest ~main_event)
     acc rs
 
 let rec translate_guarded_obj : type obj. Acc.t
-  -> (Acc.t -> trigger:(Variable.t option) -> ctx:Context.Group.t
+  -> (Acc.t -> ctx:Context.Group.t
       -> act:Condition.t -> main_event:VarInfo.event_loc -> obj -> Acc.t)
-  -> trigger:(Variable.t option)
   -> ctx:Context.Group.t -> act:Condition.t -> main_event:VarInfo.event_loc
   -> (Ast.contextualized, obj) Ast.guarded_redistrib
   -> Acc.t =
- fun acc obj_process ~trigger ~ctx ~act ~main_event go ->
+  let merge_events old new_ =
+    match old, new_ with
+    | VarInfo.When _, VarInfo.When _ -> new_
+    | When _, _ -> old
+    | _ -> new_
+  in
+ fun acc obj_process ~ctx ~act ~main_event go ->
+  let merge_event = merge_events main_event in
   match go with
-  | Atom a -> obj_process acc ~trigger ~ctx ~act ~main_event a
+  | Atom a -> obj_process acc ~ctx ~act ~main_event a
   | Whens gs ->
     List.fold_left (fun acc (cond, go) ->
         let acc, trigger = translate_condition acc cond in
         let acc, evt = event_trigger acc trigger in
         let condt, _ = conds_of_event ~act evt in
-        translate_guarded_obj ~trigger:(Some trigger) acc obj_process
-          ~ctx ~act:condt ~main_event go)
+        translate_guarded_obj acc obj_process
+          ~ctx ~act:condt ~main_event:(merge_event (When trigger)) go)
       acc gs
   | Branches { befores; afters } ->
     let acc, act =
       List.fold_right (fun (cond, go) (acc, act) ->
           let acc, evt = translate_condition acc cond in
           let condt, condf = conds_of_event ~act evt in
-          translate_guarded_obj ~trigger acc obj_process
-            ~ctx ~act:condt ~main_event:(After evt) go,
+          translate_guarded_obj acc obj_process
+            ~ctx ~act:condt ~main_event:(merge_event (After evt)) go,
           condf)
         afters (acc, act)
     in
@@ -1024,8 +1008,8 @@ let rec translate_guarded_obj : type obj. Acc.t
     List.fold_left (fun (acc, act) (cond, go) ->
         let acc, evt = translate_condition acc cond in
         let condt, condf = conds_of_event ~act evt in
-        translate_guarded_obj ~trigger acc obj_process
-          ~ctx ~act:condf ~main_event:(Before evt) go,
+        translate_guarded_obj acc obj_process
+          ~ctx ~act:condf ~main_event:(merge_event (Before evt)) go,
         condt)
       (acc, act) befores
 
@@ -1037,7 +1021,7 @@ let translate_operation acc (o : Ast.ctx_operation_decl) =
         translate_redists ~label:(Some o.ctx_op_label)
           ~src ~def_dest:o.ctx_op_default_dest
       in
-      translate_guarded_obj ~trigger:None acc redist_process
+      translate_guarded_obj acc redist_process
         ~ctx ~act:Condition.always ~main_event:NoEvent o.ctx_op_guarded_redistrib)
     acc source_local_shape
 
@@ -1045,11 +1029,11 @@ let translate_comp_pool acc (p : Ast.ctx_comp_pool_decl) =
   let pool_local_shape = shape_of_ctx_var acc p.ctx_comp_pool_var in
   Context.shape_fold (fun acc ctx ->
       let acc, pool = Acc.get_derivative_var acc (fst p.ctx_comp_pool_var) ctx in
-      let formula_process acc ~trigger ~ctx ~act ~main_event:_ f =
+      let formula_process acc ~ctx ~act ~main_event:_ f =
         let acc, e = translate_formula ~ctx ~view:AtInstant acc f in
-        Acc.register_comp_val ~trigger acc ~act ~dest:pool e
+        Acc.register_comp_val acc ~act ~dest:pool e
       in
-      translate_guarded_obj acc formula_process ~trigger:None
+      translate_guarded_obj acc formula_process
         ~ctx ~act:Condition.always ~main_event:NoEvent p.ctx_comp_pool_guarded_value)
     acc pool_local_shape
 

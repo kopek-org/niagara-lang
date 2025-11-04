@@ -9,6 +9,7 @@ type event_loc =
   | NoEvent
   | Before of Variable.t
   | After of Variable.t
+  | When of Variable.t
 
 type origin =
   | Named of string
@@ -25,16 +26,8 @@ type origin =
       source : Variable.t;
       target : Variable.t
     }
-  | TriggerOperation of {
-      source : Variable.t;
-      target : Variable.t;
-      label : string option;
-      trigger : Variable.t;
-      trigger_vars : Variable.Set.t;
-    }
   | LocalValuation of {
       target : Variable.t;
-      trigger : Variable.t option;
       deps : Variable.Set.t;
     }
   | OperationSum of { source : Variable.t; target : Variable.t }
@@ -102,7 +95,6 @@ let rec get_name coll v =
     | RisingEvent v -> get_name coll v
     | ContextSpecialized { origin; _ } -> get_name coll origin
     | OperationDetail _ -> None
-    | TriggerOperation _ -> None
     | LocalValuation _ -> None
     | OperationSum _ -> None
     | RepartitionSum _ -> None
@@ -133,14 +125,8 @@ let print fmt t =
        | Bonus _ -> "$"
        | Default _ -> "?"
        | Deficit _ -> "!")
-  | TriggerOperation { label = _; source; target; trigger; trigger_vars = _ } ->
-    fprintf fmt "[%d->%d]@@%d" (Variable.uid source) (Variable.uid target)
-      (Variable.uid trigger)
-  | LocalValuation { target; trigger; deps = _ } ->
-    fprintf fmt "[=%d]%a" (Variable.uid target)
-      (pp_print_option (fun fmt trigger ->
-           fprintf fmt"@@%d" (Variable.uid trigger)))
-      trigger
+  | LocalValuation { target; deps = _ } ->
+    fprintf fmt "[=%d]" (Variable.uid target)
   | OperationSum { source; target } ->
     fprintf fmt "[%d->%d]*" (Variable.uid source) (Variable.uid target)
   | RepartitionSum v -> fprintf fmt "%d->*" (Variable.uid v)

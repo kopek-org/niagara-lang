@@ -266,9 +266,9 @@ let build_result_layout (pinfos : ProgramInfo.t) =
                   layout
               | _ -> assert false), variants
            | _ -> assert false)
-        | OperationDetail { label; op_kind; source; target; condition = _ } ->
+        | OperationDetail { label; op_kind; source; target; condition } ->
           (match op_kind with
-           | Quotepart  _ ->
+           | Quotepart _ ->
              update_detail_of source (fun l ->
                  { l with reps = Variable.Map.update target (function
                        | None -> Some (Variable.Map.singleton v v)
@@ -278,21 +278,31 @@ let build_result_layout (pinfos : ProgramInfo.t) =
                layout
            | Bonus _ ->
              let layout =
-               update_flat_detail v None target (fun l ->
+               let trigger =
+                 match condition with When c -> Some c | _ -> None
+               in
+               update_flat_detail v trigger target (fun l ->
                    { l with
                      flat_name =
                        Option.value label ~default:("flat bonus");
                    })
                  layout
              in
-             update_detail_of source (fun l ->
-                 { l with
-                   reps = Variable.Map.update target (function
-                       | None -> Some (Variable.Map.singleton v v)
-                       | Some vs -> Some (Variable.Map.add v v vs))
-                       l.reps;
-                 })
-               layout
+             let layout =
+               update_detail_of source (fun l ->
+                   { l with
+                     reps = Variable.Map.update target (function
+                         | None -> Some (Variable.Map.singleton v v)
+                         | Some vs -> Some (Variable.Map.add v v vs))
+                         l.reps;
+                   })
+                 layout
+             in
+             update_detail_of target (fun l ->
+                { l with
+                  computed = Variable.Set.add v l.computed;
+                })
+              layout
            | Default _ ->
              update_detail_of source (fun l ->
                  { l with defaults = Variable.Map.update target (function
@@ -307,21 +317,7 @@ let build_result_layout (pinfos : ProgramInfo.t) =
                        | Some vs -> Some (Variable.Map.add v v vs))
                        l.reps })
                layout), variants
-        | TriggerOperation { label; source = _; target; trigger; trigger_vars = _ } ->
-          let layout =
-            update_detail_of target (fun l ->
-                { l with
-                  computed = Variable.Set.add v l.computed;
-                })
-              layout
-          in
-          update_flat_detail v (Some trigger) target (fun l ->
-              { l with
-                flat_name =
-                  Option.value label ~default:("triggered bonus");
-              })
-            layout, variants
-        | LocalValuation { target; trigger = _; deps = _ } ->
+        | LocalValuation { target; deps = _ } ->
           update_detail_of target (fun l ->
               { l with
                 computed = Variable.Set.add v l.computed;
@@ -434,7 +430,7 @@ let filter_of_norm_mode (info : ProgramInfo.t) (mode : norm_mode) =
         | Peeking  _ | RisingEvent _ -> false
         | OpposingVariant { variant; _ } -> variant_check variant
         | RepartitionSum _ | DeficitSum _
-        | OperationDetail _ | OperationSum _ | TriggerOperation _ ->
+        | OperationDetail _ | OperationSum _ ->
           in_out_details && relevancy_check v
         | Cumulative v -> org_check v
         | _ -> relevancy_check v
@@ -471,7 +467,6 @@ let merge_valuations (info : ProgramInfo.t)
             | Peeking _
             | ContextSpecialized _
             | OperationDetail _
-            | TriggerOperation _
             | LocalValuation _
             | OperationSum _
             | RepartitionSum _
