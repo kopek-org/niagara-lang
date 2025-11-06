@@ -16,6 +16,8 @@ module DomainMap : Map.S with type key = domain
 module Group : sig
   type t
 
+  val encoding : t Json_encoding.encoding
+
   module Map : Map.S with type key = t
   module Set : Set.S with type elt = t
 
@@ -58,6 +60,8 @@ val print_error : Format.formatter -> error -> unit
     present in its entirety. *)
 type shape
 
+val shape_encoding : shape Json_encoding.encoding
+
 (** Representation of a group population. Each domain to a set of cases, the
     corresponding space point being the cartesian product of each case set.
 
@@ -86,6 +90,8 @@ type group_desc = CaseSet.t DomainMap.t list
 (** All the context informations are contained in this type. It can be querried
     through various functions below. *)
 type world
+
+val world_encoding : world Json_encoding.encoding
 
 (** Returns a group that contains every points of the space.
 

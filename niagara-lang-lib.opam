@@ -17,6 +17,7 @@ depends: [
   "cmdliner" {>= "1.0.4"}
   "ocamlgraph"
   "zarith"
+  "json-data-encoding"
   "odoc" {with-doc}
 ]
 build: [

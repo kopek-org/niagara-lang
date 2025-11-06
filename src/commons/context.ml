@@ -29,6 +29,7 @@ module Group = struct
   module Map = Map.Make(Z)
   module Set = Set.Make(Z)
 
+  let encoding = Json_encoding.(conv Z.to_string Z.of_string string)
   let empty = Z.zero
 
   let everything_up_to n =
@@ -120,10 +121,25 @@ type domain_info = {
                           Equals domain_case_size * size(domain_cases) *)
 }
 
-type case_info = {
-  case_name : string;
-  case_domain : domain;
-}
+let domain_info_encoding =
+  let open Json_encoding in
+  conv
+    (fun { domain_name; domain_cases; domain_case_size; domain_period } ->
+      (domain_name, domain_cases, domain_case_size, domain_period))
+    (fun (domain_name, domain_cases, domain_case_size, domain_period) ->
+      { domain_name; domain_cases; domain_case_size; domain_period })
+    (obj4 (req "name" string)
+       (req "cases" IntSet.encoding)
+       (req "case_size" int) (req "period" int))
+
+type case_info = { case_name : string; case_domain : domain }
+
+let case_info_encoding =
+  let open Json_encoding in
+  conv
+    (fun { case_name; case_domain } -> (case_name, case_domain))
+    (fun (case_name, case_domain) -> { case_name; case_domain })
+    (obj2 (req "name" string) (req "domain" int))
 
 type group_desc = CaseSet.t DomainMap.t list
 
@@ -135,7 +151,31 @@ type world = {
   group_repr_size : int; (* needed size of group bitset *)
 }
 
+let world_encoding =
+  let open Json_encoding in
+  conv
+    (fun { domains; cases; domain_table = _; case_table = _; group_repr_size } ->
+      (domains, cases, group_repr_size))
+    (fun (domains, cases, group_repr_size) ->
+      let domain_table =
+        IntMap.fold
+          (fun i { domain_name; _ } acc -> StrMap.add domain_name i acc)
+          domains StrMap.empty
+      in
+      let case_table =
+        IntMap.fold
+          (fun i { case_name; _ } acc -> StrMap.add case_name i acc)
+          cases StrMap.empty
+      in
+      { domains; cases; domain_table; case_table; group_repr_size })
+    (obj3
+       (req "domain" (IntMap.tup_list_encoding domain_info_encoding))
+       (req "cases" (IntMap.tup_list_encoding case_info_encoding))
+       (req "group_repr_size" int))
+
 type shape = Group.t list
+
+let shape_encoding = Json_encoding.list Group.encoding
 
 let empty_world = {
   domains = DomainMap.empty;

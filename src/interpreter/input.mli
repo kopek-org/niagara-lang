@@ -9,6 +9,7 @@ type raw = {
   value : string;
   (** The input value. *)
   }
+val raw_encoding : raw list Json_encoding.encoding
 
 val to_interpreter_inputs : ProgramInfo.t -> raw list -> Execution.computation_inputs
 

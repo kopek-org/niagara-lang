@@ -1,5 +1,5 @@
 (library
   (name interpreter)
   (public_name niagara-lang-lib.interpreter)
-  (libraries ocamlgraph calendar zarith commons compiler dataflow surface grammar)
+  (libraries ocamlgraph json-data-encoding zarith commons compiler dataflow surface grammar)
 )

@@ -34,3 +34,31 @@ let type_of (l : t) =
   | LMoney _ -> TMoney
   | LDate _ -> TDate
   | LDuration _ -> TDuration
+
+let z_encoding = Json_encoding.(conv Z.to_string Z.of_string string)
+
+let encoding =
+  let open Json_encoding in
+  union
+    [
+      case
+        (obj2
+           (req "type" (string_enum ["money",true;"int",false]))
+           (req "value" z_encoding))
+        (function LMoney m -> Some (true, m) | LInteger m -> Some (false, m) | _ -> None)
+        (fun (b, s) -> if b then LMoney s else LInteger s);
+      case
+        (obj2 (req "type" (constant "rational")) (req "value" R.encoding))
+        (function LRational q -> Some ((), q) | _ -> None)
+        (fun ((), q) -> LRational q);
+      case
+        (obj2 (req "type" (constant "date")) (req "value" Date.Date.encoding))
+        (function LDate d -> Some ((), d) | _ -> None)
+        (fun ((), d) -> LDate d);
+      case
+        (obj2
+           (req "type" (constant "duration"))
+           (req "value" Date.Duration.encoding))
+        (function LDuration d -> Some ((), d) | _ -> None)
+        (fun ((), d) -> LDuration d);
+    ]
