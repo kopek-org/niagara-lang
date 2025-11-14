@@ -394,11 +394,12 @@ let group_desc world (g : Group.t) =
   if DomainMap.is_empty doms then [] else
     aux (DomainMap.choose doms) doms g
 
+let domain_name world d = (DomainMap.find d world.domains).domain_name
+
 let case_name world c = (CaseMap.find c world.cases).case_name
 
 let print_domain world fmt (d : domain) =
-  let dom = (DomainMap.find d world.domains).domain_name in
-  Format.fprintf fmt "%s" dom
+  Format.fprintf fmt "%s" (domain_name world d)
 
 let print_case world fmt (c : case) =
   Format.fprintf fmt "%s" (case_name world c)

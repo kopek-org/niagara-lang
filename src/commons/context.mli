@@ -19,6 +19,10 @@ module Group : sig
   module Map : Map.S with type key = t
   module Set : Set.S with type elt = t
 
+  val empty : t
+
+  val equal : t -> t -> bool
+
   (** [union g1 g2] returns a group that contains points that are either in [g1]
       or in [g2]. *)
   val union : t -> t -> t
@@ -193,6 +197,9 @@ val is_any_projection : world -> Group.t -> bool
 
 (** Return the group description of a given group. *)
 val group_desc : world -> Group.t -> group_desc
+
+(** Returns the name of the domain *)
+val domain_name : world -> domain -> string
 
 (** Returns the name of the case *)
 val case_name : world -> case -> string
