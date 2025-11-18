@@ -3,6 +3,9 @@
   > EOF
   Awaiting inputs:
   ### OUTPUTS ###
+  0: ++ no events:
+       
+     
   1: ++ no events:
        - rbd { 400000, 400000 }:
          160000 -> distrib
@@ -41,6 +44,9 @@
   > EOF
   Awaiting inputs:
   ### OUTPUTS ###
+  0: ++ no events:
+       
+     
   1: ++ no events:
        - rbd { 225000, 225000 }:
          45000 -> distrib
@@ -98,6 +104,9 @@
   > EOF
   Awaiting inputs:
   ### OUTPUTS ###
+  0: ++ no events:
+       
+     
   1: ++ no events:
        - rbd { 400000, 400000 }:
          160000 -> distrib

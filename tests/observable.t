@@ -4,6 +4,10 @@
   > EOF
   Awaiting inputs:
   ### OUTPUTS ###
+  0: ++ no events:
+       - palier { -10000, -10000 }:
+       
+     
   1: ++ no events:
        - entrees { 200, 200 }:
          - entrees(France) { 200, 200 }:

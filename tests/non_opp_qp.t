@@ -3,6 +3,9 @@
   > EOF
   Awaiting inputs:
   ### OUTPUTS ###
+  0: ++ no events:
+       
+     
   1: ++ no events:
        - rbd { 10000, 10000 }:
          2000 -> distrib

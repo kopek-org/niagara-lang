@@ -9,6 +9,7 @@ type value_presence =
    handle the consecutive splits of input value. As well as a good basis for
    futur extensions. *)
 type action =
+  | Init
   | PoolRep of Variable.t * Value.t
 
 (* Represents knowledge related to activation conditions *)
@@ -299,6 +300,9 @@ let find_event_threshold (p : program) (l : limits) (s : state) (cond_state : co
 let compute_action (p : program) (l : limits) (s : state) (action : action) =
   let s = compute_events p s in
   match action with
+  | Init ->
+    let s = compute_values p s (Variable.Map.map (fun _ -> false) s.events) in
+    compute_events p s
   | PoolRep (var, value) ->
     let cond_state = Variable.Map.add var true s.events in
     let s, value =
@@ -330,7 +334,7 @@ let compute_input_value (p : program) (l : limits) (s : state) (i : Variable.t)
   let s = push_rep_action p s i (literal_value value) in
   compute_queue p l s
 
-let init_state (p : program) (init : Initialization.t) =
+let init_state (p : program) (l : limits) (init : Initialization.t) =
   let init_map map init_val =
     Variable.Map.filter_map
       (fun v { eq_act; _ } ->
@@ -361,20 +365,22 @@ let init_state (p : program) (init : Initialization.t) =
          computed at each steps are events. *)
       events = init_map p.act_eqs (fun _ -> true);
       valuations = const_init val_init;
-      queue = [];
+      queue = [Init];
     }
   in
   (* compute once to propagate init values, without triggering when conditions *)
-  compute_values p s (Variable.Map.map (fun _ -> false) s.events)
+  compute_queue p l s
 
 let compute_input_lines (p : program) (l : limits) (init : Initialization.t) (lines : Input.t) =
-  let s = init_state p init in
+  if InputLineMap.mem 0 lines then
+    Report.raise_error "Computation line 0 reserved for initial state";
+  let s, init_vals = init_state p l init in
   let _s, output_lines =
     InputLineMap.fold (fun i line (s, outputs) ->
         let s, output =
           compute_input_value p l s line.Input.input_variable line.Input.input_value
         in
         s, InputLineMap.add i output outputs)
-      lines (s, InputLineMap.empty)
+      lines (s, InputLineMap.singleton 0 init_vals)
   in
   output_lines

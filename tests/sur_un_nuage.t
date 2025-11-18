@@ -12,8 +12,11 @@
   > EOF
   Awaiting inputs:
   ### OUTPUTS ###
-  1: ++ after event recuperation_frais_edition_distributeur 
+  0: ++ after event recuperation_frais_edition_distributeur 
         after event recuperation_frais_edition_scorpion :
+       
+     
+  1: ++ no events:
        - frais_edition_distributeur_du_desert { 1, 1 }:
        
      ++ before event recuperation_frais_edition_distributeur :

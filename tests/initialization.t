@@ -12,6 +12,10 @@
   > EOF
   Awaiting inputs:
   ### OUTPUTS ###
+  0: ++ no events:
+       - palier { -10000, -10000 }:
+       
+     
   1: ++ no events:
        - entrees { 321.42857..., 321.42857... }:
        - rbd { 160714.28571..., 160714.28571... }:
@@ -55,6 +59,10 @@
   > EOF
   Awaiting inputs:
   ### OUTPUTS ###
+  0: ++ no events:
+       - palier { -10000, -10000 }:
+       
+     
   1: ++ no events:
        - entrees { 10000, 10000 }:
        - rbd { 5000000, 5000000 }:
