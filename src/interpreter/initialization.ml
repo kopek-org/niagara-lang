@@ -26,6 +26,13 @@ let print_raw_var fmt (r : raw) =
          pp_print_string)
       cases
 
+type init_err =
+  | VarNotFound
+  | LacksPrecision
+  | MalformedAmount
+
+exception InitErr of init_err
+
 let init_of_raw (pinfos : ProgramInfo.t) (r : raw) : Variable.t * Literal.t =
   let rec matching_spec r info =
     match info.VarInfo.origin with
@@ -71,27 +78,32 @@ let init_of_raw (pinfos : ProgramInfo.t) (r : raw) : Variable.t * Literal.t =
   in
   let vars = Variable.Map.filter filter_var_info pinfos.var_info in
   match Variable.Map.bindings vars with
-  | [] ->
-    Report.raise_error
-      "Unable to find variable '%a'." print_raw_var r
-  | _::_::_ ->
-    Report.raise_error
-      "Unable to pinpoint exactly one variable '%a'." print_raw_var r
+  | [] -> raise (InitErr VarNotFound)
+  | _::_::_ -> raise (InitErr LacksPrecision)
   | [v, _] ->
     let amount =
       match Grammar.Lexer.parse_money_amount_opt r.value with
       | Some m -> Literal.LMoney m
       | None ->
         try Literal.LInteger (Z.of_string r.value) with
-        | Invalid_argument _ ->
-          Report.raise_error "%s is not a valid amount" r.value
+        | Invalid_argument _ -> raise (InitErr MalformedAmount)
     in
     v, amount
 
 let of_raw (pinfos : ProgramInfo.t) (raws : raw list) =
   let inits =
     List.fold_left (fun inits raw ->
-        let v, amount = init_of_raw pinfos raw in
+        let v, amount =
+          try init_of_raw pinfos raw with
+          | InitErr VarNotFound ->
+            Report.raise_error
+              "Unable to find variable '%a'." print_raw_var raw
+          | InitErr LacksPrecision ->
+            Report.raise_error
+              "Unable to pinpoint exactly one variable '%a'." print_raw_var raw
+          | InitErr MalformedAmount ->
+            Report.raise_error "%s is not a valid amount" raw.value
+        in
         Variable.Map.update v (function
             | None -> Some amount
             | Some _ ->
