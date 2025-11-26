@@ -20,8 +20,7 @@ module InputLineMap = IntMap
 
 type t = line InputLineMap.t
 
-val largest_domain :
-  Context.world -> Context.CaseSet.t Context.DomainMap.t list -> string list
+val shortest_desc : Context.world -> Context.Group.t -> string list
 
 val of_raw : ProgramInfo.t -> raw list -> t
 

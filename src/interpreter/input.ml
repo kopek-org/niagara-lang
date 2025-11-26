@@ -75,24 +75,26 @@ let of_raw (pinfos : ProgramInfo.t) (is : raw list) : t =
     is
 
 (** Computes the largest convex domain from a list of domains. *)
-let largest_domain
-    (world : Context.world)
-    (dl : Context.CaseSet.t Context.DomainMap.t list) : string list =
+let shortest_desc
+    (world : Context.world) (g : Context.Group.t) : string list =
+  let dl = Context.group_desc world g in
   let _, l =
     List.fold_left
       (fun ((size, _l) as acc) dm ->
          let (size', _l') as acc' =
            Context.DomainMap.fold
-             (fun _ s (size', l') ->
-                (size' + Context.CaseSet.cardinal s),
-                Context.CaseSet.elements s @ l'
-             )
+             (fun d s (size', l') ->
+                let cs = Context.CaseSet.cardinal s in
+                let es = Context.CaseSet.elements s in
+                if cs = Context.(CaseSet.cardinal (cases_of world d))
+                then (size', l')
+                else (size' + cs), (es @ l'))
              dm
              (0, [])
          in
-         if size >= size' then acc else acc'
+         if size < size' then acc else acc'
       )
-      (0, [])
+      (max_int, [])
       dl
   in
   List.map (Context.case_name world) l
@@ -109,8 +111,7 @@ let line_to_raw (pinfos : ProgramInfo.t) (id : int) (i : line) : raw =
     match Variable.Map.find_opt i.input_variable pinfos.var_info with
     | None -> invalid_arg "Input.of_interpreter_input (value)"
     | Some { origin = ContextSpecialized {context; _ }; _ } ->
-       let desc = Context.group_desc pinfos.contexts context in
-       largest_domain pinfos.contexts desc
+       shortest_desc pinfos.contexts context
     | Some _ -> []
   in
   {id; name; context; value}

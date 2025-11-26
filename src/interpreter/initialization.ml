@@ -132,10 +132,7 @@ let init_to_raw (pinfos : ProgramInfo.t) (v : Variable.t) (l : Literal.t) : raw 
       v_def spec (Some (VarInfo.get_any_name pinfos.var_info target)) origin
     | LabelOfPartner { partner; label } -> v_def (Label label) for_opp partner
     | ContextSpecialized { origin; context } ->
-      let context =
-        let desc = Context.group_desc pinfos.contexts context in
-        Input.largest_domain pinfos.contexts desc
-      in
+      let context = Input.shortest_desc pinfos.contexts context in
       v_def (Ctx context) for_opp origin
     | _ -> Report.raise_error "Invalid variable for init %s" (VarInfo.get_any_name pinfos.var_info v)
   in
