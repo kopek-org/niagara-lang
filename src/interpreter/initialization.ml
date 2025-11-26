@@ -48,11 +48,11 @@ let init_of_raw (pinfos : ProgramInfo.t) (r : raw) : Variable.t * Literal.t =
         c && String.equal p (VarInfo.get_any_name pinfos.var_info target))
     | Cumulative v when r.for_opp = None ->
       matching_spec r (Variable.Map.find v pinfos.var_info)
-    | Named n when r.for_opp = None -> String.equal n r.name
+    | Named n when r.for_opp = None && r.spec = Bare -> String.equal n r.name
     | ContextSpecialized { origin; context } when r.for_opp = None ->
-      if matching_spec r (Variable.Map.find origin pinfos.var_info) then
+      if matching_spec { r with spec = Bare } (Variable.Map.find origin pinfos.var_info) then
         match r.spec with
-         | Bare -> true
+         | Bare -> false
          | Ctx cases ->
            let ctx =
              List.map (fun c ->
@@ -65,7 +65,7 @@ let init_of_raw (pinfos : ProgramInfo.t) (r : raw) : Variable.t * Literal.t =
          | Label _ -> false
       else false
     | LabelOfPartner { partner; label } when r.for_opp = None ->
-      if matching_spec r (Variable.Map.find partner pinfos.var_info) then
+      if matching_spec { r with spec = Bare } (Variable.Map.find partner pinfos.var_info) then
         match r.spec with
          | Bare | Ctx _ -> false
          | Label l -> String.equal l label
