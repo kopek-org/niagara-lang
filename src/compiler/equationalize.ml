@@ -118,8 +118,8 @@ let create_cumulation t v =
       { i with
         origin = Cumulative v;
         kind = match i.kind with
-          | ParameterInput _
-          | PoolInput _ -> Intermediary
+          | ParameterInput _ -> ParameterInput { shadow = true }
+          | PoolInput _ -> PoolInput { shadow = true }
           | k -> k
       })
   in
