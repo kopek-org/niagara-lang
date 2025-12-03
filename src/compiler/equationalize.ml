@@ -791,6 +791,12 @@ let build_init_requirements t =
     in
     aux
   in
+  let initable v =
+    match (Variable.Map.find v t.pinfos.var_info).origin with
+    | Named _ | Cumulative _ | OpposingVariant _ | LabelOfPartner _
+    | ContextSpecialized _ -> true
+    | _ -> false
+  in
   let raw_initr =
     Variable.Map.fold (fun v info reqs ->
         match info.VarInfo.kind with
@@ -802,9 +808,11 @@ let build_init_requirements t =
             | _ -> reqs)
         | _ ->
           match info.origin with
-          | Cumulative _
-          | OpposingVariant { variant = (Cumulative _); _ } ->
-            add_cumulative_reqs v reqs
+          | Cumulative origin
+          | OpposingVariant { variant = (Cumulative _); origin; _ } ->
+            if initable origin then
+              add_cumulative_reqs v reqs
+            else reqs
           | _ -> reqs)
       t.pinfos.var_info
       t.pinfos.init_requirements
