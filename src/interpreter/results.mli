@@ -67,11 +67,11 @@ val iter_layout :
 (* iter on result items in a predefined order *)
 
 val force_step_merge :
-  ProgramInfo.t
-  -> filter:(Variable.t -> bool)
-  -> Execution.output_step
-  -> Execution.output_step
-  -> Execution.output_step
+  VarInfo.collection ->
+  filter:(Variable.t -> bool) ->
+  Execution.output_step ->
+  Execution.output_step ->
+  Execution.output_step
 
 val normalize_valuations :
   ProgramInfo.t
@@ -83,3 +83,9 @@ val normalize_valuations :
 val normalize_layout :
   ProgramInfo.t -> norm_mode -> results_layout  -> results_layout
 (* filter items and sub-items following the given normalization mode *)
+
+val diff_step_events :
+  bool Variable.Map.t -> bool Variable.Map.t -> bool Variable.Map.t
+(* [diff_step_events ev1 ev2] returns the map of events whose state
+   has changed between [ev1] and [ev2]. The value is [true] if it
+   occured and [false] is it was backtracked *)
