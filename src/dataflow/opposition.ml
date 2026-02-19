@@ -238,22 +238,25 @@ let origin_variant acc env (var : Variable.t) (vorigin : VarInfo.origin) =
         R.Map.add r (condition_subst acc c) rep
     in
     R.Map.fold (fun r c rep ->
-        Variable.Map.fold (fun _ subst rep ->
-            let delta =
-              match subst.kind with
-              | QuotePart { delta; _ } -> delta
-              | _ -> assert false
-            in
-            let ccond = Condition.conj c subst.condition in
-            if Condition.is_never ccond then
-              add_rep c r rep
-            else
-              let xcond = Condition.excluded c subst.condition in
-              let cr = R.(r - delta) in
-              let rep = add_rep ccond cr rep in
-              if Condition.is_never xcond then rep else
-                add_rep xcond r rep)
-          relevant_substs rep)
+        if Variable.Map.is_empty relevant_substs then
+          add_rep c r rep
+        else
+          Variable.Map.fold (fun _ subst rep ->
+              let delta =
+                match subst.kind with
+                | QuotePart { delta; _ } -> delta
+                | _ -> assert false
+              in
+              let ccond = Condition.conj c subst.condition in
+              if Condition.is_never ccond then
+                add_rep c r rep
+              else
+                let xcond = Condition.excluded c subst.condition in
+                let cr = R.(r - delta) in
+                let rep = add_rep ccond cr rep in
+                if Condition.is_never xcond then rep else
+                  add_rep xcond r rep)
+            relevant_substs rep)
       rep R.Map.empty
   in
   let variant_if_exists v =
