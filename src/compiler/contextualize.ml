@@ -20,6 +20,8 @@ module Acc : sig
 
   val register_pool : t -> string -> computed:bool -> t * Variable.t
 
+  val mark_pool_as_computed : t -> string -> t
+
   val register_value :
     t ->
     string ->
@@ -170,6 +172,13 @@ end = struct
     let t = bind_var name (RefPool v) t in
     let t = bind_linearity v true t in
     t, v
+
+  let mark_pool_as_computed t (name : string) =
+    match StrMap.find name t.var_table with
+    | RefPool v ->
+      let info = Variable.Map.find v t.var_info in
+      bind_vinfo v { info with kind = Computed } t
+    | _ -> Report.raise_internal_error "Error marking as compute non pool variable"
 
   let register_value t (name : string) ~(obs : bool)
       ~(linear : bool) ~(typ : ValueType.t) =
@@ -879,7 +888,7 @@ let advance _acc (_a : advance_decl) = Report.raise_error "no more advance"
 let comp_pool acc (p : comp_pool_decl) =
   let acc, pool =
     match Acc.find_pool_opt acc p.comp_pool_name with
-    | Some v -> acc, v
+    | Some v -> Acc.mark_pool_as_computed acc p.comp_pool_name, v
     | None -> Acc.register_pool acc p.comp_pool_name ~computed:true
   in
   let on_proj =
