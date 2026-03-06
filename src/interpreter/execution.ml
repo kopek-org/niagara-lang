@@ -10,7 +10,7 @@ type value_presence =
    futur extensions. *)
 type action =
   | Init
-  | PoolRep of Variable.t * Value.t
+  | PoolRep of Variable.t * Value.t Input.or_stabilize
 
 (* Represents knowledge related to activation conditions *)
 type cond_state = bool Variable.Map.t
@@ -105,7 +105,8 @@ let literal_value (l : Literal.t) : Value.t =
   | LDate _
   | LDuration _ -> assert false
 
-let push_rep_action (p : program) (s : state) (var : Variable.t) (value : Value.t) =
+let push_rep_action (p : program) (s : state) (var : Variable.t)
+    (value : Value.t Input.or_stabilize) =
   match var_kind p var with
   | Pool ->
     { s with queue = PoolRep (var, value)::s.queue }
@@ -202,8 +203,8 @@ let rec expr_threshold_linear (p : program) (cond_state : cond_state) (expr : ex
       | f, None | None, f -> f
       | Some (v1,f1), Some (v2,f2) ->
         if not (Variable.equal v1 v2) then
-          (Format.eprintf "two var factors for %a@." FormatEqu.print_expr expr;
-           assert false)
+          Report.raise_internal_error "two var factors for %a"
+            FormatEqu.print_expr expr
         else
         Some (v1, EAdd (f1, f2))
     in
@@ -305,14 +306,18 @@ let compute_action (p : program) (l : limits) (s : state) (action : action) =
     compute_events p s
   | PoolRep (var, value) ->
     let cond_state = Variable.Map.add var true s.events in
+    let threshold = find_event_threshold p l s cond_state in
     let s, value =
-      match find_event_threshold p l s cond_state with
-      | None -> s, value
-      | Some threshold ->
-        if Value.lt threshold value then
-          push_rep_action p s var (Value.sub value threshold),
+      match threshold, value with
+      | None, Stabilize -> s, Value.zero
+      | None, Value v -> s, v
+      | Some threshold, Stabilize ->
+        push_rep_action p s var Input.Stabilize, threshold
+      | Some threshold, Value v ->
+        if Value.lt threshold v then
+          push_rep_action p s var (Input.Value (Value.sub v threshold)),
           threshold
-        else s, value
+        else s, v
     in
     let s = value_inputs p s in
     let s = update_value s var (Present value) in
@@ -330,8 +335,8 @@ let compute_queue (p : program) (l : limits) (s : state) =
   aux [] s
 
 let compute_input_value (p : program) (l : limits) (s : state) (i : Variable.t)
-    (value : Literal.t) =
-  let s = push_rep_action p s i (literal_value value) in
+    (value : Literal.t Input.or_stabilize) =
+  let s = push_rep_action p s i (Input.map_stabilize literal_value value) in
   compute_queue p l s
 
 let init_state (p : program) (l : limits) (init : Initialization.t) =

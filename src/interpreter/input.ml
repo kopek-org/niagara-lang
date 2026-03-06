@@ -6,9 +6,11 @@ type raw = {
   value : string;
 }
 
+type 'a or_stabilize = Stabilize | Value of 'a
+
 type line = {
   input_variable : Variable.t;
-  input_value : Literal.t;
+  input_value : Literal.t or_stabilize;
 }
 
 module InputLineMap = IntMap
@@ -16,6 +18,13 @@ module InputLineMap = IntMap
 
 type t = line InputLineMap.t
 
+let map_stabilize f =
+  function Stabilize -> Stabilize | Value v -> Value (f v)
+
+let print_lit_or_stabilize fmt =
+  function
+  | Value l -> Literal.print fmt l
+  | Stabilize -> Format.fprintf fmt "stabilize"
 
 let find_var (infos : VarInfo.collection) info_filter  =
   let vars = Variable.Map.filter info_filter infos in
@@ -59,10 +68,13 @@ let line_of_raw (pinfos : ProgramInfo.t) (i : raw) : line =
     | Some var -> var
   in
   let amount =
+    if String.equal i.value "stabilize" then
+      Stabilize
+    else
     match Grammar.Lexer.parse_money_amount_opt i.value with
-    | Some m -> Literal.LMoney m
+    | Some m -> Value (Literal.LMoney m)
     | None ->
-      try Literal.LInteger (Z.of_string i.value) with
+      try Value (Literal.LInteger (Z.of_string i.value)) with
       | Invalid_argument _ ->
         Report.raise_error "%s is not a valid amount" i.value
   in
@@ -105,7 +117,7 @@ let line_to_raw (pinfos : ProgramInfo.t) (id : int) (i : line) : raw =
     | Some n -> n
     | None -> invalid_arg "Input.of_interpreter_input (name)"
   in
-  let value = Format.asprintf "%a" Literal.print i.input_value in
+  let value = Format.asprintf "%a" print_lit_or_stabilize i.input_value in
   let context =
     (* We will take the largest convex sub-set. *)
     match Variable.Map.find_opt i.input_variable pinfos.var_info with

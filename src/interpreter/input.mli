@@ -10,9 +10,13 @@ type raw = {
   (** The input value. *)
   }
 
+type 'a or_stabilize = Stabilize | Value of 'a
+
+val map_stabilize : ('a -> 'b) -> 'a or_stabilize -> 'b or_stabilize
+
 type line = {
   input_variable : Variable.t;
-  input_value : Literal.t;
+  input_value : Literal.t or_stabilize;
 }
 
 module InputLineMap = IntMap
