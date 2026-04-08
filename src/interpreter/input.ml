@@ -21,10 +21,10 @@ type t = line InputLineMap.t
 let map_stabilize f =
   function Stabilize -> Stabilize | Value v -> Value (f v)
 
-let print_lit_or_stabilize fmt =
+let print_stabilize f fmt =
   function
-  | Value l -> Literal.print fmt l
-  | Stabilize -> Format.fprintf fmt "stabilize"
+  | Value l -> f fmt l
+  | Stabilize -> Format.pp_print_string fmt "stabilize"
 
 let find_var (infos : VarInfo.collection) info_filter  =
   let vars = Variable.Map.filter info_filter infos in
@@ -117,7 +117,7 @@ let line_to_raw (pinfos : ProgramInfo.t) (id : int) (i : line) : raw =
     | Some n -> n
     | None -> invalid_arg "Input.of_interpreter_input (name)"
   in
-  let value = Format.asprintf "%a" print_lit_or_stabilize i.input_value in
+  let value = Format.asprintf "%a" (print_stabilize Literal.print) i.input_value in
   let context =
     (* We will take the largest convex sub-set. *)
     match Variable.Map.find_opt i.input_variable pinfos.var_info with
