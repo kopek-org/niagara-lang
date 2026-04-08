@@ -14,6 +14,9 @@ type 'a or_stabilize = Stabilize | Value of 'a
 
 val map_stabilize : ('a -> 'b) -> 'a or_stabilize -> 'b or_stabilize
 
+val print_stabilize : (Format.formatter -> 'a -> unit) ->
+Format.formatter -> 'a or_stabilize -> unit
+
 type line = {
   input_variable : Variable.t;
   input_value : Literal.t or_stabilize;
