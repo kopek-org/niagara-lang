@@ -22,7 +22,6 @@ type expr_with_opps = expr * opposed_expr
 module Acc = struct
 
 type flat_op = {
-  flat_label : string option;
   flat_expr : expr;
   flat_src : Variable.t;
   flat_cond : Condition.t;
@@ -217,10 +216,10 @@ let lift_event t (event, opp_evs : expr_with_opps)
   in
   t, v
 
-let register_part t ~(label : string option) ~(act : Condition.t) ~(src : Variable.t)
+let register_part t ~(act : Condition.t) ~(src : Variable.t)
     ~(dest : Variable.t) ~(main_event : VarInfo.event_loc)
     (part : Repartition.part_or_def) =
-  let share = Repartition.{ label; dest; part; condition = act; main_event } in
+  let share = Repartition.{ dest; part; condition = act; main_event } in
   let repartitions =
     Variable.Map.update src (function
         | None -> Some [ share ]
@@ -246,12 +245,11 @@ let register_deficit t ~(act : Condition.t) ~(provider : Variable.t)
     ~(pool : Variable.t) =
   register_part t ~act ~src:pool ~dest:provider Deficit
 
-let register_flat ~(label : string option) t
+let register_flat t
     ~(act : Condition.t) ~(src : Variable.t)
     ~(dest : Variable.t) ~(main_event : VarInfo.event_loc)
     (expr, opps : expr_with_opps) =
   let flat = {
-    flat_label = label;
     flat_src = src;
     flat_expr = expr;
     flat_cond = act;
@@ -412,15 +410,14 @@ let group_productions ~produce ~aggr_var t ops =
     t, (agv, cond)
 
 let convert_repartitions t =
-  let register_part t src ({ label; condition; part; dest; main_event }
+  let register_part t src ({condition; part; dest; main_event }
                            : Repartition.opposable_part Repartition.share) =
     let part, opposed = part in
     let t, ov = create_var_from t dest (fun i ->
         { i with
           kind = Intermediary;
           origin = OperationDetail
-              { label;
-                op_kind = Quotepart part;
+              { op_kind = Quotepart part;
                 source = src;
                 target = dest;
                 condition = main_event
@@ -446,12 +443,11 @@ let convert_repartitions t =
       non_opp_shares =
     match def_share with
     | None -> t
-    | Some { label; dest; condition; part; main_event } ->
+    | Some {dest; condition; part; main_event } ->
       let t, ov = create_var_from t dest (fun i ->
           { i with
             kind = Intermediary;
             origin = OperationDetail {
-                label;
                 condition = main_event;
                 op_kind = Deficit part;
                 source = dest;
@@ -574,8 +570,7 @@ let convert_repartitions t =
                 { i with
                   kind = Intermediary;
                   origin = OperationDetail
-                      { label = share.label;
-                        op_kind = Default share.part;
+                      { op_kind = Default share.part;
                         source = src;
                         target = share.dest;
                         condition = share.main_event
@@ -605,7 +600,6 @@ let convert_flats t =
   let produce_op dest src t flat =
     let origin : VarInfo.origin =
       OperationDetail {
-        label = flat.flat_label;
         condition = flat.flat_main_event;
         op_kind = Bonus (vars_of_expr flat.flat_expr);
         source = src;
@@ -968,8 +962,7 @@ let rec translate_event acc (eexpr : Ast.contextualized Ast.event_expr) =
     acc, e
   | EventDisj _ -> assert false
 
-let translate_redistribution ~(label : string option)
-    acc ~(ctx : Context.Group.t)
+let translate_redistribution acc ~(ctx : Context.Group.t)
     ~(act : Condition.t)
     ~(src : Variable.t) ~(dest : Ast.contextualized_variable)
     (redist : Ast.contextualized Ast.redistribution) =
@@ -1000,11 +993,11 @@ let translate_redistribution ~(label : string option)
           (target, opp_part, provider)::opps)
         fopps []
     in
-    Acc.register_redist ~label acc ~act ~src ~dest ~non_opp part opps
+    Acc.register_redist acc ~act ~src ~dest ~non_opp part opps
   | Flat f ->
     let acc, e = translate_formula ~ctx ~view:AtInstant acc f in
-    Acc.register_flat ~label acc ~act ~src ~dest e
-  | Default -> Acc.register_default ~label acc ~act ~src ~dest
+    Acc.register_flat acc ~act ~src ~dest e
+  | Default -> Acc.register_default acc ~act ~src ~dest
 
 let translate_redist_w_dest acc
     ~(ctx : Context.Group.t) ~(act : Condition.t)
@@ -1038,13 +1031,13 @@ let conds_of_event ~act (evt : Variable.t) =
   condt, condf
 
 let translate_redists acc
-    ~(label : string option) ~(ctx : Context.Group.t)
+    ~(ctx : Context.Group.t)
     ~(act : Condition.t) ~(src : Variable.t)
     ~(def_dest : Ast.contextualized_variable option)
     ~(main_event : VarInfo.event_loc)
     (rs : Ast.contextualized Ast.redistrib_with_dest list) =
   List.fold_left
-    (translate_redist_w_dest ~label ~ctx ~act ~src ~def_dest ~main_event)
+    (translate_redist_w_dest ~ctx ~act ~src ~def_dest ~main_event)
     acc rs
 
 let rec translate_guarded_obj : type obj. Acc.t
@@ -1095,7 +1088,7 @@ let translate_operation acc (o : Ast.ctx_operation_decl) =
   Context.shape_fold (fun acc ctx ->
       let acc, src = Acc.get_derivative_var acc (fst o.ctx_op_source) ctx in
       let redist_process =
-        translate_redists ~label:(Some o.ctx_op_label)
+        translate_redists
           ~src ~def_dest:o.ctx_op_default_dest
       in
       translate_guarded_obj acc redist_process
@@ -1126,7 +1119,7 @@ let translate_default acc (d : Ast.ctx_default_decl) =
         | ContextVar [dest] -> dest
         | _ -> Report.raise_error "destination derivation should have been unique"
       in
-      Acc.register_default ~label:None acc ~act:Condition.always
+      Acc.register_default acc ~act:Condition.always
         ~src ~dest ~main_event:NoEvent)
     acc source_local_shape
 
@@ -1141,7 +1134,7 @@ let translate_deficit acc (d : Ast.ctx_deficit_decl) =
   let pool_local_shape = shape_of_ctx_var acc d.ctx_deficit_pool in
   Context.shape_fold (fun acc ctx ->
       let acc, pool = Acc.get_derivative_var acc (fst d.ctx_deficit_pool) ctx in
-      Acc.register_deficit ~label:None acc ~act:Condition.always
+      Acc.register_deficit acc ~act:Condition.always
         ~provider ~pool ~main_event:NoEvent)
     acc pool_local_shape
 

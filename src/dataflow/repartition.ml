@@ -13,7 +13,6 @@ type part_or_def =
   | Deficit
 
 type 'a share = {
-  label : string option;
   main_event : VarInfo.event_loc;
   dest : Variable.t;
   part : 'a;
@@ -180,7 +179,6 @@ let resolve_fullness_exn (rep : part_or_def t) =
           R.Map.fold (fun _p -> Condition.disj) ds Condition.never
         in
         let share = {
-          label = def_share.label;
           dest = def_share.dest;
           condition; part = ds;
           main_event = def_share.main_event
@@ -199,8 +197,7 @@ let resolve_fullness_exn (rep : part_or_def t) =
         R.Map.fold (fun _p -> Condition.disj) ds Condition.never
       in
       let gd_share =
-        { label = share.label;
-          dest = share.dest;
+        { dest = share.dest;
           condition;
           part = ds;
           main_event = share.main_event
@@ -225,7 +222,6 @@ let resolve_fullness_exn (rep : part_or_def t) =
         R.Map.fold (fun _p -> Condition.disj) ds Condition.never
       in
       let deficit_share = {
-        label = share.label;
         dest = share.dest;
         condition; part = ds;
         main_event = share.main_event
@@ -235,19 +231,19 @@ let resolve_fullness_exn (rep : part_or_def t) =
   check_fullness parts;
   {
     parts =
-      List.filter_map (fun { label; part; dest; condition; main_event } ->
+      List.filter_map (fun {part; dest; condition; main_event } ->
           match part with
           | Part { part; non_opp = false } ->
-            Some { label; part; dest; condition; main_event }
+            Some { part; dest; condition; main_event }
           | _ -> None)
         rep;
     defaults = (Option.to_list global_default) @ local_defaults;
     deficits = deficit;
     non_opp_parts =
-      List.filter_map (fun { label; part; dest; condition; main_event } ->
+      List.filter_map (fun { part; dest; condition; main_event } ->
           match part with
           | Part { part; non_opp = true } ->
-            Some { label; part; dest; condition; main_event }
+            Some { part; dest; condition; main_event }
           | _ -> None)
         rep;
   }

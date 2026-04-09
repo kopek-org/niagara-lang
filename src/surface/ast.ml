@@ -130,7 +130,6 @@ type context =
 
 type operation_decl = {
   op_loc : Pos.t;
-  op_label : string;
   op_default_dest : holder option;
   op_context : context list;
   op_source : holder;
@@ -139,25 +138,10 @@ type operation_decl = {
 }
 
 type ctx_operation_decl = {
-  ctx_op_label : string;
   ctx_op_default_dest : contextualized_variable option;
   ctx_op_source : contextualized_variable;
   ctx_op_guarded_redistrib :
     (contextualized, contextualized redistrib_with_dest list) guarded_redistrib;
-}
-
-type advance_decl = {
-  adv_label : string;
-  adv_output : holder;
-  adv_provider : actor;
-  adv_amount : source formula;
-}
-
-type ctx_advance_decl = {
-  ctx_adv_label : string;
-  ctx_adv_output : contextualized_variable;
-  ctx_adv_provider : contextualized_variable;
-  ctx_adv_amount : contextualized formula;
 }
 
 type event_decl = {
@@ -255,7 +239,6 @@ type _ declaration =
   | DContext : context_decl -> source declaration
   | DInput : input_decl -> source declaration
   | DActor : actor_decl -> source declaration
-  | DHolderAdvance : advance_decl -> source declaration
   | DHolderDefault : default_decl -> source declaration
   | DHolderDeficit : deficit_decl -> source declaration
   | DVarDefault : ctx_default_decl -> contextualized declaration
@@ -328,9 +311,8 @@ let operation_decl
   ?(context = [])
   ~source
   ~guarded_redistrib
-  label = {
+  () = {
   op_loc = loc;
-  op_label = label;
   op_default_dest = default_dest;
   op_context = context;
   op_source = source;

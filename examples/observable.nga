@@ -16,7 +16,7 @@ assiette calculee rbd
 pour Territoire(Belgique,Etranger)
 : 10$ * entrees
 
-operation 'com'
+operation
 pour Territoire(Belgique)
 sur assiette rbd
 quotepart 20% vers distrib
@@ -27,7 +27,7 @@ valeur observable palier : prod - 100$
 
 evenement seuil atteint quand palier = 800$
 
-operation 'rep'
+operation
 sur assiette rnpp
 avant evenement seuil
 quotepart 10% vers distrib

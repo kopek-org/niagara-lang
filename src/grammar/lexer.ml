@@ -35,11 +35,9 @@ let keywords =
     "constante", CONSTANTE;
     "defaut", DEFAUT;
     "deficit", DEFICIT;
-    "avance", AVANCE;
     "total", TOTAL;
     "courant", COURANT;
     "retrocession", RETROCESSION;
-    "montant", MONTANT;
     "reste", RESTE;
     "non", NON;
     "opposable", OPPOSABLE;
@@ -59,7 +57,6 @@ let lident = [%sedlex.regexp? lowercase, Star (digit | lowercase | uppercase | '
 let uident = [%sedlex.regexp? uppercase, Star (digit | lowercase | uppercase | '_')]
 let date = [%sedlex.regexp? integer, '/', integer, '/', integer]
 let comment = [%sedlex.regexp? '#', Star (Compl '\n'), '\n']
-let label = [%sedlex.regexp? '\'', Plus (Compl ('\n' | '\r' | '\'')), '\'']
 
 let parse_money_value s : Z.t option =
   try (* Catch conversion errors. Should not happen from the lexer itself. *)
@@ -101,10 +98,6 @@ let parse_date s =
     Date.Date.make (int_of_string y) (int_of_string m) (int_of_string d)
   | _ -> raise (Invalid_argument "Lexer.parse_date")
 
-let strip_enclosing_chars s =
-  let s = String.trim s in
-  String.sub s 1 (String.length s - 2)
-
 let reading_code = ref false
 
 let rec code ~is_in_text lexbuf =
@@ -116,7 +109,6 @@ let rec code ~is_in_text lexbuf =
   | decimal -> FLOAT (R.of_string (Utf8.lexeme lexbuf))
   | integer -> INT (Z.of_string (Utf8.lexeme lexbuf))
   | money -> MONEY (parse_money_amount (Utf8.lexeme lexbuf))
-  | label -> LABEL (strip_enclosing_chars (Utf8.lexeme lexbuf))
   | '+' -> PLUS
   | '-' -> MINUS
   | '*' -> MULT

@@ -7,7 +7,7 @@ entree entrees type entier
 assiette calculee rbd
 : 5$ * entrees
 
-operation 'com'
+operation
 sur assiette rbd
 quotepart 20% opposable 10% envers sofica par prod[opp] vers distrib
 
@@ -17,14 +17,14 @@ valeur observable palier : prod - 100$
 
 evenement seuil atteint quand palier = 800$
 
-operation 'rep'
+operation
 sur assiette rnpp
 avant evenement seuil
 quotepart 10% vers distrib
 apres evenement seuil
 quotepart 30% vers distrib
 
-operation 'rnpp'
+operation
 sur assiette rnpp
 quotepart 20% vers sofica
 

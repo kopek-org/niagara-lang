@@ -20,7 +20,6 @@ type origin =
   | RisingEvent of Variable.t
   | ContextSpecialized of { origin : Variable.t; context : Context.Group.t }
   | OperationDetail of {
-      label : string option;
       op_kind : op_kind;
       condition : event_loc;
       source : Variable.t;

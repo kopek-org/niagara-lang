@@ -20,7 +20,6 @@ type origin =
   | RisingEvent of Variable.t
   | ContextSpecialized of { origin : Variable.t; context : Context.Group.t }
   | OperationDetail of {
-      label : string option;
       op_kind : op_kind;
       condition : event_loc;
       source : Variable.t;
@@ -118,7 +117,7 @@ let print fmt t =
   | RisingEvent v -> fprintf fmt "^%d" (Variable.uid v)
   | ContextSpecialized { origin; context } ->
     fprintf fmt "%d(%a)" (Variable.uid origin) Context.Group.print context
-  | OperationDetail { label = _; source; target; op_kind; condition = _ } ->
+  | OperationDetail { source; target; op_kind; condition = _ } ->
     fprintf fmt "[%d->%d]%s" (Variable.uid source) (Variable.uid target)
       (match op_kind with
        | Quotepart _ -> "%"

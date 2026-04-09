@@ -4,12 +4,12 @@ acteur prod
 
 entree assiette rbd
 
-operation 'com'
+operation
 sur assiette rbd
 quotepart 20% non opposable vers distrib
 quotepart reste vers assiette rnpp
 
-operation 'sof'
+operation
 sur assiette rnpp
 quotepart 40% vers sofica
 

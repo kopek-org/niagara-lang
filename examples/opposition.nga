@@ -4,7 +4,7 @@ acteur sofica
 
 entree assiette rbd
 
-operation 'com'
+operation
 sur assiette rbd
 quotepart 40% opposable 20% envers sofica par prod[sofopp] vers distrib
 quotepart reste vers assiette rnc
@@ -12,7 +12,7 @@ quotepart reste vers assiette rnc
 evenement recup_frais atteint quand
   distrib[frais] = 2400$ opposable 1800$ envers sofica par prod[sofopp]
 
-operation 'frais'
+operation
 sur assiette rnc
 avant evenement recup_frais
  quotepart 100% vers distrib[frais]
@@ -21,7 +21,7 @@ defaut sur assiette rnc vers assiette rnpp
 
 evenement recup_sofica atteint quand sofica[recup] = 12000$
 
-operation 'part sofica'
+operation
 sur assiette rnpp
 avant evenement recup_sofica
  quotepart 20% vers sofica[recup]

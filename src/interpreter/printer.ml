@@ -40,8 +40,8 @@ let rec print_item ?(close=true) infos fmt layout step (item : Results.top_item)
         let name =
           match Variable.Map.find_opt dest layout with
           | Some (Results.Top item | Detail item) -> item.display_name
-          | Some (Results.Flat item) -> item.flat_name
           | Some (Super item) -> item.super_item.display_name
+          | Some (Results.Flat _) -> "DUMMY" 
           | None ->
             match VarInfo.get_name infos dest with
             | Some name -> name
@@ -82,8 +82,7 @@ let rec print_item ?(close=true) infos fmt layout step (item : Results.top_item)
     (match find_step_value item.value step with
      | Absent -> false
      | Present value ->
-       fprintf fmt "@[<v 2>- %s : %a -> %a"
-         item.flat_name
+       fprintf fmt "@[<v 2>- flat bonus : %a -> %a"
          Value.human_print value
          (fun fmt target ->
             Variable.Map.find_opt target layout
