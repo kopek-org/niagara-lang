@@ -1,11 +1,4 @@
-
 (library
-  (name dataflow)
-  (public_name niagara-lang-lib.dataflow)
-  (libraries
-    zarith
-    calendar
-    commons
-    surface
-  )
-)
+ (name dataflow)
+ (public_name niagara-lang-lib.dataflow)
+ (libraries zarith calendar commons surface))

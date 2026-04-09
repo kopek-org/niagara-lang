@@ -1,32 +1,20 @@
 (menhir
  (modules parser)
- (flags -v --table)
-)
+ (flags -v --table))
 
 (library
-  (name grammar)
-  (public_name niagara-lang-lib.grammar)
-  (libraries
-  zarith
-  calendar
-  commons
-  gen
-  surface
-  sedlex
-  menhirLib)
-  (preprocess
-   (pps sedlex.ppx))
-)
+ (name grammar)
+ (public_name niagara-lang-lib.grammar)
+ (libraries zarith calendar commons gen surface sedlex menhirLib)
+ (preprocess
+  (pps sedlex.ppx)))
 
 ; Grammar maintenance utilities
 
 (rule
  (with-stdout-to
   parser.messages.new
-  (run
-   menhir
-   %{dep:parser.mly}
-   --list-errors)))
+  (run menhir %{dep:parser.mly} --list-errors)))
 
 (rule
  (mode fallback)
@@ -36,11 +24,7 @@
 (rule
  (with-stdout-to
   parserErrors.ml
-  (run
-   menhir
-   %{dep:parser.mly}
-   --compile-errors
-   %{dep:parser.messages})))
+  (run menhir %{dep:parser.mly} --compile-errors %{dep:parser.messages})))
 
 (rule
  (with-stdout-to

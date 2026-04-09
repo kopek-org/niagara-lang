@@ -1,12 +1,4 @@
 (library
-  (name compiler)
-  (public_name niagara-lang-lib.compiler)
-  (libraries
-    calendar
-    commons
-    surface
-    dataflow
-    ocamlgraph
-    dot
-  )
-)
+ (name compiler)
+ (public_name niagara-lang-lib.compiler)
+ (libraries calendar commons surface dataflow ocamlgraph dot))

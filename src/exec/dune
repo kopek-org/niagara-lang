@@ -1,21 +1,20 @@
 (ocamllex testlex)
 
 (executable
-  (name main)
-  (package niagara-lang)
-  (public_name niagara)
-  (libraries
-    zarith
-    calendar
-    commons
-    cmdliner
-    grammar
-    surface
-    compiler
-    dataflow
-    interpreter
-    logs
-    fmt.tty
-    logs.cli
-    fmt.cli
-))
+ (name main)
+ (package niagara-lang)
+ (public_name niagara)
+ (libraries
+  zarith
+  calendar
+  commons
+  cmdliner
+  grammar
+  surface
+  compiler
+  dataflow
+  interpreter
+  logs
+  fmt.tty
+  logs.cli
+  fmt.cli))

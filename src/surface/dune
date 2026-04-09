@@ -1,5 +1,4 @@
 (library
-  (name surface)
-  (public_name niagara-lang-lib.surface)
-  (libraries zarith calendar commons)
-)
+ (name surface)
+ (public_name niagara-lang-lib.surface)
+ (libraries zarith calendar commons))

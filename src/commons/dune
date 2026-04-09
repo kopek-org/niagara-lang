@@ -1,15 +1,5 @@
 (library
-  (name commons)
-  (public_name niagara-lang-lib.commons)
-  (wrapped false)
-  (libraries
-    ocamlgraph
-    calendar
-    sedlex
-    fmt
-    logs
-    logs.fmt
-    zarith
-  )
-)
-
+ (name commons)
+ (public_name niagara-lang-lib.commons)
+ (wrapped false)
+ (libraries ocamlgraph calendar sedlex fmt logs logs.fmt zarith))
