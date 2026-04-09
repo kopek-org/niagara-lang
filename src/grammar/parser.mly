@@ -8,11 +8,11 @@ let pos (start, stop) = Pos.Text.make ~start ~stop
 %token CONTEXTUALISEE PAR TYPE ENTIER RATIONNEL ARGENT TOTAL COURANT
 %token ACTEUR POUR EVENEMENT NON ET OU AVANT APRES QUAND CONTEXTE TOUT CONSTANTE
 %token LPAR RPAR VERS ATTEINT PLUS MINUS MULT DIV EQ COLON EOF DEFICIT
-%token AVANCE MONTANT COMMA RETROCESSION RESTE OPPOSABLE ENVERS VALEUR CALCULEE
+%token COMMA RETROCESSION RESTE OPPOSABLE ENVERS VALEUR CALCULEE
 %token OBSERVABLE // SECTION FIN
 %token<R.t> FLOAT
 %token<Z.t> INT MONEY
-%token<string> LIDENT UIDENT LABEL
+%token<string> LIDENT UIDENT
 %token<Date.Date.t> DATE
 
 %nonassoc LIDENT
@@ -32,17 +32,17 @@ let pos (start, stop) = Pos.Text.make ~start ~stop
 // Dispatch
 
 operation:
-| OPERATION op_label = LABEL op_default_dest = destinataire?
+| OPERATION op_default_dest = destinataire?
     op_context = op_context* op_source = source
     exprs = expression(simple_exprs)
 {
   operation_decl
     ~loc:(pos $sloc)
-    op_label
     ?default_dest:op_default_dest
     ~context:op_context
     ~source:op_source
     ~guarded_redistrib:exprs
+    ()
 }
 
 comp_pool_decl:
@@ -65,16 +65,6 @@ value_decl:
 
 value_def:
 | COLON formula = formula { formula }
-
-advance:
-| AVANCE adv_label = LABEL SUR adv_output = holder PAR
-    adv_provider = actor MONTANT adv_amount = formula
-  {{
-      adv_label;
-      adv_output;
-      adv_provider;
-      adv_amount;
-  }}
 
 opposable:
 | OPPOSABLE f = formula ENVERS t = actor PAR p = actor {
@@ -362,7 +352,6 @@ toplevel_decl:
 | d = deficit_decl
   { let (deficit_pool, deficit_provider) = d in
     DHolderDeficit { deficit_pool; deficit_provider } }
-| a = advance { DHolderAdvance a }
 /* | s = section { DSection s } */
 
 program: d = toplevel_decl* EOF { Source d }

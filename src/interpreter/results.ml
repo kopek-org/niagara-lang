@@ -16,7 +16,6 @@ type item_result_layout = {
 }
 
 type flat_item = {
-  flat_name : string;
   value : Variable.t;
   trigger : Variable.t option;
   target : Variable.t;
@@ -51,7 +50,6 @@ let dummy_detail v = {
 }
 
 let dummy_trigger v tr ta = {
-  flat_name = "%no_name%";
   value = v;
   trigger = tr;
   target = ta;
@@ -143,7 +141,6 @@ let variant_copy (pinfos : ProgramInfo.t) layout
       }
       in
       let copy_flat_item item v = {
-        flat_name = Printf.sprintf "%s @%s" item.flat_name target_name;
         value = v;
         trigger = Option.map variant_if_exists item.trigger;
         target = variant_if_exists item.target;
@@ -266,7 +263,7 @@ let build_result_layout (pinfos : ProgramInfo.t) =
                   layout
               | _ -> assert false), variants
            | _ -> assert false)
-        | OperationDetail { label; op_kind; source; target; condition } ->
+        | OperationDetail {op_kind; source; target; condition } ->
           (match op_kind with
            | Quotepart _ ->
              update_detail_of source (fun l ->
@@ -282,10 +279,7 @@ let build_result_layout (pinfos : ProgramInfo.t) =
                  match condition with When c -> Some c | _ -> None
                in
                update_flat_detail v trigger target (fun l ->
-                   { l with
-                     flat_name =
-                       Option.value label ~default:("flat bonus");
-                   })
+                   l)
                  layout
              in
              let layout =

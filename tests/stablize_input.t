@@ -178,7 +178,7 @@
        
      ++ after event seuil_100000_entrees :
        - entree_salle_France { 0, 100000 }:
-       - bonus sur le nombre d entrees : 1000000 -> barbie[bonus_nombre_entrees]
+       - flat bonus : 1000000 -> barbie[bonus_nombre_entrees]
        - barbie { 1000000, 15950000 }:
          - barbie[bonus_nombre_entrees] { 1000000, 1000000 }:
          

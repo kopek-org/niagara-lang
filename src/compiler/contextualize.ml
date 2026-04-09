@@ -861,7 +861,6 @@ let operation acc (op : operation_decl) =
   in
   acc,
   {
-    ctx_op_label = op.op_label;
     ctx_op_default_dest = default_dest;
     ctx_op_source = source;
     ctx_op_guarded_redistrib = g_redist;
@@ -882,9 +881,6 @@ let event_decl acc (e : event_decl) =
 let constant acc (c : const_decl) =
   let t = Literal.type_of c.const_value in
   Acc.register_const acc c.const_name t c.const_value
-
-let advance _acc (_a : advance_decl) = Report.raise_error "no more advance"
-
 let comp_pool acc (p : comp_pool_decl) =
   let acc, pool =
     match Acc.find_pool_opt acc p.comp_pool_name with
@@ -965,7 +961,6 @@ let declaration acc (decl : source declaration) =
     let acc, ctx_deficit_provider = find_holder_as_source acc d.deficit_provider in
     let acc = Acc.add_deps_from acc (fst ctx_deficit_provider) [fst ctx_deficit_pool] in
     Acc.add_program_decl acc (DVarDeficit { ctx_deficit_pool; ctx_deficit_provider})
-  | DHolderAdvance a -> advance acc a
 
 let program (Source prog : source program) : contextualized program =
   let acc = Acc.empty in

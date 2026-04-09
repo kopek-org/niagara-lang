@@ -174,7 +174,7 @@ Une opération est une construction qui décrit une partie du flot de répartiti
 Il spécifie d'où part l'argent, où il arrive et en quel quantité. Exemple :
 
 ```niagara
-operation 'op simple'
+operation
 sur assiette rbd
 quotepart 20% vers prod
 ```
@@ -194,7 +194,7 @@ de définir le transfert d'une somme fixe, le plus souvent sous réserve de
 conditions spécifiques.
 
 ```niagara
-operation 'transfert fixe'
+operation
 par prod
 bonus 5000$ vers scenariste
 ```
@@ -210,7 +210,7 @@ Notez l'apparition d'un nouveau mot-clé dans cet exemple : `par`. Tout comme
 Plusieurs opérateurs peuvent être fournis dans une même opération :
 
 ```niagara
-operation 'more parties'
+operation
 sur assiette rbd
 quotepart 20% vers prod
 quotepart 10% vers sofica1
@@ -227,7 +227,7 @@ syntaxiquement à chaque opérateur présent. Il est également possible de
 spécifier une destination par défaut pour tous les opérateurs :
 
 ```niagara
-operation 'op simple 2' vers prod
+operation vers prod
 sur assiette rbd
 quotepart 20%
 ```
@@ -246,7 +246,7 @@ cascade et utilisé comme source d'opérations. Il est également possible de
 créer des assiettes intermédiaires à la volée comme destination :
 
 ```niagara
-operation 'base rnpp'
+operation
 sur assiette rbd
 quotepart 20% vers distrib
 quotepart 80% vers assiette rnpp
@@ -263,7 +263,7 @@ Jusqu'à présent les opérateurs n'utilisaient que des valeurs littérales, mai
 est possible de définir des formules plus complexes :
 
 ```niagara
-operation 'proportionnelle' vers acteur1
+operation vers acteur1
 par prod
 bonus entreeSalles * 0.90$
 ```
@@ -319,11 +319,11 @@ l'instant courant : deux opérateurs postposés `total` et `courant`
 respectivement.
 
 ```niagara
-operation 'delta' vers acteur1
+operation vers acteur1
 par prod
 bonus 1$ * entreesSalle courant
 
-operation 'total' vers acteur1
+operation vers acteur1
 par prod
 bonus 1$ * entreesSalle total
 ```
@@ -342,7 +342,7 @@ valeurs prendront leur forme à l'instant courant. L'exemple suivant est
 strictement équivalent à l'opération `'delta'` au dessus :
 
 ```niagara
-operation 'delta bis' vers acteur1
+operation vers acteur1
 par prod
 bonus 1$ * entreesSalle
 ```
@@ -381,7 +381,7 @@ Pour conditionner une attribution dans une opération, on définit la condition
 avant les opérateurs d'attribution :
 
 ```niagara
-operation 'com' vers distrib
+operation vers distrib
 sur assiette rbd
 avant evenement recupCom
   quotepart 90%
@@ -403,7 +403,7 @@ Il est également possible d'écrire des formules d'événement directement dans
 condition sans l'avoir préalablement déclaré :
 
 ```niagara
-operation 'evenement anonyme'
+operation
 par prod
 quand entreeSalles = 100000
  bonus 1000$ vers acteur1
@@ -413,7 +413,7 @@ Les conditions peuvent être imbriquées les une dans les autres en utilisant de
 parenthèses :
 
 ```niagara
-operation 'conditions imbriquées' vers distrib
+operation vers distrib
 sur assiette rbd
 avant evenement a (
  apres evenement b
@@ -428,7 +428,7 @@ que `a` l'est aussi, alors cette opération ne fait aucune attribution.
 Un opération peut avoir une série de conditions :
 
 ```niagara
-operation 'conditions multiples' vers distrib
+operation vers distrib
 sur assiette rbd
 avant evenement a
  quotepart 20%
@@ -451,7 +451,7 @@ On peut clarifier le comportement de cette opération en en écrivant une avec d
 conditions imbriquées :
 
 ```niagara
-operation 'conditions multiples strict' vers distrib
+operation vers distrib
 sur assiette rbd
 avant evenement b (
  avant evenement a
@@ -468,7 +468,7 @@ S'il existe des conditions, elle seront appliquées de la même manière à tous
 opérateurs :
 
 ```niagara
-operation 'operateurs multiples'
+operation
 par prod
 quand evenement e1
  bonus 200$ vers celebrite1
@@ -528,7 +528,7 @@ Un fois déclarés, les contextes peuvent être spécifié sur des opération po
 restreindre leur champs d'application :
 
 ```niagara
-operation 'tv france'
+operation
 pour Support(TV)
 pour Territoire(France)
 sur assiette rbd
@@ -563,7 +563,7 @@ contexte sur une assiette doivent se refléter sur les assiettes qui lui sont
 réattribuées.
 
 ```niagara
-operation 'tv sofica'
+operation
 pour Support(TV)
 sur assiette rnpp
 quotepart 10% vers sofica
@@ -573,7 +573,7 @@ Cette opération contraint l'assiette `rnpp` a être distincte entre le support 
 et les autres. Soit l'opération suivante, en amont de `rnpp` :
 
 ```niagara
-operation 'tv monde'
+operation
 sur assiette rbd
 quotepart 20% vers distrib
 quotepart 80% vers assiette rnpp
@@ -586,7 +586,7 @@ les autres, puisqu'elle verse dans une assiette qui fait cette distinction.
 À noter que si par ailleurs on a :
 
 ```niagara
-operation 'salle france'
+operation
 pour Support(Salles)
 pour Territoire(France)
 sur assiette rbd
@@ -613,7 +613,7 @@ un contexte sur une valeur précise. Le langage propose une notation pour la
 contextualisation locale :
 
 ```niagara
-operation 'rem entreesSalles' vers acteur1
+operation vers acteur1
 par prod
 bonus entreesSalles(France) * 0.20$
 bonus entreeSalles(Belgique, Etranger) * 0.15$
@@ -666,7 +666,7 @@ il est possible d´étiqueter l'utilisation de partenaire pour identifier et fai
 référence à des couloirs spécifiques :
 
 ```niagara
-operation 'special treatment' vers distrib[special]
+operation vers distrib[special]
 par prod[distribBonus]
 bonus 5000$
 ```
@@ -684,7 +684,7 @@ cela fait référence à la somme des différent couloirs.
 La rétrocession est une opération de transfert d'un part d'une valeur ciblée :
 
 ```niagara
-operation 'return' vers distrib
+operation vers distrib
 par prod
 retrocession 20% sur assiette rnpp
 ```
@@ -692,7 +692,7 @@ retrocession 20% sur assiette rnpp
 Cet opération est une autre manière d'exprimer le code suivant :
 
 ```niagara
-operation 'return' vers distrib
+operation vers distrib
 par prod
 bonus assiette rnpp * 20%
 ```

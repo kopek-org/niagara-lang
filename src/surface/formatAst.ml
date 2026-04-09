@@ -206,15 +206,13 @@ let print_declaration (type a) infos fmt (decl : a declaration) =
         input.input_name
         print_input_context input.input_context)
   | DHolderOperation op ->
-    Format.fprintf fmt "@[<hv 2>operation '%s' %a@,%a%a%a@]"
-      op.op_label
+    Format.fprintf fmt "@[<hv 2>operation %a@,%a%a%a@]"
       (Format.pp_print_option print_destination) op.op_default_dest
       print_op_context op.op_context
       print_op_source op.op_source
       (print_guarded_obj infos print_redistrib_list) op.op_guarded_redistrib
   | DVarOperation op ->
-    Format.fprintf fmt "@[<hv 2>operation '%s' -> %a@,sur %a@;%a@]"
-      op.ctx_op_label
+    Format.fprintf fmt "@[<hv 2>operation -> %a@,sur %a@;%a@]"
       (Format.pp_print_option (ProgramInfo.print_ctx_variable infos)) op.ctx_op_default_dest
       (ProgramInfo.print_ctx_variable infos) op.ctx_op_source
       (print_guarded_obj infos print_redistrib_list) op.ctx_op_guarded_redistrib
@@ -246,11 +244,6 @@ let print_declaration (type a) infos fmt (decl : a declaration) =
       (if v.ctx_val_observable then " observable" else "")
       (ProgramInfo.print_ctx_variable infos) v.ctx_val_var
       (print_formula infos) v.ctx_val_formula
-  | DHolderAdvance a ->
-    Format.fprintf fmt "@[<hov>avance '%s' sur %a par %a@ montant %a@]"
-      a.adv_label print_holder a.adv_output
-      print_actor a.adv_provider
-      (print_formula infos) a.adv_amount
   | DHolderDefault d ->
     Format.fprintf fmt "@[<hv>defaut sur %a@ vers %a@]"
       print_holder d.default_source print_holder d.default_dest

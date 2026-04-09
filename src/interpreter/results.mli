@@ -14,7 +14,6 @@ type item_result_layout = {
 }
 
 type flat_item = {
-  flat_name : string;
   value : Variable.t;
   trigger : Variable.t option;
   target : Variable.t;

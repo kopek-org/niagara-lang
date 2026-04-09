@@ -13,7 +13,6 @@ type part_or_def =
   | Deficit
 
 type 'a share = {
-  label : string option;
   main_event : VarInfo.event_loc;
   dest : Variable.t;
   part : 'a;

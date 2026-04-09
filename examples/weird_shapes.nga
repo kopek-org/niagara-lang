@@ -5,34 +5,34 @@ entree assiette a
 entree assiette k
 acteur g
 
-operation 'ab' vers assiette b
+operation vers assiette b
 pour Y(Y1,Y2)
 sur assiette a
 quotepart 100%
 
-operation 'ac' vers assiette c
+operation vers assiette c
 pour Y(Y2,Y3)
 sur assiette a
 quotepart 100%
 
-operation 'bg' vers g
+operation vers g
 pour X(X1)
 pour Y(Y1,Y2)
 sur assiette b
 quotepart 100%
 
-operation 'cg1' vers g
+operation vers g
 pour Y(Y3)
 sur assiette c
 quotepart 100%
 
-operation 'cg2' vers g
+operation vers g
 pour X(X2)
 pour Y(Y2)
 sur assiette c
 quotepart 100%
 
-operation 'kg1' vers g
+operation vers g
 pour X(X1)
 pour Y(Y1)
 sur assiette k
