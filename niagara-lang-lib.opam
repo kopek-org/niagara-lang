@@ -10,7 +10,7 @@ depends: [
   "menhirLib" {>= "20250912"}
   "gen" {>= "1.1"}
   "dune" {>= "2.9"}
-  "ocaml" {>= "4.13"}
+  "ocaml" {>= "4.14"}
   "sedlex" {>= "3.0"}
   "menhir"
   "calendar" {>= "3.0"}
