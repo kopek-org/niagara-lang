@@ -32,13 +32,13 @@ let pos (start, stop) = Pos.Text.make ~start ~stop
 // Dispatch
 
 operation:
-| OPERATION op_label = LABEL op_default_dest = destinataire?
+| OPERATION op_label = LABEL? op_default_dest = destinataire?
     op_context = op_context* op_source = source
     exprs = expression(simple_exprs)
 {
   operation_decl
     ~loc:(pos $sloc)
-    (Some op_label)
+    op_label
     ?default_dest:op_default_dest
     ~context:op_context
     ~source:op_source
