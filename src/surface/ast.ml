@@ -130,7 +130,7 @@ type context =
 
 type operation_decl = {
   op_loc : Pos.t;
-  op_label : string;
+  op_label : string option;
   op_default_dest : holder option;
   op_context : context list;
   op_source : holder;

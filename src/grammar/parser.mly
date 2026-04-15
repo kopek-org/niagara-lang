@@ -38,7 +38,7 @@ operation:
 {
   operation_decl
     ~loc:(pos $sloc)
-    op_label
+    (Some op_label)
     ?default_dest:op_default_dest
     ~context:op_context
     ~source:op_source

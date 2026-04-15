@@ -861,7 +861,7 @@ let operation acc (op : operation_decl) =
   in
   acc,
   {
-    ctx_op_label = Some op.op_label;
+    ctx_op_label = op.op_label;
     ctx_op_default_dest = default_dest;
     ctx_op_source = source;
     ctx_op_guarded_redistrib = g_redist;

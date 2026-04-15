@@ -206,8 +206,8 @@ let print_declaration (type a) infos fmt (decl : a declaration) =
         input.input_name
         print_input_context input.input_context)
   | DHolderOperation op ->
-    Format.fprintf fmt "@[<hv 2>operation '%s' %a@,%a%a%a@]"
-      op.op_label
+    Format.fprintf fmt "@[<hv 2>operation %a%a@,%a%a%a@]"
+      (Format.pp_print_option (fun f  lab -> Format.fprintf f "'%s' " lab)) op.op_label
       (Format.pp_print_option print_destination) op.op_default_dest
       print_op_context op.op_context
       print_op_source op.op_source
