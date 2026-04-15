@@ -1095,7 +1095,7 @@ let translate_operation acc (o : Ast.ctx_operation_decl) =
   Context.shape_fold (fun acc ctx ->
       let acc, src = Acc.get_derivative_var acc (fst o.ctx_op_source) ctx in
       let redist_process =
-        translate_redists ~label:(Some o.ctx_op_label)
+        translate_redists ~label:(o.ctx_op_label)
           ~src ~def_dest:o.ctx_op_default_dest
       in
       translate_guarded_obj acc redist_process

@@ -213,8 +213,8 @@ let print_declaration (type a) infos fmt (decl : a declaration) =
       print_op_source op.op_source
       (print_guarded_obj infos print_redistrib_list) op.op_guarded_redistrib
   | DVarOperation op ->
-    Format.fprintf fmt "@[<hv 2>operation '%s' -> %a@,sur %a@;%a@]"
-      op.ctx_op_label
+    Format.fprintf fmt "@[<hv 2>operation %a-> %a@,sur %a@;%a@]"
+      (Format.pp_print_option (fun f  lab -> Format.fprintf f "'%s' " lab)) op.ctx_op_label
       (Format.pp_print_option (ProgramInfo.print_ctx_variable infos)) op.ctx_op_default_dest
       (ProgramInfo.print_ctx_variable infos) op.ctx_op_source
       (print_guarded_obj infos print_redistrib_list) op.ctx_op_guarded_redistrib

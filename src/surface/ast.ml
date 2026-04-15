@@ -139,7 +139,7 @@ type operation_decl = {
 }
 
 type ctx_operation_decl = {
-  ctx_op_label : string;
+  ctx_op_label : string option;
   ctx_op_default_dest : contextualized_variable option;
   ctx_op_source : contextualized_variable;
   ctx_op_guarded_redistrib :
