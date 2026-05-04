@@ -66,50 +66,60 @@ let register_consequence acc env (var : Variable.t) (is_consequent : bool) =
   else
     not_consequent acc env var
 
-let rec graph_edge acc g (from : Variable.t) (to_ : Variable.t) =
+let rec graph_edge acc user_substs g (from : Variable.t) (to_ : Variable.t) =
   let from_present = Variable.Graph.mem_vertex g from in
   let g = Variable.Graph.add_edge g from to_ in
   if from_present then g else
-    graph_var acc g from
+    graph_var acc user_substs g from
 
-and graph_expr acc g (succ : Variable.t) (expr : expr) =
+and graph_expr acc user_substs g (succ : Variable.t) (expr : expr) =
   match expr with
   | EConst _ -> g
   | EVar var | EPre var ->
-    graph_edge acc g var succ
+    graph_edge acc user_substs g var succ
   | ENeg e | EInv e | ENot e ->
-    graph_expr acc g succ e
+    graph_expr acc user_substs g succ e
   | EAdd (e1, e2) | EMult (e1, e2)
   | EAnd (e1, e2) | EGe (e1, e2) ->
-    let g = graph_expr acc g succ e1 in
-    graph_expr acc g succ e2
+    let g = graph_expr acc user_substs g succ e1 in
+    graph_expr acc user_substs g succ e2
   | EMerge _ -> assert false
 
-and graph_eq acc g (succ : Variable.t) (eq : aggregation) =
+and graph_eq acc user_substs g (succ : Variable.t) (eq : aggregation) =
   match eq with
   | One { eq_act; eq_expr } ->
-    let g = graph_expr acc g succ eq_expr in
-    graph_condition acc g succ eq_act
+    let g = graph_expr acc user_substs g succ eq_expr in
+    graph_condition acc user_substs g succ eq_act
   | More vars ->
     List.fold_left (fun g (var, _cond) ->
-        graph_edge acc g var succ)
+        graph_edge acc user_substs g var succ)
       g vars
 
-and graph_condition acc g (succ : Variable.t) (cond : Condition.t) =
+and graph_condition acc user_substs g (succ : Variable.t) (cond : Condition.t) =
   Variable.Set.fold (fun ev g ->
       let g = Variable.Graph.add_edge g ev succ in
-      graph_event acc g ev)
+      graph_event acc user_substs g ev)
     (Condition.events_of cond)
     g
 
-and graph_event acc g (ev : Variable.t) =
-  let expr = Variable.Map.find ev acc.event_eqs in
-  graph_expr acc g ev expr
+and graph_event acc user_substs g (ev : Variable.t) =
+  match Variable.Map.find_opt ev user_substs with
+  | Some { expr; condition ; _ } ->
+    let g = graph_expr acc user_substs g ev expr in
+    graph_condition acc user_substs g ev condition
+  | None ->
+    let expr = Variable.Map.find ev acc.event_eqs in
+    graph_expr acc user_substs g ev expr
 
-and graph_var acc g (var : Variable.t) =
-  match Variable.Map.find_opt var acc.value_eqs with
-  | None -> Variable.Graph.add_vertex g var
-  | Some eq -> graph_eq acc g var eq
+and graph_var acc user_substs g (var : Variable.t) =
+  match Variable.Map.find_opt var user_substs with
+  | Some { expr; condition ; _ } ->
+    let g = graph_expr acc user_substs g var expr in
+    graph_condition acc user_substs g var condition
+  | None ->
+    match Variable.Map.find_opt var acc.value_eqs with
+    | None -> Variable.Graph.add_vertex g var
+    | Some eq -> graph_eq acc user_substs g var eq
 
 let populate_copies acc env g =
   let oppositions_reach =
@@ -411,7 +421,7 @@ let save_relevant_set ~opposable acc ~(target : Variable.t) =
 let resolve_one_target ~opposable pinfos acc ~(target : Variable.t) ~(provider : Variable.t)
     (user_substs : user_substitutions) (cumulatives : Variable.t Variable.Map.t) =
   let env = { target; provider; user_substs; cumulatives } in
-  let graph = graph_var acc Variable.Graph.empty target in
+  let graph = graph_var acc user_substs Variable.Graph.empty target in
   let acc, has_consequent = populate_copies acc env graph in
   if not has_consequent && opposable then
     Report.raise_useless_opposition_error { pinfos with var_info = acc.var_info } target;
