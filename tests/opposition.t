@@ -7,34 +7,34 @@
        
      
   1: ++ no events:
-       - rbd { 400000, 400000 }:
-         160000 -> distrib
-         default 240000 -> rnc
-       - rnc { 240000, 240000 }:
-         240000 -> distrib[frais]
-       - sofica delta { 28000, 28000 }:
-       - distrib { 400000, 400000 }:
-         - distrib[frais] { 240000, 240000 }:
+       - rbd { 4000, 4000 }:
+         1600 -> distrib
+         default 2400 -> rnc
+       - rnc { 2400, 2400 }:
+         2400 -> distrib[frais]
+       - sofica delta { 280, 280 }:
+       - distrib { 4000, 4000 }:
+         - distrib[frais] { 2400, 2400 }:
          
        
      ++ after event recup_frais :
-       - rbd { 9600000, 10000000 }:
-         3840000 -> distrib
-         default 5760000 -> rnc
-       - rnc { 5760000, 6000000 }:
-         default 5760000 -> rnpp
-       - rnpp { 5760000, 5760000 }:
-         1152000 -> sofica[recup]
-         default 4608000 -> prod[residuel]
-       - prod { 4608000, 4608000 }:
-         - prod[residuel] { 4608000, 4608000 }:
-         - prod[sofopp] { 111000, 139000 }:
+       - rbd { 96000, 100000 }:
+         38400 -> distrib
+         default 57600 -> rnc
+       - rnc { 57600, 60000 }:
+         default 57600 -> rnpp
+       - rnpp { 57600, 57600 }:
+         11520 -> sofica[recup]
+         default 46080 -> prod[residuel]
+       - prod { 46080, 46080 }:
+         - prod[residuel] { 46080, 46080 }:
+         - prod[sofopp] { 1110, 1390 }:
          
-       - sofica { 1152000, 1152000 }:
-         - sofica[recup] { 1152000, 1152000 }:
+       - sofica { 11520, 11520 }:
+         - sofica[recup] { 11520, 11520 }:
          
-       - sofica delta { 111000, 139000 }:
-       - distrib { 3840000, 4240000 }:
+       - sofica delta { 1110, 1390 }:
+       - distrib { 38400, 42400 }:
          
        
      
@@ -48,55 +48,55 @@
        
      
   1: ++ no events:
-       - rbd { 225000, 225000 }:
-         45000 -> distrib
-         default 180000 -> rnc @sofica
-       - rnc @sofica { 180000, 180000 }:
-         180000 -> distrib[frais] @sofica
-       - distrib[frais] @sofica { 180000, 180000 }:
+       - rbd { 2250, 2250 }:
+         450 -> distrib
+         default 1800 -> rnc @sofica
+       - rnc @sofica { 1800, 1800 }:
+         1800 -> distrib[frais] @sofica
+       - distrib[frais] @sofica { 1800, 1800 }:
        
      ++ after event recup_frais @sofica :
-       - rbd { 7500000, 7725000 }:
-         1500000 -> distrib
-         default 6000000 -> rnc @sofica
-       - rnc @sofica { 6000000, 6180000 }:
-         default 6000000 -> rnpp @sofica
-       - rnpp @sofica { 6000000, 6000000 }:
-         1200000 -> sofica[recup] @sofica
-       - sofica @sofica { 1200000, 1200000 }:
-         - sofica[recup] @sofica { 1200000, 1200000 }:
-         
-       - sofica[recup] { 879000, 879000 }:
-       - sofica delta { 321000, 321000 }:
-       
-     ++ after event recup_sofica @sofica :
-       - rbd { 75000, 7800000 }:
+       - rbd { 75000, 77250 }:
          15000 -> distrib
          default 60000 -> rnc @sofica
-       - rnc @sofica { 60000, 6240000 }:
+       - rnc @sofica { 60000, 61800 }:
          default 60000 -> rnpp @sofica
-       - rnpp @sofica { 60000, 6060000 }:
-         3000 -> sofica[residuel] @sofica
-       - sofica @sofica { 3000, 1203000 }:
-         - sofica[residuel] @sofica { 3000, 3000 }:
+       - rnpp @sofica { 60000, 60000 }:
+         12000 -> sofica[recup] @sofica
+       - sofica @sofica { 12000, 12000 }:
+         - sofica[recup] @sofica { 12000, 12000 }:
          
-       - sofica[recup] { 9000, 888000 }:
-       - sofica delta { -6000, 315000 }:
+       - sofica[recup] { 8790, 8790 }:
+       - sofica delta { 3210, 3210 }:
+       
+     ++ after event recup_sofica @sofica :
+       - rbd { 750, 78000 }:
+         150 -> distrib
+         default 600 -> rnc @sofica
+       - rnc @sofica { 600, 62400 }:
+         default 600 -> rnpp @sofica
+       - rnpp @sofica { 600, 60600 }:
+         30 -> sofica[residuel] @sofica
+       - sofica @sofica { 30, 12030 }:
+         - sofica[residuel] @sofica { 30, 30 }:
+         
+       - sofica[recup] { 90, 8880 }:
+       - sofica delta { -60, 3150 }:
        
      
   2: ++ no events:
-       - rbd { 2200000, 10000000 }:
-         440000 -> distrib
-         default 1760000 -> rnc @sofica
-       - rnc @sofica { 1760000, 8000000 }:
-         default 1760000 -> rnpp @sofica
-       - rnpp @sofica { 1760000, 7820000 }:
-         88000 -> sofica[residuel] @sofica
-       - sofica @sofica { 88000, 1291000 }:
-         - sofica[residuel] @sofica { 88000, 91000 }:
+       - rbd { 22000, 100000 }:
+         4400 -> distrib
+         default 17600 -> rnc @sofica
+       - rnc @sofica { 17600, 80000 }:
+         default 17600 -> rnpp @sofica
+       - rnpp @sofica { 17600, 78200 }:
+         880 -> sofica[residuel] @sofica
+       - sofica @sofica { 880, 12910 }:
+         - sofica[residuel] @sofica { 880, 910 }:
          
-       - sofica[recup] { 264000, 1152000 }:
-       - sofica delta { -176000, 139000 }:
+       - sofica[recup] { 2640, 11520 }:
+       - sofica delta { -1760, 1390 }:
        
      
   $ OCAMLRUNPARAM=b niagara --test ../examples/opposition.nga --for prod <<EOF
@@ -108,27 +108,27 @@
        
      
   1: ++ no events:
-       - rbd { 400000, 400000 }:
-         160000 -> distrib
-         default 240000 -> rnc
-       - rnc { 240000, 240000 }:
-         240000 -> distrib[frais]
-       - distrib[frais] { 240000, 240000 }:
+       - rbd { 4000, 4000 }:
+         1600 -> distrib
+         default 2400 -> rnc
+       - rnc { 2400, 2400 }:
+         2400 -> distrib[frais]
+       - distrib[frais] { 2400, 2400 }:
        
      ++ after event recup_frais :
-       - rbd { 9600000, 10000000 }:
-         3840000 -> distrib
-         default 5760000 -> rnc
-       - rnc { 5760000, 6000000 }:
-         default 5760000 -> rnpp
-       - rnpp { 5760000, 5760000 }:
-         1152000 -> sofica[recup]
-         default 4608000 -> prod[residuel]
-       - prod { 4608000, 4608000 }:
-         - prod[residuel] { 4608000, 4608000 }:
-         - prod[sofopp] { 111000, 139000 }:
+       - rbd { 96000, 100000 }:
+         38400 -> distrib
+         default 57600 -> rnc
+       - rnc { 57600, 60000 }:
+         default 57600 -> rnpp
+       - rnpp { 57600, 57600 }:
+         11520 -> sofica[recup]
+         default 46080 -> prod[residuel]
+       - prod { 46080, 46080 }:
+         - prod[residuel] { 46080, 46080 }:
+         - prod[sofopp] { 1110, 1390 }:
          
-       - sofica[recup] { 1152000, 1152000 }:
+       - sofica[recup] { 11520, 11520 }:
        
      
   $ OCAMLRUNPARAM=b niagara --test ../examples/opposition.nga --forall <<EOF
@@ -138,16 +138,16 @@
   Awaiting inputs:
   ### OUTPUTS ###
   2: ++ no events:
-       - sofica @sofica { 1291000, 1291000 }:
-         - sofica[residuel] @sofica { 91000, 91000 }:
-         - sofica[recup] @sofica { 1200000, 1200000 }:
+       - sofica @sofica { 12910, 12910 }:
+         - sofica[residuel] @sofica { 910, 910 }:
+         - sofica[recup] @sofica { 12000, 12000 }:
          
-       - prod { 4608000, 4608000 }:
-         - prod[residuel] { 4608000, 4608000 }:
-         - prod[sofopp] { 139000, 139000 }:
+       - prod { 46080, 46080 }:
+         - prod[residuel] { 46080, 46080 }:
+         - prod[sofopp] { 1390, 1390 }:
          
-       - distrib { 4240000, 4240000 }:
-         - distrib[frais] { 240000, 240000 }:
+       - distrib { 42400, 42400 }:
+         - distrib[frais] { 2400, 2400 }:
          
        
      

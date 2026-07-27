@@ -17,117 +17,117 @@
        
      
   1: ++ no events:
-       - frais_edition_distributeur_du_desert { 1, 1 }:
+       - frais_edition_distributeur_du_desert { 0.01, 0.01 }:
        
      ++ before event recuperation_frais_edition_distributeur :
-       - frais_edition_distributeur_du_desert { 999999, 1000000 }:
+       - frais_edition_distributeur_du_desert { 9999.99, 10000 }:
        
      
   2: ++ no events:
-       - recette_brute_distributeur { 600000, 600000 }:
-         - recette_brute_distributeur(Salle, France, Non_commercial) { 600000, 600000 }:
-           300000 -> distributeur_du_desert[commission_cinema_non_commerciale]
-           300000 -> recette_nette_commission_distributeur(Salle, Video, France, Non_commercial)
+       - recette_brute_distributeur { 6000, 6000 }:
+         - recette_brute_distributeur(Salle, France, Non_commercial) { 6000, 6000 }:
+           3000 -> distributeur_du_desert[commission_cinema_non_commerciale]
+           3000 -> recette_nette_commission_distributeur(Salle, Video, France, Non_commercial)
          
-       - recette_nette_commission_distributeur { 300000, 300000 }:
-         - recette_nette_commission_distributeur(Salle, Video, France, Non_commercial) { 300000, 300000 }:
-           300000 -> distributeur_du_desert[frais_edition]
+       - recette_nette_commission_distributeur { 3000, 3000 }:
+         - recette_nette_commission_distributeur(Salle, Video, France, Non_commercial) { 3000, 3000 }:
+           3000 -> distributeur_du_desert[frais_edition]
          
-       - distributeur_du_desert { 600000, 600000 }:
-         - distributeur_du_desert[commission_cinema_non_commerciale] { 300000, 300000 }:
-         - distributeur_du_desert[frais_edition] { 300000, 300000 }:
+       - distributeur_du_desert { 6000, 6000 }:
+         - distributeur_du_desert[commission_cinema_non_commerciale] { 3000, 3000 }:
+         - distributeur_du_desert[frais_edition] { 3000, 3000 }:
          
        
      
   3: ++ no events:
-       - recette_brute_distributeur { 1000000, 1600000 }:
-         - recette_brute_distributeur(Salle, France, Commercial) { 1000000, 1000000 }:
-           300000 -> distributeur_du_desert[commission_cinema]
-           700000 -> recette_nette_commission_distributeur(Salle, Video, France, Commercial)
+       - recette_brute_distributeur { 10000, 16000 }:
+         - recette_brute_distributeur(Salle, France, Commercial) { 10000, 10000 }:
+           3000 -> distributeur_du_desert[commission_cinema]
+           7000 -> recette_nette_commission_distributeur(Salle, Video, France, Commercial)
          
-       - recette_nette_commission_distributeur { 700000, 1000000 }:
-         - recette_nette_commission_distributeur(Salle, Video, France, Commercial) { 700000, 700000 }:
-           700000 -> distributeur_du_desert[frais_edition]
+       - recette_nette_commission_distributeur { 7000, 10000 }:
+         - recette_nette_commission_distributeur(Salle, Video, France, Commercial) { 7000, 7000 }:
+           7000 -> distributeur_du_desert[frais_edition]
          
-       - distributeur_du_desert { 1000000, 1600000 }:
-         - distributeur_du_desert[commission_cinema] { 300000, 300000 }:
-         - distributeur_du_desert[frais_edition] { 700000, 1000000 }:
+       - distributeur_du_desert { 10000, 16000 }:
+         - distributeur_du_desert[commission_cinema] { 3000, 3000 }:
+         - distributeur_du_desert[frais_edition] { 7000, 10000 }:
          
        
      ++ after event recuperation_frais_edition_distributeur :
-       - recette_brute_distributeur { 1000000, 2600000 }:
-         - recette_brute_distributeur(Salle, France, Commercial) { 1000000, 2000000 }:
-           300000 -> distributeur_du_desert[commission_cinema]
-           700000 -> recette_nette_commission_distributeur(Salle, Video, France, Commercial)
+       - recette_brute_distributeur { 10000, 26000 }:
+         - recette_brute_distributeur(Salle, France, Commercial) { 10000, 20000 }:
+           3000 -> distributeur_du_desert[commission_cinema]
+           7000 -> recette_nette_commission_distributeur(Salle, Video, France, Commercial)
          
-       - recette_nette_commission_distributeur { 700000, 1700000 }:
-         - recette_nette_commission_distributeur(Salle, Video, France, Commercial) { 700000, 1400000 }:
-           700000 -> recette_nette_part_producteur(Salle, Video, France, Commercial)
+       - recette_nette_commission_distributeur { 7000, 17000 }:
+         - recette_nette_commission_distributeur(Salle, Video, France, Commercial) { 7000, 14000 }:
+           7000 -> recette_nette_part_producteur(Salle, Video, France, Commercial)
          
-       - distributeur_du_desert { 860000, 2460000 }:
-         - distributeur_du_desert[commission_cinema] { 300000, 600000 }:
-         - distributeur_du_desert[minimum_garanti] { 560000, 560000 }:
+       - distributeur_du_desert { 8600, 24600 }:
+         - distributeur_du_desert[commission_cinema] { 3000, 6000 }:
+         - distributeur_du_desert[minimum_garanti] { 5600, 5600 }:
          
-       - recette_nette_part_producteur { 700000, 700000 }:
-         - recette_nette_part_producteur(Salle, Video, France, Commercial) { 700000, 700000 }:
-           560000 -> distributeur_du_desert[minimum_garanti]
-           140000 -> barbie[interessement]
+       - recette_nette_part_producteur { 7000, 7000 }:
+         - recette_nette_part_producteur(Salle, Video, France, Commercial) { 7000, 7000 }:
+           5600 -> distributeur_du_desert[minimum_garanti]
+           1400 -> barbie[interessement]
          
-       - barbie { 140000, 140000 }:
-         - barbie[interessement] { 140000, 140000 }:
+       - barbie { 1400, 1400 }:
+         - barbie[interessement] { 1400, 1400 }:
          
        
      
   4: ++ no events:
-       - recette_brute_distributeur { 7400000, 10000000 }:
-         - recette_brute_distributeur(Video, France, Commercial) { 7400000, 7400000 }:
-           1850000 -> distributeur_du_desert[commission_video]
-           5550000 -> recette_nette_commission_distributeur(Salle, Video, France, Commercial)
+       - recette_brute_distributeur { 74000, 100000 }:
+         - recette_brute_distributeur(Video, France, Commercial) { 74000, 74000 }:
+           18500 -> distributeur_du_desert[commission_video]
+           55500 -> recette_nette_commission_distributeur(Salle, Video, France, Commercial)
          
-       - recette_nette_commission_distributeur { 5550000, 7250000 }:
-         - recette_nette_commission_distributeur(Salle, Video, France, Commercial) { 5550000, 6950000 }:
-           5550000 -> recette_nette_part_producteur(Salle, Video, France, Commercial)
+       - recette_nette_commission_distributeur { 55500, 72500 }:
+         - recette_nette_commission_distributeur(Salle, Video, France, Commercial) { 55500, 69500 }:
+           55500 -> recette_nette_part_producteur(Salle, Video, France, Commercial)
          
-       - distributeur_du_desert { 6290000, 8750000 }:
-         - distributeur_du_desert[commission_video] { 1850000, 1850000 }:
-         - distributeur_du_desert[minimum_garanti] { 4440000, 5000000 }:
+       - distributeur_du_desert { 62900, 87500 }:
+         - distributeur_du_desert[commission_video] { 18500, 18500 }:
+         - distributeur_du_desert[minimum_garanti] { 44400, 50000 }:
          
-       - recette_nette_part_producteur { 5550000, 6250000 }:
-         - recette_nette_part_producteur(Salle, Video, France, Commercial) { 5550000, 6250000 }:
-           4440000 -> distributeur_du_desert[minimum_garanti]
-           1110000 -> barbie[interessement]
+       - recette_nette_part_producteur { 55500, 62500 }:
+         - recette_nette_part_producteur(Salle, Video, France, Commercial) { 55500, 62500 }:
+           44400 -> distributeur_du_desert[minimum_garanti]
+           11100 -> barbie[interessement]
          
-       - barbie { 1110000, 1250000 }:
-         - barbie[interessement] { 1110000, 1250000 }:
+       - barbie { 11100, 12500 }:
+         - barbie[interessement] { 11100, 12500 }:
          
        
      ++ after event recuperation_minimum_garanti :
-       - recette_brute_distributeur { 600000, 10600000 }:
-         - recette_brute_distributeur(Video, France, Commercial) { 600000, 8000000 }:
-           150000 -> distributeur_du_desert[commission_video]
-           450000 -> recette_nette_commission_distributeur(Salle, Video, France, Commercial)
+       - recette_brute_distributeur { 6000, 106000 }:
+         - recette_brute_distributeur(Video, France, Commercial) { 6000, 80000 }:
+           1500 -> distributeur_du_desert[commission_video]
+           4500 -> recette_nette_commission_distributeur(Salle, Video, France, Commercial)
          
-       - recette_nette_commission_distributeur { 450000, 7700000 }:
-         - recette_nette_commission_distributeur(Salle, Video, France, Commercial) { 450000, 7400000 }:
-           450000 -> recette_nette_part_producteur(Salle, Video, France, Commercial)
+       - recette_nette_commission_distributeur { 4500, 77000 }:
+         - recette_nette_commission_distributeur(Salle, Video, France, Commercial) { 4500, 74000 }:
+           4500 -> recette_nette_part_producteur(Salle, Video, France, Commercial)
          
-       - distributeur_du_desert { 150000, 8900000 }:
-         - distributeur_du_desert[commission_video] { 150000, 2000000 }:
+       - distributeur_du_desert { 1500, 89000 }:
+         - distributeur_du_desert[commission_video] { 1500, 20000 }:
          
-       - recette_nette_part_producteur { 450000, 6700000 }:
-         - recette_nette_part_producteur(Salle, Video, France, Commercial) { 450000, 6700000 }:
-           90000 -> barbie[interessement]
-           45000 -> dromadaire_film[france]
-           default 315000 -> les_productions_du_chameau[rnpp_france_residuelle]
+       - recette_nette_part_producteur { 4500, 67000 }:
+         - recette_nette_part_producteur(Salle, Video, France, Commercial) { 4500, 67000 }:
+           900 -> barbie[interessement]
+           450 -> dromadaire_film[france]
+           default 3150 -> les_productions_du_chameau[rnpp_france_residuelle]
          
-       - dromadaire_film { 45000, 45000 }:
-         - dromadaire_film[france] { 45000, 45000 }:
+       - dromadaire_film { 450, 450 }:
+         - dromadaire_film[france] { 450, 450 }:
          
-       - les_productions_du_chameau { 315000, 315000 }:
-         - les_productions_du_chameau[rnpp_france_residuelle] { 315000, 315000 }:
+       - les_productions_du_chameau { 3150, 3150 }:
+         - les_productions_du_chameau[rnpp_france_residuelle] { 3150, 3150 }:
          
-       - barbie { 90000, 1340000 }:
-         - barbie[interessement] { 90000, 1340000 }:
+       - barbie { 900, 13400 }:
+         - barbie[interessement] { 900, 13400 }:
          
        
      
@@ -136,132 +136,132 @@
        
      ++ after event seuil_100000_entrees :
        - entree_salle_France { 50000, 150000 }:
-       - flat bonus : 1000000 -> barbie[bonus_nombre_entrees]
-       - barbie { 1000000, 2340000 }:
-         - barbie[bonus_nombre_entrees] { 1000000, 1000000 }:
+       - flat bonus : 10000 -> barbie[bonus_nombre_entrees]
+       - barbie { 10000, 23400 }:
+         - barbie[bonus_nombre_entrees] { 10000, 10000 }:
          
        
      
   6: ++ no events:
-       - vente_tvsvod { 1000000, 1000000 }:
-         - vente_tvsvod(TV, SVOD, France, Commercial) { 1000000, 1000000 }:
-           200000 -> les_productions_du_chameau[commission]
-           800000 -> recette_nette_part_producteur(TV, SVOD, France, Commercial)
+       - vente_tvsvod { 10000, 10000 }:
+         - vente_tvsvod(TV, SVOD, France, Commercial) { 10000, 10000 }:
+           2000 -> les_productions_du_chameau[commission]
+           8000 -> recette_nette_part_producteur(TV, SVOD, France, Commercial)
          
-       - recette_nette_part_producteur { 800000, 7500000 }:
-         - recette_nette_part_producteur(TV, SVOD, France, Commercial) { 800000, 800000 }:
-           160000 -> barbie[interessement]
-           320000 -> dromadaire_film[tv_svod]
-           default 320000 -> les_productions_du_chameau[rnpp_france_residuelle]
+       - recette_nette_part_producteur { 8000, 75000 }:
+         - recette_nette_part_producteur(TV, SVOD, France, Commercial) { 8000, 8000 }:
+           1600 -> barbie[interessement]
+           3200 -> dromadaire_film[tv_svod]
+           default 3200 -> les_productions_du_chameau[rnpp_france_residuelle]
          
-       - dromadaire_film { 320000, 365000 }:
-         - dromadaire_film[tv_svod] { 320000, 320000 }:
+       - dromadaire_film { 3200, 3650 }:
+         - dromadaire_film[tv_svod] { 3200, 3200 }:
          
-       - les_productions_du_chameau { 520000, 835000 }:
-         - les_productions_du_chameau[commission] { 200000, 200000 }:
-         - les_productions_du_chameau[rnpp_france_residuelle] { 320000, 635000 }:
+       - les_productions_du_chameau { 5200, 8350 }:
+         - les_productions_du_chameau[commission] { 2000, 2000 }:
+         - les_productions_du_chameau[rnpp_france_residuelle] { 3200, 6350 }:
          
-       - barbie { 160000, 2500000 }:
-         - barbie[interessement] { 160000, 1500000 }:
+       - barbie { 1600, 25000 }:
+         - barbie[interessement] { 1600, 15000 }:
          
        
      
   7: ++ no events:
-       - frais_edition_vendeur_scorpion { 1, 1 }:
+       - frais_edition_vendeur_scorpion { 0.01, 0.01 }:
        
      ++ before event recuperation_frais_edition_scorpion :
-       - frais_edition_vendeur_scorpion { 1199999, 1200000 }:
+       - frais_edition_vendeur_scorpion { 11999.99, 12000 }:
        
      
   8: ++ no events:
-       - recette_brute_vendeur { 1600000, 1600000 }:
-         - recette_brute_vendeur(Salle, TV, Video, SVOD, Etranger, Commercial) { 1600000, 1600000 }:
-           400000 -> vendeur_scorpion[commission_vendeur]
-           1200000 -> recette_nette_commission_vendeur(Salle, TV, Video, SVOD, Etranger, Commercial)
+       - recette_brute_vendeur { 16000, 16000 }:
+         - recette_brute_vendeur(Salle, TV, Video, SVOD, Etranger, Commercial) { 16000, 16000 }:
+           4000 -> vendeur_scorpion[commission_vendeur]
+           12000 -> recette_nette_commission_vendeur(Salle, TV, Video, SVOD, Etranger, Commercial)
          
-       - recette_nette_commission_vendeur { 1200000, 1200000 }:
-         - recette_nette_commission_vendeur(Salle, TV, Video, SVOD, Etranger, Commercial) { 1200000, 1200000 }:
-           1200000 -> vendeur_scorpion[frais_edition_vendeur_scorpion]
+       - recette_nette_commission_vendeur { 12000, 12000 }:
+         - recette_nette_commission_vendeur(Salle, TV, Video, SVOD, Etranger, Commercial) { 12000, 12000 }:
+           12000 -> vendeur_scorpion[frais_edition_vendeur_scorpion]
          
-       - vendeur_scorpion { 1600000, 1600000 }:
-         - vendeur_scorpion[commission_vendeur] { 400000, 400000 }:
-         - vendeur_scorpion[frais_edition_vendeur_scorpion] { 1200000, 1200000 }:
+       - vendeur_scorpion { 16000, 16000 }:
+         - vendeur_scorpion[commission_vendeur] { 4000, 4000 }:
+         - vendeur_scorpion[frais_edition_vendeur_scorpion] { 12000, 12000 }:
          
        
      ++ after event recuperation_frais_edition_scorpion :
-       - recette_brute_vendeur { 3183823.52941..., 4783823.52941... }:
-         - recette_brute_vendeur(Salle, TV, Video, SVOD, Etranger, Commercial) { 3183823.52941..., 4783823.52941... }:
-           477573.52941... -> vendeur_scorpion[commission_vendeur]
-           2706250 -> recette_nette_commission_vendeur(Salle, TV, Video, SVOD, Etranger, Commercial)
+       - recette_brute_vendeur { 31838.23529..., 47838.23529... }:
+         - recette_brute_vendeur(Salle, TV, Video, SVOD, Etranger, Commercial) { 31838.23529..., 47838.23529... }:
+           4775.73529... -> vendeur_scorpion[commission_vendeur]
+           27062.5 -> recette_nette_commission_vendeur(Salle, TV, Video, SVOD, Etranger, Commercial)
          
-       - recette_nette_commission_vendeur { 2706250, 3906250 }:
-         - recette_nette_commission_vendeur(Salle, TV, Video, SVOD, Etranger, Commercial) { 2706250, 3906250 }:
-           2706250 -> recette_nette_part_producteur(Salle, TV, Video, SVOD, Etranger, Commercial)
+       - recette_nette_commission_vendeur { 27062.5, 39062.5 }:
+         - recette_nette_commission_vendeur(Salle, TV, Video, SVOD, Etranger, Commercial) { 27062.5, 39062.5 }:
+           27062.5 -> recette_nette_part_producteur(Salle, TV, Video, SVOD, Etranger, Commercial)
          
-       - vendeur_scorpion { 477573.52941..., 2077573.52941... }:
-         - vendeur_scorpion[commission_vendeur] { 477573.52941..., 877573.52941... }:
+       - vendeur_scorpion { 4775.73529..., 20775.73529... }:
+         - vendeur_scorpion[commission_vendeur] { 4775.73529..., 8775.73529... }:
          
-       - recette_nette_part_producteur { 2706250, 10206250 }:
-         - recette_nette_part_producteur(Salle, TV, Video, SVOD, Etranger, Commercial) { 2706250, 2706250 }:
-           541250 -> barbie[interessement]
-           default 2165000 -> les_productions_du_chameau[rnpp_residuelle_etranger]
+       - recette_nette_part_producteur { 27062.5, 102062.5 }:
+         - recette_nette_part_producteur(Salle, TV, Video, SVOD, Etranger, Commercial) { 27062.5, 27062.5 }:
+           5412.5 -> barbie[interessement]
+           default 21650 -> les_productions_du_chameau[rnpp_residuelle_etranger]
          
-       - les_productions_du_chameau { 2165000, 3000000 }:
-         - les_productions_du_chameau[rnpp_residuelle_etranger] { 2165000, 2165000 }:
+       - les_productions_du_chameau { 21650, 30000 }:
+         - les_productions_du_chameau[rnpp_residuelle_etranger] { 21650, 21650 }:
          
-       - barbie { 541250, 3041250 }:
-         - barbie[interessement] { 541250, 2041250 }:
+       - barbie { 5412.5, 30412.5 }:
+         - barbie[interessement] { 5412.5, 20412.5 }:
          
        
      ++ after event recup_risque_prod :
-       - recette_brute_vendeur { 1000000.47058..., 5783824 }:
-         - recette_brute_vendeur(Salle, TV, Video, SVOD, Etranger, Commercial) { 1000000.47058..., 5783824 }:
-           150000.07058... -> vendeur_scorpion[commission_vendeur]
-           850000.4 -> recette_nette_commission_vendeur(Salle, TV, Video, SVOD, Etranger, Commercial)
+       - recette_brute_vendeur { 10000.00470..., 57838.24 }:
+         - recette_brute_vendeur(Salle, TV, Video, SVOD, Etranger, Commercial) { 10000.00470..., 57838.24 }:
+           1500.00070... -> vendeur_scorpion[commission_vendeur]
+           8500.004 -> recette_nette_commission_vendeur(Salle, TV, Video, SVOD, Etranger, Commercial)
          
-       - recette_nette_commission_vendeur { 850000.4, 4756250.4 }:
-         - recette_nette_commission_vendeur(Salle, TV, Video, SVOD, Etranger, Commercial) { 850000.4, 4756250.4 }:
-           850000.4 -> recette_nette_part_producteur(Salle, TV, Video, SVOD, Etranger, Commercial)
+       - recette_nette_commission_vendeur { 8500.004, 47562.504 }:
+         - recette_nette_commission_vendeur(Salle, TV, Video, SVOD, Etranger, Commercial) { 8500.004, 47562.504 }:
+           8500.004 -> recette_nette_part_producteur(Salle, TV, Video, SVOD, Etranger, Commercial)
          
-       - vendeur_scorpion { 150000.07058..., 2227573.6 }:
-         - vendeur_scorpion[commission_vendeur] { 150000.07058..., 1027573.6 }:
+       - vendeur_scorpion { 1500.00070..., 22275.736 }:
+         - vendeur_scorpion[commission_vendeur] { 1500.00070..., 10275.736 }:
          
-       - recette_nette_part_producteur { 850000.4, 11056250.4 }:
-         - recette_nette_part_producteur(Salle, TV, Video, SVOD, Etranger, Commercial) { 850000.4, 3556250.4 }:
-           170000.08 -> barbie[interessement]
-           170000.08 -> dromadaire_film[etranger]
-           default 510000.24 -> les_productions_du_chameau[rnpp_residuelle_etranger]
+       - recette_nette_part_producteur { 8500.004, 110562.504 }:
+         - recette_nette_part_producteur(Salle, TV, Video, SVOD, Etranger, Commercial) { 8500.004, 35562.504 }:
+           1700.0008 -> barbie[interessement]
+           1700.0008 -> dromadaire_film[etranger]
+           default 5100.0024 -> les_productions_du_chameau[rnpp_residuelle_etranger]
          
-       - dromadaire_film { 170000.08, 535000.08 }:
-         - dromadaire_film[etranger] { 170000.08, 170000.08 }:
+       - dromadaire_film { 1700.0008, 5350.0008 }:
+         - dromadaire_film[etranger] { 1700.0008, 1700.0008 }:
          
-       - les_productions_du_chameau { 510000.24, 3510000.24 }:
-         - les_productions_du_chameau[rnpp_residuelle_etranger] { 510000.24, 2675000.24 }:
+       - les_productions_du_chameau { 5100.0024, 35100.0024 }:
+         - les_productions_du_chameau[rnpp_residuelle_etranger] { 5100.0024, 26750.0024 }:
          
-       - barbie { 170000.08, 3211250.08 }:
-         - barbie[interessement] { 170000.08, 2211250.08 }:
+       - barbie { 1700.0008, 32112.5008 }:
+         - barbie[interessement] { 1700.0008, 22112.5008 }:
          
        
      
   9: ++ no events:
-       - frais_edition_distributeur_du_desert { 1, 1000001 }:
+       - frais_edition_distributeur_du_desert { 0.01, 10000.01 }:
        
      ++ before event recuperation_frais_edition_distributeur :
-       - frais_edition_distributeur_du_desert { 999999, 2000000 }:
+       - frais_edition_distributeur_du_desert { 9999.99, 20000 }:
        
      
   10: ++ no events:
-        - recette_brute_distributeur { 1000000, 11600000 }:
-          - recette_brute_distributeur(Salle, France, Commercial) { 1000000, 3000000 }:
-            200000 -> distributeur_du_desert
-            800000 -> recette_nette_commission_distributeur(Salle, Video, France, Commercial)
+        - recette_brute_distributeur { 10000, 116000 }:
+          - recette_brute_distributeur(Salle, France, Commercial) { 10000, 30000 }:
+            2000 -> distributeur_du_desert
+            8000 -> recette_nette_commission_distributeur(Salle, Video, France, Commercial)
           
-        - recette_nette_commission_distributeur { 800000, 8500000 }:
-          - recette_nette_commission_distributeur(Salle, Video, France, Commercial) { 800000, 8200000 }:
-            800000 -> distributeur_du_desert[frais_edition]
+        - recette_nette_commission_distributeur { 8000, 85000 }:
+          - recette_nette_commission_distributeur(Salle, Video, France, Commercial) { 8000, 82000 }:
+            8000 -> distributeur_du_desert[frais_edition]
           
-        - distributeur_du_desert { 1000000, 9900000 }:
-          - distributeur_du_desert[frais_edition] { 800000, 1800000 }:
+        - distributeur_du_desert { 10000, 99000 }:
+          - distributeur_du_desert[frais_edition] { 8000, 18000 }:
           
         
       

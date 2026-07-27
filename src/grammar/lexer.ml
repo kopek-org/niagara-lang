@@ -58,21 +58,9 @@ let uident = [%sedlex.regexp? uppercase, Star (digit | lowercase | uppercase | '
 let date = [%sedlex.regexp? integer, '/', integer, '/', integer]
 let comment = [%sedlex.regexp? '#', Star (Compl '\n'), '\n']
 
-let parse_money_value s : Z.t option =
+let parse_money_value s : R.t option =
   try (* Catch conversion errors. Should not happen from the lexer itself. *)
-    match String.split_on_char '.' s with
-    | [intpart] -> Some Z.((of_string intpart) * ~$100)
-    | [intpart; decpart] ->
-      let declen = String.length decpart in
-      let intpart = Z.of_string intpart in
-      let decpart =
-        let d = int_of_string decpart in
-        if String.length decpart = 1 then d*10 else d
-      in
-      if declen < 3 && declen >= 0
-      then Some Z.(intpart * ~$100 + ~$decpart)
-      else None
-    | _ -> None
+    Some (R.of_string s)
   with
   | _ -> None
 

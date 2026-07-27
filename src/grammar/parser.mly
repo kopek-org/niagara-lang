@@ -10,8 +10,8 @@ let pos (start, stop) = Pos.Text.make ~start ~stop
 %token LPAR RPAR VERS ATTEINT PLUS MINUS MULT DIV EQ COLON EOF DEFICIT
 %token COMMA RETROCESSION RESTE OPPOSABLE ENVERS VALEUR CALCULEE
 %token OBSERVABLE // SECTION FIN
-%token<R.t> FLOAT
-%token<Z.t> INT MONEY
+%token<R.t> FLOAT MONEY
+%token<Z.t> INT
 %token<string> LIDENT UIDENT
 %token<Date.Date.t> DATE
 

@@ -5,6 +5,9 @@ let zero = VRat R.zero
 
 let one = VRat R.one
 
+let epsilon = VRat R.(1//100)
+(** A small enough step for value change *)
+
 let is_zero (v : t) =
   match v with
   | VRat r -> R.(equal zero r)

@@ -99,8 +99,8 @@ type computation_outputs = output_line InputLineMap.t
 
 let literal_value (l : Literal.t) : Value.t =
   match l with
-  | LInteger i
-  | LMoney i -> VRat R.(~$$i)
+  | LInteger i -> VRat R.(~$$i)
+  | LMoney r
   | LRational r -> VRat r
   | LDate _
   | LDuration _ -> assert false
@@ -289,7 +289,7 @@ let find_event_threshold (p : program) (l : limits) (s : state) (cond_state : co
             | Present v ->
               if Value.is_positive v then Some v
               else if Value.is_negative v then None
-              else if thres.edge = Falling then Some Value.one
+              else if thres.edge = Falling then Some Value.epsilon
               else None)
           thres_l
       in
