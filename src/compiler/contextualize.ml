@@ -708,6 +708,26 @@ let rec formula acc ~(for_ : Variable.t option) (f : source formula)
       formula = { formula with formula_desc = Opposed (formula, opp) };
       is_input_linear;
     }
+  | Constraint (f, constr) ->
+    let { acc; formula; is_input_linear; typ } = formula acc ~for_ f ~on_proj in
+    let acc, temporal_constr = event_constr acc ~on_proj constr in
+    { acc; typ;
+      formula = {
+        formula with
+        formula_desc = TypedConstraint
+            { formula; typ; is_linear = is_input_linear; temporal_constr }
+      };
+      is_input_linear;
+    }
+
+and event_constr acc ~on_proj (constr : source event_constr) =
+  match constr with
+  | Before e ->
+    let acc, e = event_expr acc e ~on_proj in
+    acc, Before e
+  | After e ->
+    let acc, e = event_expr acc e ~on_proj in
+    acc, After e
 
 and opposable acc ~(on_proj : Context.Group.t)
     (HolderOpp { opp_value; opp_provider; opp_towards } : source opposable) =
@@ -722,7 +742,7 @@ and opposable acc ~(on_proj : Context.Group.t)
   in
   acc, VarOpp { opp_value; opp_provider; opp_towards }
 
-let rec event_expr acc (e : source event_expr) ~(on_proj : Context.Group.t) =
+and event_expr acc (e : source event_expr) ~(on_proj : Context.Group.t) =
   match e.event_expr_desc with
   | EventId name ->
     let v = Acc.find_event acc name in
@@ -881,6 +901,7 @@ let event_decl acc (e : event_decl) =
 let constant acc (c : const_decl) =
   let t = Literal.type_of c.const_value in
   Acc.register_const acc c.const_name t c.const_value
+
 let comp_pool acc (p : comp_pool_decl) =
   let acc, pool =
     match Acc.find_pool_opt acc p.comp_pool_name with

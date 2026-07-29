@@ -34,6 +34,7 @@ type origin =
   | DeficitSum of Variable.t
   | StagedRepartition of { rep : Variable.t; stage : Condition.t }
   | PoolStage of Variable.t
+  | TemporalConstraint of event_loc
   | ConditionExistential
   | OpposingVariant of { target : Variable.t; origin : Variable.t; variant : origin }
   | OppositionDelta of { target : Variable.t }
@@ -101,6 +102,7 @@ let rec get_name coll v =
     | StagedRepartition _ -> None
     | PoolStage _ -> None
     | ConditionExistential -> None
+    | TemporalConstraint _ -> None
     | OpposingVariant { origin; _ } -> get_name coll origin
     | OppositionDelta _ -> None
 
@@ -134,6 +136,12 @@ let print fmt t =
   | PoolStage v -> fprintf fmt "~%d~" (Variable.uid v)
   | ConditionExistential ->
     fprintf fmt "`E"
+  | TemporalConstraint event_loc ->
+    (match event_loc with
+     | NoEvent -> fprintf fmt ""
+     | Before e -> fprintf fmt "<|e%d" (Variable.uid e)
+     | After e -> fprintf fmt "|>e%d" (Variable.uid e)
+     | When e -> fprintf fmt "=|%d" (Variable.uid e))
   | OpposingVariant { target; origin; variant = _ } ->
     fprintf fmt "%d<%d>" (Variable.uid origin) (Variable.uid target)
   | OppositionDelta { target } ->

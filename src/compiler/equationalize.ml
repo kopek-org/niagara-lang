@@ -788,7 +788,7 @@ let build_init_requirements t =
   let initable v =
     match (Variable.Map.find v t.pinfos.var_info).origin with
     | Named _ | Cumulative _ | OpposingVariant _ | LabelOfPartner _
-    | ContextSpecialized _ -> true
+    | ContextSpecialized _ | TemporalConstraint _ -> true
     | _ -> false
   in
   let raw_initr =
@@ -917,7 +917,36 @@ let combine_fopps (cmb : expr -> expr -> expr)
       Some (cmb e1 e2, p))
     opps1 opps2
 
-let rec translate_formula acc ~(ctx : Context.Group.t) ~(view : flow_view)
+let rec register_constrained_eq acc
+    (typ : ValueType.t) (f, opps : expr_with_opps) (constr : Ast.contextualized Ast.event_constr) =
+  let dest = Variable.create () in
+  let acc, act, event_loc =
+    match constr with
+    | Before e ->
+      let acc, eexpr = translate_event acc e in
+      let acc, e = Acc.lift_event acc eexpr Generic in
+      acc, Condition.of_event e false, VarInfo.Before e
+    | After e ->
+      let acc, eexpr = translate_event acc e in
+      let acc, e = Acc.lift_event acc eexpr Generic in
+      acc, Condition.of_event e true, VarInfo.After e
+  in
+  let acc = Acc.bind_vinfo acc dest
+      (VarInfo.{
+          typ;
+          origin = TemporalConstraint event_loc;
+          kind = Intermediary })
+  in
+  let acc = Acc.register_value acc ~act ~dest f in
+  let acc =
+    Variable.Map.fold (fun target (expr, provider) acc ->
+        Acc.register_opposition acc ~on:dest ~target ~provider
+          Opposition.{ expr; condition = Condition.always; kind = Other })
+      opps acc
+  in
+  acc, dest
+
+and translate_formula acc ~(ctx : Context.Group.t) ~(view : flow_view)
     (f : Ast.contextualized Ast.formula) =
   match f.formula_desc with
   | Literal l -> acc, (EConst l, Variable.Map.empty)
@@ -945,8 +974,14 @@ let rec translate_formula acc ~(ctx : Context.Group.t) ~(view : flow_view)
       Report.raise_error "forbidden nested opposable formulae";
     let fopps = Variable.Map.add opp_towards (fo, opp_provider) fopps in
     acc, (fc, fopps)
+  | TypedConstraint { formula; typ; is_linear; temporal_constr } ->
+    let sub_view = if is_linear then AtInstant else view in
+    let acc, f = translate_formula ~ctx acc ~view:sub_view formula in
+    let acc, v = register_constrained_eq acc typ f temporal_constr in
+    let acc, v = var_view acc view v in
+    acc, (EVar v, Variable.Map.empty)
 
-let rec translate_event acc (eexpr : Ast.contextualized Ast.event_expr) =
+and translate_event acc (eexpr : Ast.contextualized Ast.event_expr) =
   match eexpr.event_expr_desc with
   | EventVar v -> acc, (EVar v, Variable.Map.empty)
   | EventComp (Eq, f1, f2) ->

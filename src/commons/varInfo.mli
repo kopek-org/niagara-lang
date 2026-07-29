@@ -34,6 +34,7 @@ type origin =
   | DeficitSum of Variable.t
   | StagedRepartition of { rep : Variable.t; stage : Condition.t }
   | PoolStage of Variable.t
+  | TemporalConstraint of event_loc
   | ConditionExistential
   | OpposingVariant of { target : Variable.t; origin : Variable.t; variant : origin }
   | OppositionDelta of { target : Variable.t }
