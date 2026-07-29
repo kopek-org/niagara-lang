@@ -1,0 +1,20 @@
+acteur distrib
+acteur prod
+
+entree assiette rbd
+
+evenement recup_frais atteint quand distrib = 1000$
+evenement apres_apres atteint quand (distrib apres evenement recup_frais) = 1000$
+
+operation
+sur assiette rbd
+avant evenement recup_frais
+ quotepart 50% vers distrib
+apres evenement recup_frais
+ quotepart 10% vers distrib
+
+defaut sur assiette rbd vers prod
+
+valeur observable a : (distrib apres evenement recup_frais)
+
+valeur observable b : (assiette rbd - distrib apres evenement recup_frais)
