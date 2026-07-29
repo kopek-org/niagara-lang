@@ -17,7 +17,6 @@ let pos (start, stop) = Pos.Text.make ~start ~stop
 
 %nonassoc LIDENT
 %nonassoc LPAR
-
 %left PLUS MINUS OU
 %left MULT DIV ET
 %nonassoc TOTAL COURANT OPPOSABLE
@@ -75,6 +74,10 @@ opposable:
   }
 }
 
+event_constr:
+| AVANT e = event_expr { Before e }
+| APRES e = event_expr { After e }
+
 simple_expr:
 | QUOTEPART f = formula no = boption(pair(NON,OPPOSABLE)) d = destinataire? {
   redistribution ~loc:f.formula_loc (Part (f, no)), d
@@ -124,7 +127,10 @@ source:
 
 formula:
 | fd = formula_desc { formula ~loc:(pos $sloc) fd }
-| LPAR f = formula RPAR { f }
+| LPAR f = full_formula RPAR { f }
+
+full_formula:
+| fd = full_formula_desc { formula ~loc:(pos $sloc) fd }
 
 formula_desc:
 | l = literal { Literal l }
@@ -133,7 +139,10 @@ formula_desc:
 | f = formula COURANT { Instant f }
 | f = formula TOTAL { Total f }
 | f = formula opp = opposable { Opposed (f, opp) }
-;
+
+full_formula_desc:
+| f = formula_desc { f }
+| f = formula constr = event_constr { Constraint (f, constr) }
 
 %inline binop:
 | PLUS { Add }

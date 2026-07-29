@@ -96,7 +96,20 @@ let rec print_formula : type a. ProgramInfo.t -> Format.formatter -> a formula -
         (print_formula infos) f2
   | Total f -> Format.fprintf fmt "(%a) total" (print_formula infos) f
   | Instant f -> Format.fprintf fmt "(%a) courant" (print_formula infos) f
-  | Opposed (f, opp) -> Format.fprintf fmt "(%a) %a" (print_formula infos) f (print_opposable infos) opp
+  | Opposed (f, opp) ->
+    Format.fprintf fmt "(%a) %a" (print_formula infos) f (print_opposable infos) opp
+  | Constraint (f, constr) ->
+    Format.fprintf fmt "(%a %a)" (print_formula infos) f (print_event_constr infos) constr
+  | TypedConstraint { formula; temporal_constr; _ } ->
+    Format.fprintf fmt "(%a %a)"
+      (print_formula infos) formula
+      (print_event_constr infos) temporal_constr
+
+and print_event_constr :
+  type a. ProgramInfo.t -> Format.formatter -> a event_constr -> unit =
+  fun infos fmt -> function
+  | Before e -> Format.fprintf fmt "avant %a" (print_event_expr infos) e
+  | After e -> Format.fprintf fmt "apres %a" (print_event_expr infos) e
 
 and print_opposable : type a. ProgramInfo.t -> Format.formatter -> a opposable -> unit =
   fun infos fmt opposable ->
@@ -112,7 +125,8 @@ and print_opposable : type a. ProgramInfo.t -> Format.formatter -> a opposable -
       (ProgramInfo.print_variable infos) opposable.opp_towards
       (ProgramInfo.print_variable infos) opposable.opp_provider
 
-let rec print_event_expr : type a.  ProgramInfo.t -> Format.formatter -> a event_expr -> unit =
+and print_event_expr :
+  type a. ProgramInfo.t -> Format.formatter -> a event_expr -> unit =
   fun infos fmt e ->
   match e.event_expr_desc with
   | EventId id -> Format.fprintf fmt "evenement %s" id

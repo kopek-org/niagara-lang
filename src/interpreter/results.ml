@@ -79,13 +79,15 @@ let update_flat_detail (v : Variable.t) (trigger : Variable.t option)
       | Some _ -> assert false)
     layout
 
-let update_detail_of ?(is_detail=false) (v : Variable.t)
+let update_detail_of ?(is_detail=false) ?(or_create=true) (v : Variable.t)
     (f : item_result_layout -> item_result_layout)
     (layout : results_layout) =
   Variable.Map.update v (function
       | None ->
-        let item = f (dummy_detail v) in
-        if is_detail then Some (Detail item) else Some (Top item)
+        if or_create then
+          let item = f (dummy_detail v) in
+          if is_detail then Some (Detail item) else Some (Top item)
+        else None
       | Some (Detail item) -> Some (Detail (f item))
       | Some (Top item) ->
         if is_detail then Some (Detail (f item)) else Some (Top (f item))
@@ -247,7 +249,9 @@ let build_result_layout (pinfos : ProgramInfo.t) =
                   ^ "[" ^ label ^ "]";
               }), variants
         | Cumulative step ->
-          update_detail_of step (fun l -> { l with cumulated = Some v }) layout, variants
+          update_detail_of ~or_create:false step
+            (fun l -> { l with cumulated = Some v }) layout,
+          variants
         | ContextSpecialized { origin; context } ->
           super_update origin (fun l ->
               { l with
@@ -348,7 +352,8 @@ let build_result_layout (pinfos : ProgramInfo.t) =
               }),
           variants
         | RepartitionSum _ | DeficitSum _ | PoolStage _
-        | ConditionExistential | AnonEvent | Peeking _ | RisingEvent _ ->
+        | ConditionExistential | AnonEvent | Peeking _ | RisingEvent _
+        | TemporalConstraint _ ->
           layout, variants)
       pinfos.var_info (Variable.Map.empty, Variable.Map.empty)
   in
@@ -485,6 +490,7 @@ let merge_valuations (var_info : VarInfo.collection)
             | StagedRepartition _
             | PoolStage _
             | ConditionExistential
+            | TemporalConstraint _
             | OppositionDelta _ ->
               (match p1, p2 with
                | Present v1, Present v2 -> Present (Value.add v1 v2)

@@ -274,6 +274,12 @@ let origin_variant acc env (var : Variable.t) (vorigin : VarInfo.origin) =
     | None | Some None -> v
     | Some (Some var) -> var
   in
+  let ev_loc_variant e =
+    match e with
+    | VarInfo.Before e -> VarInfo.Before (variant_if_exists e)
+    | After e -> After (variant_if_exists e)
+    | When e -> When (variant_if_exists e)
+  in
   match vorigin with
   | Named _ | AnonEvent | Peeking _
   | RisingEvent _ | ContextSpecialized _
@@ -292,13 +298,7 @@ let origin_variant acc env (var : Variable.t) (vorigin : VarInfo.origin) =
     in
     let source = variant_if_exists source in
     let target = variant_if_exists target in
-    let condition =
-      List.map (function
-      | VarInfo.Before e -> VarInfo.Before (variant_if_exists e)
-      | After e -> After (variant_if_exists e)
-      | When e -> When (variant_if_exists e))
-        condition
-    in
+    let condition = List.map ev_loc_variant condition in
     OperationDetail {op_kind; source; target; condition }
   | LocalValuation { target; deps } ->
     let target = variant_if_exists target in
@@ -320,6 +320,8 @@ let origin_variant acc env (var : Variable.t) (vorigin : VarInfo.origin) =
   | PoolStage s ->
     let s = variant_if_exists s in
     PoolStage s
+  | TemporalConstraint e ->
+    TemporalConstraint (ev_loc_variant e)
 
 let duplication acc env =
   Variable.Map.fold (fun org dup acc ->

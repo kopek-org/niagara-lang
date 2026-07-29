@@ -71,6 +71,17 @@ and _ formula_desc =
   | Total : 'a formula -> 'a formula_desc
   | Instant : 'a formula -> 'a formula_desc
   | Opposed : 'a formula * 'a opposable -> 'a formula_desc
+  | Constraint : source formula * source event_constr -> source formula_desc
+  | TypedConstraint : { formula : contextualized formula;
+                        typ : ValueType.t;
+                        is_linear : bool;
+                        temporal_constr : contextualized event_constr;
+                      }
+      -> contextualized formula_desc
+
+and _ event_constr =
+  | Before : 'a event_expr -> 'a event_constr
+  | After : 'a event_expr -> 'a event_constr
 
 and _ opposable =
   | HolderOpp : {
@@ -83,6 +94,18 @@ and _ opposable =
       opp_provider : Variable.t;
       opp_value : contextualized formula;
     } -> contextualized opposable
+
+and 'a event_expr = {
+  event_expr_loc : Pos.t;
+  event_expr_desc : 'a event_expr_desc;
+}
+
+and _ event_expr_desc =
+  | EventId : string -> source event_expr_desc
+  | EventVar : Variable.t -> contextualized event_expr_desc
+  | EventComp : comp * 'a formula * 'a formula -> 'a event_expr_desc
+  | EventConj : 'a event_expr * 'a event_expr -> 'a event_expr_desc
+  | EventDisj : 'a event_expr * 'a event_expr -> 'a event_expr_desc
 
 type 'a redistribution = {
   redistribution_loc : Pos.t;
@@ -100,18 +123,6 @@ type _ redistrib_with_dest =
       -> source redistrib_with_dest
   | WithVar : contextualized redistribution * contextualized_variable option
       -> contextualized redistrib_with_dest
-
-type 'a event_expr = {
-  event_expr_loc : Pos.t;
-  event_expr_desc : 'a event_expr_desc;
-}
-
-and _ event_expr_desc =
-  | EventId : string -> source event_expr_desc
-  | EventVar : Variable.t -> contextualized event_expr_desc
-  | EventComp : comp * 'a formula * 'a formula -> 'a event_expr_desc
-  | EventConj : 'a event_expr * 'a event_expr -> 'a event_expr_desc
-  | EventDisj : 'a event_expr * 'a event_expr -> 'a event_expr_desc
 
 type ('pass, 'leaf) conditional_redistrib =
   'pass event_expr * ('pass, 'leaf) guarded_redistrib
