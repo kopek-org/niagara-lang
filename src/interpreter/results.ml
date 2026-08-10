@@ -40,6 +40,19 @@ type top_item =
 
 type results_layout = top_item Variable.Map.t
 
+type temporal_slice_value = {
+  slice_event_state : bool Variable.Map.t;
+  slice_value : Value.t
+}
+
+type var_cumulative = {
+  from_start_total : Value.t;
+  slices_total : Value.t;
+  slices : temporal_slice_value list
+}
+
+type temporal_cumulatives = var_cumulative Variable.Map.t
+
 let dummy_detail v = {
   display_name = "%no_name%";
   at_step = v;
@@ -656,3 +669,110 @@ let diff_step_events ev1 ev2 =
           else if b2 then Some true
           else None)
     ev1 ev2
+
+let compute_temporal_cumulatives vinfos (valuations : computation_outputs)
+  : temporal_cumulatives InputLineMap.t =
+  let rec relevant_var { origin; kind; _ } =
+    match kind with
+    | Constant | Event | Value { cumulative = true; _ } -> false
+    | _ ->
+      match origin with
+      | Named _ | LabelOfPartner _ | ContextSpecialized _ | OperationDetail _
+      | OppositionDelta _ | AnonEvent -> true
+      | OpposingVariant { origin; _ } ->
+        relevant_var (Variable.Map.find origin vinfos)
+      | _ -> false
+  in
+  let init_tc =
+    let init_vc = {
+      from_start_total = Value.zero;
+      slices_total = Value.zero;
+      slices = []
+    }
+    in
+    Variable.Map.filter_map (fun _ info ->
+        if relevant_var info
+        then Some init_vc
+        else None)
+      vinfos
+  in
+  let one_var steps v last_vc =
+    let slices_total, slices =
+      List.fold_left (fun (tot, slices) step ->
+          let slice_value =
+            match Variable.Map.find v step.step_valuations with
+            | Absent -> Value.zero
+            | Present v -> v
+          in
+          if Value.(eq slice_value zero)
+          then tot, slices (* zeroed slices add no informations *)
+          else
+          Value.add tot slice_value,
+          { slice_value; slice_event_state = step.step_events }::slices)
+        (Value.zero, []) steps
+    in
+    { from_start_total =
+        Value.add last_vc.from_start_total slices_total;
+      slices_total;
+      slices = List.rev slices;
+    }
+  in
+  let one_line steps last_tc =
+    Variable.Map.mapi (one_var steps) last_tc
+  in
+  let lines, _last_tc =
+    InputLineMap.fold (fun i steps (lines, last_tc) ->
+        let last_tc = one_line steps last_tc in
+        InputLineMap.add i last_tc lines, last_tc)
+      valuations (InputLineMap.empty, init_tc)
+  in
+  lines
+
+let concat_slices s1 s2 =
+  let r1 = List.rev s1 in
+  match r1, s2 with
+  | [], _ -> s2
+  | _, [] -> s1
+  | e1::l1, e2::l2 ->
+    if Variable.Map.is_empty
+        (diff_step_events e1.slice_event_state e2.slice_event_state)
+    then
+      (* no changes means we merge the slices ends *)
+      let e2 = {
+        e2 with
+        slice_value = Value.add e1.slice_value e2.slice_value
+      }
+      in
+      List.rev_append l1 (e2::l2)
+    else
+      s1 @ s2
+
+let concat_var_cumulatives vc1 vc2 =
+  if Value.eq
+      (Value.add vc1.from_start_total vc2.slices_total)
+      vc2.from_start_total
+  then
+    { from_start_total = vc2.from_start_total;
+      slices_total = Value.add vc1.slices_total vc2.slices_total;
+      slices = concat_slices vc1.slices vc2.slices;
+    }
+  else
+    Report.raise_error "concat_var_cumulatives: incoherent values"
+
+let concat_temporal_cumulatives tc1 tc2 =
+  Variable.Map.merge (fun _ vc1 vc2 ->
+      match vc1, vc2 with
+      | None, _ | _, None ->
+        Report.raise_error "concat_temporal_cumulatives: mismatching variables"
+      | Some vc1, Some vc2 -> Some (concat_var_cumulatives vc1 vc2))
+    tc1 tc2
+
+let query_cumulation (tc : temporal_cumulatives) (v : Variable.t)
+    (c : Condition.t) : Value.t =
+  let vc = Variable.Map.find v tc in
+  List.fold_left (fun tot slice ->
+      match Condition.satisfies slice.slice_event_state c with
+      | Sat | MaySat -> Value.add slice.slice_value tot
+      | Unsat -> tot)
+    Value.zero vc.slices
+

@@ -52,6 +52,10 @@ let lt (v1 : t) (v2 : t) =
   match v1, v2 with
   | VRat r1, VRat r2 -> R.(r1 < r2)
 
+let eq (v1 : t) (v2 : t) =
+  match v1, v2 with
+  | VRat r1, VRat r2 -> R.(r1 = r2)
+
 type discrete_policy =
   | Round
   | Ceil

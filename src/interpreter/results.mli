@@ -88,3 +88,48 @@ val diff_step_events :
 (* [diff_step_events ev1 ev2] returns the map of events whose state
    has changed between [ev1] and [ev2]. The value is [true] if it
    occured and [false] is it was backtracked *)
+
+type temporal_slice_value = {
+  slice_event_state : bool Variable.Map.t;
+  slice_value : Value.t
+  (** Value cumulated between two event changes. Should not be zero,
+      it would be absorbed by the next relevant slice *)
+}
+
+type var_cumulative = {
+  from_start_total : Value.t;
+  (** From the very beginning. Same value as `VarInfo.Cumulative` if any. *)
+  slices_total : Value.t;
+  (** Cumulative total of the record time frame. *)
+  slices : temporal_slice_value list
+  (** History of cumulation, fragmented by event changes.
+      Sums up to `slices_total`. *)
+}
+
+type temporal_cumulatives = var_cumulative Variable.Map.t
+(** Fragmented representation of value cumulation. Maps variables to
+    their cumulatives through time. May represent an arbitrary time
+    frame. *)
+
+val compute_temporal_cumulatives :
+  VarInfo.collection
+  -> Execution.computation_outputs
+  -> temporal_cumulatives Execution.InputLineMap.t
+(** Builds history of cumulation. One time frame per input line. *)
+
+val concat_temporal_cumulatives :
+  temporal_cumulatives
+  -> temporal_cumulatives
+  -> temporal_cumulatives
+(** Merges two consecutives (raises error otherwise) time frames.
+    There may be some slices merging, in case their is no event
+    changes at join point. *)
+
+val query_cumulation :
+  temporal_cumulatives
+  -> Variable.t
+  -> Condition.t
+  -> Value.t
+(** It's easy to get `from_start_total` and `slices_total`. This
+    queries for a more specific cumulation of given variable during
+    the given state condition. *)
