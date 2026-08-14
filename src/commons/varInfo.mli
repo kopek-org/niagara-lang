@@ -6,7 +6,6 @@ type op_kind =
   | Deficit of Condition.t R.Map.t
 
 type event_loc =
-  | NoEvent
   | Before of Variable.t
   | After of Variable.t
   | When of Variable.t
@@ -21,7 +20,7 @@ type origin =
   | ContextSpecialized of { origin : Variable.t; context : Context.Group.t }
   | OperationDetail of {
       op_kind : op_kind;
-      condition : event_loc;
+      condition : event_loc list;
       source : Variable.t;
       target : Variable.t
     }

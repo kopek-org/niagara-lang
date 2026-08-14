@@ -292,11 +292,12 @@ let origin_variant acc env (var : Variable.t) (vorigin : VarInfo.origin) =
     in
     let source = variant_if_exists source in
     let target = variant_if_exists target in
-    let condition = match condition with
-      | NoEvent -> condition
-      | Before e -> Before (variant_if_exists e)
+    let condition =
+      List.map (function
+      | VarInfo.Before e -> VarInfo.Before (variant_if_exists e)
       | After e -> After (variant_if_exists e)
-      | When e -> When (variant_if_exists e)
+      | When e -> When (variant_if_exists e))
+        condition
     in
     OperationDetail {op_kind; source; target; condition }
   | LocalValuation { target; deps } ->

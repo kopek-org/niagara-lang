@@ -13,7 +13,7 @@ type part_or_def =
   | Deficit
 
 type 'a share = {
-  main_event : VarInfo.event_loc;
+  event_path : VarInfo.event_loc list;
   dest : Variable.t;
   part : 'a;
   condition : Condition.t;
@@ -181,7 +181,7 @@ let resolve_fullness_exn (rep : part_or_def t) =
         let share = {
           dest = def_share.dest;
           condition; part = ds;
-          main_event = def_share.main_event
+          event_path = def_share.event_path
         }
         in
         parts, share::defs
@@ -200,7 +200,7 @@ let resolve_fullness_exn (rep : part_or_def t) =
         { dest = share.dest;
           condition;
           part = ds;
-          main_event = share.main_event
+          event_path = share.event_path
         } in
       parts, Some gd_share
   in
@@ -224,26 +224,26 @@ let resolve_fullness_exn (rep : part_or_def t) =
       let deficit_share = {
         dest = share.dest;
         condition; part = ds;
-        main_event = share.main_event
+        event_path = share.event_path
       } in
       parts, Some deficit_share
   in
   check_fullness parts;
   {
     parts =
-      List.filter_map (fun {part; dest; condition; main_event } ->
+      List.filter_map (fun {part; dest; condition; event_path } ->
           match part with
           | Part { part; non_opp = false } ->
-            Some { part; dest; condition; main_event }
+            Some { part; dest; condition; event_path }
           | _ -> None)
         rep;
     defaults = (Option.to_list global_default) @ local_defaults;
     deficits = deficit;
     non_opp_parts =
-      List.filter_map (fun { part; dest; condition; main_event } ->
+      List.filter_map (fun { part; dest; condition; event_path } ->
           match part with
           | Part { part; non_opp = true } ->
-            Some { part; dest; condition; main_event }
+            Some { part; dest; condition; event_path }
           | _ -> None)
         rep;
   }

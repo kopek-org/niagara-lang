@@ -13,7 +13,9 @@ type part_or_def =
   | Deficit
 
 type 'a share = {
-  main_event : VarInfo.event_loc;
+  event_path : VarInfo.event_loc list;
+  (* bottom-up order, the first element of the list is the deeper
+     event *)
   dest : Variable.t;
   part : 'a;
   condition : Condition.t;

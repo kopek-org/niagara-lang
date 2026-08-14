@@ -25,7 +25,7 @@ type flat_op = {
   flat_expr : expr;
   flat_src : Variable.t;
   flat_cond : Condition.t;
-  flat_main_event : VarInfo.event_loc;
+  flat_event_path : VarInfo.event_loc list;
   flat_opposed : opposed_expr;
 }
 
@@ -217,9 +217,9 @@ let lift_event t (event, opp_evs : expr_with_opps)
   t, v
 
 let register_part t ~(act : Condition.t) ~(src : Variable.t)
-    ~(dest : Variable.t) ~(main_event : VarInfo.event_loc)
+    ~(dest : Variable.t) ~(event_path : VarInfo.event_loc list)
     (part : Repartition.part_or_def) =
-  let share = Repartition.{ dest; part; condition = act; main_event } in
+  let share = Repartition.{ dest; part; condition = act; event_path } in
   let repartitions =
     Variable.Map.update src (function
         | None -> Some [ share ]
@@ -247,13 +247,13 @@ let register_deficit t ~(act : Condition.t) ~(provider : Variable.t)
 
 let register_flat t
     ~(act : Condition.t) ~(src : Variable.t)
-    ~(dest : Variable.t) ~(main_event : VarInfo.event_loc)
+    ~(dest : Variable.t) ~(event_path : VarInfo.event_loc list)
     (expr, opps : expr_with_opps) =
   let flat = {
     flat_src = src;
     flat_expr = expr;
     flat_cond = act;
-    flat_main_event = main_event;
+    flat_event_path = event_path;
     flat_opposed = opps;
   }
   in
@@ -410,7 +410,7 @@ let group_productions ~produce ~aggr_var t ops =
     t, (agv, cond)
 
 let convert_repartitions t =
-  let register_part t src ({condition; part; dest; main_event }
+  let register_part t src ({condition; part; dest; event_path }
                            : Repartition.opposable_part Repartition.share) =
     let part, opposed = part in
     let t, ov = create_var_from t dest (fun i ->
@@ -420,7 +420,7 @@ let convert_repartitions t =
               { op_kind = Quotepart part;
                 source = src;
                 target = dest;
-                condition = main_event
+                condition = event_path
               }
         })
     in
@@ -443,12 +443,12 @@ let convert_repartitions t =
       non_opp_shares =
     match def_share with
     | None -> t
-    | Some {dest; condition; part; main_event } ->
+    | Some {dest; condition; part; event_path } ->
       let t, ov = create_var_from t dest (fun i ->
           { i with
             kind = Intermediary;
             origin = OperationDetail {
-                condition = main_event;
+                condition = event_path;
                 op_kind = Deficit part;
                 source = dest;
                 target = src }
@@ -573,7 +573,7 @@ let convert_repartitions t =
                       { op_kind = Default share.part;
                         source = src;
                         target = share.dest;
-                        condition = share.main_event
+                        condition = share.event_path
                       }
                 })
             in
@@ -600,7 +600,7 @@ let convert_flats t =
   let produce_op dest src t flat =
     let origin : VarInfo.origin =
       OperationDetail {
-        condition = flat.flat_main_event;
+        condition = flat.flat_event_path;
         op_kind = Bonus (vars_of_expr flat.flat_expr);
         source = src;
         target = dest
@@ -1034,35 +1034,29 @@ let translate_redists acc
     ~(ctx : Context.Group.t)
     ~(act : Condition.t) ~(src : Variable.t)
     ~(def_dest : Ast.contextualized_variable option)
-    ~(main_event : VarInfo.event_loc)
+    ~(event_path : VarInfo.event_loc list)
     (rs : Ast.contextualized Ast.redistrib_with_dest list) =
   List.fold_left
-    (translate_redist_w_dest ~ctx ~act ~src ~def_dest ~main_event)
+    (translate_redist_w_dest ~ctx ~act ~src ~def_dest ~event_path)
     acc rs
 
 let rec translate_guarded_obj : type obj. Acc.t
   -> (Acc.t -> ctx:Context.Group.t
-      -> act:Condition.t -> main_event:VarInfo.event_loc -> obj -> Acc.t)
-  -> ctx:Context.Group.t -> act:Condition.t -> main_event:VarInfo.event_loc
+      -> act:Condition.t -> event_path:VarInfo.event_loc list -> obj -> Acc.t)
+  -> ctx:Context.Group.t -> act:Condition.t -> event_path:VarInfo.event_loc list
   -> (Ast.contextualized, obj) Ast.guarded_redistrib
   -> Acc.t =
-  let merge_events old new_ =
-    match old, new_ with
-    | VarInfo.When _, VarInfo.When _ -> new_
-    | When _, _ -> old
-    | _ -> new_
-  in
- fun acc obj_process ~ctx ~act ~main_event go ->
-  let merge_event = merge_events main_event in
+ fun acc obj_process ~ctx ~act ~event_path go ->
+  let merge_event e = e::event_path in
   match go with
-  | Atom a -> obj_process acc ~ctx ~act ~main_event a
+  | Atom a -> obj_process acc ~ctx ~act ~event_path a
   | Whens gs ->
     List.fold_left (fun acc (cond, go) ->
         let acc, trigger = translate_condition acc cond in
         let acc, evt = event_trigger acc trigger in
         let condt, _ = conds_of_event ~act evt in
         translate_guarded_obj acc obj_process
-          ~ctx ~act:condt ~main_event:(merge_event (When trigger)) go)
+          ~ctx ~act:condt ~event_path:(merge_event (When trigger)) go)
       acc gs
   | Branches { befores; afters } ->
     let acc, act =
@@ -1070,7 +1064,7 @@ let rec translate_guarded_obj : type obj. Acc.t
           let acc, evt = translate_condition acc cond in
           let condt, condf = conds_of_event ~act evt in
           translate_guarded_obj acc obj_process
-            ~ctx ~act:condt ~main_event:(merge_event (After evt)) go,
+            ~ctx ~act:condt ~event_path:(merge_event (After evt)) go,
           condf)
         afters (acc, act)
     in
@@ -1079,7 +1073,7 @@ let rec translate_guarded_obj : type obj. Acc.t
         let acc, evt = translate_condition acc cond in
         let condt, condf = conds_of_event ~act evt in
         translate_guarded_obj acc obj_process
-          ~ctx ~act:condf ~main_event:(merge_event (Before evt)) go,
+          ~ctx ~act:condf ~event_path:(merge_event (Before evt)) go,
         condt)
       (acc, act) befores
 
@@ -1092,19 +1086,19 @@ let translate_operation acc (o : Ast.ctx_operation_decl) =
           ~src ~def_dest:o.ctx_op_default_dest
       in
       translate_guarded_obj acc redist_process
-        ~ctx ~act:Condition.always ~main_event:NoEvent o.ctx_op_guarded_redistrib)
+        ~ctx ~act:Condition.always ~event_path:[] o.ctx_op_guarded_redistrib)
     acc source_local_shape
 
 let translate_comp_pool acc (p : Ast.ctx_comp_pool_decl) =
   let pool_local_shape = shape_of_ctx_var acc p.ctx_comp_pool_var in
   Context.shape_fold (fun acc ctx ->
       let acc, pool = Acc.get_derivative_var acc (fst p.ctx_comp_pool_var) ctx in
-      let formula_process acc ~ctx ~act ~main_event:_ f =
+      let formula_process acc ~ctx ~act ~event_path:_ f =
         let acc, e = translate_formula ~ctx ~view:AtInstant acc f in
         Acc.register_comp_val acc ~act ~dest:pool e
       in
       translate_guarded_obj acc formula_process
-        ~ctx ~act:Condition.always ~main_event:NoEvent p.ctx_comp_pool_guarded_value)
+        ~ctx ~act:Condition.always ~event_path:[] p.ctx_comp_pool_guarded_value)
     acc pool_local_shape
 
 let translate_default acc (d : Ast.ctx_default_decl) =
@@ -1120,7 +1114,7 @@ let translate_default acc (d : Ast.ctx_default_decl) =
         | _ -> Report.raise_error "destination derivation should have been unique"
       in
       Acc.register_default acc ~act:Condition.always
-        ~src ~dest ~main_event:NoEvent)
+        ~src ~dest ~event_path:[])
     acc source_local_shape
 
 let translate_deficit acc (d : Ast.ctx_deficit_decl) =
@@ -1135,7 +1129,7 @@ let translate_deficit acc (d : Ast.ctx_deficit_decl) =
   Context.shape_fold (fun acc ctx ->
       let acc, pool = Acc.get_derivative_var acc (fst d.ctx_deficit_pool) ctx in
       Acc.register_deficit acc ~act:Condition.always
-        ~provider ~pool ~main_event:NoEvent)
+        ~provider ~pool ~event_path:[])
     acc pool_local_shape
 
 let translate_value acc (v : Ast.ctx_val_decl) =

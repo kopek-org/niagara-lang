@@ -289,7 +289,9 @@ let build_result_layout (pinfos : ProgramInfo.t) =
            | Bonus _ ->
              let layout =
                let trigger =
-                 match condition with When c -> Some c | _ -> None
+                 List.find_map
+                   (function When c -> Some c | _ -> None)
+                   condition
                in
                update_flat_detail v trigger target (fun l ->
                    l)
