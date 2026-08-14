@@ -226,6 +226,16 @@ type ctx_val_decl = {
   ctx_val_linear : bool;
 }
 
+type backer_decl = {
+  bac_backer : actor;
+  bac_backed : holder;
+}
+
+type ctx_backer_decl = {
+  ctx_bac_backer : Variable.t;
+  ctx_bac_backed : contextualized_variable;
+}
+
 type _ declaration =
   | DHolderOperation : operation_decl -> source declaration
   | DVarOperation : ctx_operation_decl -> contextualized declaration
@@ -243,6 +253,8 @@ type _ declaration =
   | DHolderDeficit : deficit_decl -> source declaration
   | DVarDefault : ctx_default_decl -> contextualized declaration
   | DVarDeficit : ctx_deficit_decl -> contextualized declaration
+  | DHolderBacker : backer_decl -> source declaration
+  | DVarBacker : ctx_backer_decl -> contextualized declaration
 
 type _ program =
   | Source : source declaration list -> source program

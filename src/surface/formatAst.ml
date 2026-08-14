@@ -258,6 +258,13 @@ let print_declaration (type a) infos fmt (decl : a declaration) =
     Format.fprintf fmt "@[<hv>deficit sur %a@ par %a@]"
       (ProgramInfo.print_ctx_variable infos) d.ctx_deficit_pool
       (ProgramInfo.print_ctx_variable infos) d.ctx_deficit_provider
+  | DHolderBacker b ->
+    Format.fprintf fmt "@[<hv>financer %a@ par %a@]"
+      print_holder b.bac_backed print_actor b.bac_backer
+  | DVarBacker b ->
+    Format.fprintf fmt "@[<hv>financer %a@ par %a@]"
+      (ProgramInfo.print_ctx_variable infos) b.ctx_bac_backed
+      (ProgramInfo.print_variable infos) b.ctx_bac_backer
 
 let print_constants infos fmt () =
   Variable.Map.iter (fun v value ->
