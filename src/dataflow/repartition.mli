@@ -7,8 +7,18 @@ type opposed_part = {
 
 type opposable_part = R.t * opposed_part list
 
+type non_opposable_part = {
+  nop_part : R.t;
+  nop_provisioned : bool;
+}
+
+type part_kind =
+  | Opposable
+  | NonOpposable
+  | Phantom
+
 type part_or_def =
-  | Part of { part : opposable_part; non_opp : bool }
+  | Part of { part : opposable_part; kind : part_kind }
   | Default
   | Deficit
 
@@ -27,7 +37,7 @@ type unified_parts = Condition.t R.Map.t
 
 type fullness_result = {
   parts : opposable_part t;
-  non_opp_parts : opposable_part t;
+  non_opp_parts : non_opposable_part t;
   defaults : unified_parts t;
   deficits : unified_parts share option;
 }

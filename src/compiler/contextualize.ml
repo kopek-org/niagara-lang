@@ -961,6 +961,11 @@ let declaration acc (decl : source declaration) =
     let acc, ctx_deficit_provider = find_holder_as_source acc d.deficit_provider in
     let acc = Acc.add_deps_from acc (fst ctx_deficit_provider) [fst ctx_deficit_pool] in
     Acc.add_program_decl acc (DVarDeficit { ctx_deficit_pool; ctx_deficit_provider})
+  | DHolderBacker b ->
+    let acc, ctx_bac_backed = find_holder acc b.bac_backed in
+    let acc, ctx_bac_backer = find_actor ~way:Provider acc b.bac_backer in
+    let acc = Acc.add_deps_from acc ctx_bac_backer [fst ctx_bac_backed] in
+    Acc.add_program_decl acc (DVarBacker { ctx_bac_backed; ctx_bac_backer })
 
 let program (Source prog : source program) : contextualized program =
   let acc = Acc.empty in

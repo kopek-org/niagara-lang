@@ -48,6 +48,7 @@ type t = {
   deficits_vars : (Variable.t * Condition.t) list Variable.Map.t;
   oppositions : Opposition.user_substitutions Variable.Map.t; (* target -> og variable -> subst expr *)
   opposition_providers : Variable.t Variable.Map.t; (* target -> provider *)
+  phantom_dests : Variable.Set.t;
 }
 
 let make (pinfos : ProgramInfo.t) = {
@@ -63,6 +64,7 @@ let make (pinfos : ProgramInfo.t) = {
   deficits_vars = Variable.Map.empty;
   oppositions = Variable.Map.empty;
   opposition_providers = Variable.Map.empty;
+  phantom_dests = Variable.Set.empty;
 }
 
 let find_vinfo t (v : Variable.t) =
@@ -235,7 +237,8 @@ let register_redist t ~(act : Condition.t) ~(src : Variable.t)
     List.map (fun (opp_target, opp_value, opp_provider) ->
       Repartition.{ opp_target; opp_value; opp_provider }) opps
   in
-  register_part t ~act ~src ~dest (Part { part = part, opps; non_opp })
+  let kind = if non_opp then Repartition.NonOpposable else Opposable in
+  register_part t ~act ~src ~dest (Part { part = part, opps; kind })
 
 let register_default t ~(act : Condition.t) ~(src : Variable.t)
     ~(dest : Variable.t) =
@@ -302,6 +305,9 @@ let register_value t ~(act : Condition.t) ~(dest : Variable.t) (expr : expr) =
       t.value_eqs
   in
   { t with value_eqs; }
+
+let register_phantom_dest t (dest : Variable.t) =
+  { t with phantom_dests = Variable.Set.add dest t.phantom_dests }
 
 let add_deficit_var t ~(act : Condition.t) ~(provider : Variable.t) (def : Variable.t) =
   { t with
@@ -440,7 +446,27 @@ let convert_repartitions t =
   in
   let conv_deficit t src stage_var
       (def_share : Repartition.unified_parts Repartition.share option)
-      non_opp_shares =
+      (non_opp_shares : Repartition.non_opposable_part Repartition.t)  =
+    let expr = ENeg (EVar stage_var) in
+    let t, expr =
+      List.fold_left (fun (t, expr) nop_share ->
+          let Repartition.{ nop_part; nop_provisioned } =
+            nop_share.Repartition.part
+          in
+          let t, (v, act) =
+            register_part t src
+              { nop_share with part = (nop_part, []) }
+          in
+          let t = register_aggregation t ~act ~dest:nop_share.dest v in
+          let expr =
+            if nop_provisioned
+            (* provisioned QPs don't fall into deficit *)
+            then expr
+            else EAdd (expr, EVar v)
+          in
+          t, expr)
+        (t, expr) non_opp_shares
+    in
     match def_share with
     | None -> t
     | Some {dest; condition; part; main_event } ->
@@ -453,14 +479,6 @@ let convert_repartitions t =
                 source = dest;
                 target = src }
           })
-      in
-      let expr = ENeg (EVar stage_var) in
-      let t, expr =
-        List.fold_left (fun (t, expr) nop_share ->
-            let t, (v, act) = register_part t src nop_share in
-            let t = register_aggregation t ~act ~dest:nop_share.dest v in
-            t, EAdd (expr, EVar v))
-          (t, expr) non_opp_shares
       in
       let t = register_value t ~act:condition ~dest:ov expr in
       add_deficit_var t ~act:condition ~provider:dest ov
@@ -538,9 +556,21 @@ let convert_repartitions t =
     let t = register_value t ~act:Condition.always ~dest:stage_var stage_expr in
     t, stage_var, rem_directs
   in
-  Variable.Map.fold (fun src rep t ->
+  Variable.Map.fold (fun src reps t ->
+      let reps =
+        (* resolve phantom dests *)
+        let open Repartition in
+        List.map (fun rep ->
+            match rep.part with
+            | Default | Deficit -> rep
+            | Part { part; kind = _ } ->
+              if Variable.Set.mem rep.dest t.phantom_dests
+              then { rep with part = Part { part; kind = Phantom }}
+              else rep)
+          reps
+      in
       let fullrep =
-        match Repartition.resolve_fullness rep with
+        match Repartition.resolve_fullness reps with
         | Ok fr -> fr
         | Error (ImperfectSum p) ->
           Report.raise_repartition_error t.pinfos src p
@@ -1154,6 +1184,23 @@ let translate_value acc (v : Ast.ctx_val_decl) =
         Opposition.{ expr; condition = Condition.always; kind = Other })
     opps acc
 
+let translate_backer acc (b : Ast.ctx_backer_decl) =
+  let backed, backed_ctx = b.ctx_bac_backed in
+  let acc, backed = Acc.derive_ctx_variables ~mode:Strict acc backed backed_ctx in
+  let backed_vars =
+    match backed with
+    | ActorComp { base; _ } -> [ base ]
+    (* Caution: this does not handle the backing of a whole partner properly.
+       We must stick to labels for now *)
+    | ContextVar vars -> vars
+  in
+  let acc = Acc.ensure_cumulation acc b.ctx_bac_backer in
+  List.fold_left (fun acc backed ->
+      let acc = Acc.register_phantom_dest acc backed in
+      Acc.register_aggregation acc ~act:Condition.always
+        ~dest:b.ctx_bac_backer backed)
+    acc backed_vars
+
 let translate_declaration acc (decl : Ast.contextualized Ast.declaration) =
   match decl with
   | DVarOperation o -> translate_operation acc o
@@ -1168,6 +1215,7 @@ let translate_declaration acc (decl : Ast.contextualized Ast.declaration) =
   | DVarPool p -> translate_comp_pool acc p
   | DVarDefault d -> translate_default acc d
   | DVarDeficit d -> translate_deficit acc d
+  | DVarBacker b -> translate_backer acc b
 
 let translate_program (Contextualized (infos, prog) : Ast.contextualized Ast.program) =
   let acc = Acc.make infos in
