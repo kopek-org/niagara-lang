@@ -7,8 +7,18 @@ type opposed_part = {
 
 type opposable_part = R.t * opposed_part list
 
+type non_opposable_part = {
+  nop_part : R.t;
+  nop_provisioned : bool;
+}
+
+type part_kind =
+  | Opposable
+  | NonOpposable
+  | Phantom
+
 type part_or_def =
-  | Part of { part : opposable_part; non_opp : bool }
+  | Part of { part : opposable_part; kind : part_kind }
   | Default
   | Deficit
 
@@ -92,7 +102,7 @@ type def_star = {
   global_default : part_or_def share option;
   local_defaults : part_or_def share list;
   deficit : part_or_def share option;
-  non_opp_parts : unified_parts * opposable_part share list;
+  non_opp_parts : unified_parts * non_opposable_part share list;
 }
 
 let sort_shares (rep : part_or_def t) =
@@ -136,15 +146,28 @@ let sort_shares (rep : part_or_def t) =
               { defs with local_defaults = share::defs.local_defaults }
         in
         parts, defs
-      | Part { part; non_opp } ->
-        if non_opp then
-          let ud, nop_shares = defs.non_opp_parts in
-          let ud = add_part ud share.condition (fst part) in
-          let nop_shares = { share with part }::nop_shares in
-          parts, { defs with non_opp_parts = ud, nop_shares }
-        else
+      | Part { part; kind } ->
+        match kind with
+        | Opposable ->
           let parts = add_part parts share.condition (fst part) in
-          parts, defs)
+          parts, defs
+        | NonOpposable | Phantom ->
+          if snd part <> [] then
+            Report.raise_error
+              "Forbidden opposability on non-opposable QP";
+          let part =
+            { nop_part = fst part;
+              nop_provisioned = kind = Phantom
+            }
+          in
+          let ud, nop_shares = defs.non_opp_parts in
+          let ud =
+            if kind = Phantom
+            then ud (* don't fill the deficit on provisioned part *)
+            else add_part ud share.condition part.nop_part
+          in
+          let nop_shares = { share with part }::nop_shares in
+          parts, { defs with non_opp_parts = ud, nop_shares })
     (R.Map.empty, empty_defs) rep
 
 let check_fullness (rep : unified_parts) : unit =
@@ -165,7 +188,7 @@ let check_fullness (rep : unified_parts) : unit =
 
 type fullness_result = {
   parts : opposable_part t;
-  non_opp_parts : opposable_part t;
+  non_opp_parts : non_opposable_part t;
   defaults : unified_parts t;
   deficits : unified_parts share option;
 }
@@ -233,19 +256,13 @@ let resolve_fullness_exn (rep : part_or_def t) =
     parts =
       List.filter_map (fun {part; dest; condition; event_path } ->
           match part with
-          | Part { part; non_opp = false } ->
+          | Part { part; kind = Opposable } ->
             Some { part; dest; condition; event_path }
           | _ -> None)
         rep;
     defaults = (Option.to_list global_default) @ local_defaults;
     deficits = deficit;
-    non_opp_parts =
-      List.filter_map (fun { part; dest; condition; event_path } ->
-          match part with
-          | Part { part; non_opp = true } ->
-            Some { part; dest; condition; event_path }
-          | _ -> None)
-        rep;
+    non_opp_parts = snd defs.non_opp_parts;
   }
 
 let resolve_fullness (rep : part_or_def t) =
