@@ -9,7 +9,7 @@ let pos (start, stop) = Pos.Text.make ~start ~stop
 %token ACTEUR POUR EVENEMENT NON ET OU AVANT APRES QUAND CONTEXTE TOUT CONSTANTE
 %token LPAR RPAR VERS ATTEINT PLUS MINUS MULT DIV EQ COLON EOF DEFICIT
 %token COMMA RETROCESSION RESTE OPPOSABLE ENVERS VALEUR CALCULEE
-%token OBSERVABLE // SECTION FIN
+%token OBSERVABLE FINANCER // SECTION FIN
 %token<R.t> FLOAT MONEY
 %token<Z.t> INT
 %token<string> LIDENT UIDENT
@@ -326,6 +326,9 @@ default_decl:
 deficit_decl:
 | DEFICIT SUR src = pool PAR def = holder { src, def }
 
+backer_decl:
+| FINANCER bac_backed = holder PAR bac_backer = actor { { bac_backed; bac_backer } }
+
 /* section: */
 /* | SECTION section_name = UIDENT section_context = context* */
 /*   section_guards = event_guard* section_decl = toplevel_decl* FIN */
@@ -352,6 +355,7 @@ toplevel_decl:
 | d = deficit_decl
   { let (deficit_pool, deficit_provider) = d in
     DHolderDeficit { deficit_pool; deficit_provider } }
+| b = backer_decl { DHolderBacker b }
 /* | s = section { DSection s } */
 
 program: d = toplevel_decl* EOF { Source d }
