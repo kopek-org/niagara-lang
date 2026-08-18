@@ -4,7 +4,7 @@ let print_type fmt (t : ValueType.t) =
   Format.fprintf fmt "%s"
   (match t with
   | ValueType.TInteger -> "entier"
-  | ValueType.TRational -> "rationel"
+  | ValueType.TRational -> "rationnel"
   | ValueType.TMoney -> "argent"
   | ValueType.TEvent -> "evenement"
   | ValueType.TDate -> "date"
