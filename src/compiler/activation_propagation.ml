@@ -311,18 +311,17 @@ let order_eqs ~filter acc =
       | _scc -> Report.raise_internal_error "Cyclic equations")
     scc)
 
-let compute (pinfos : ProgramInfo.t) (ag_eqs : aggregate_eqs)
-    (act_eqs : expr Variable.Map.t) =
-  let acc = make_acc pinfos ag_eqs act_eqs in
+let compute ({ infos; aggr_eqs; event_eqs; } : Equationalize.result) =
+  let acc = make_acc infos aggr_eqs event_eqs in
   let acc =
     Variable.Map.fold (fun dest _eqs acc ->
         fst @@ compute_one acc dest)
-      ag_eqs acc
+      aggr_eqs acc
   in
   let acc =
     Variable.Map.fold (fun dest _eqs acc ->
         fst @@ compute_one acc dest)
-      act_eqs acc
+      event_eqs acc
   in
   let val_order =
     order_eqs acc

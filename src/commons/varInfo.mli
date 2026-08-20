@@ -62,6 +62,7 @@ val is_input : t -> bool
 val is_partner : t -> bool
 val is_provider : t -> bool
 val is_event : t -> bool
+val is_constant : t -> bool
 
 (** Returns the name of the partner if this is a receiving partner (i.e. a
     partner of the original project), otherwise returns [None]. *)

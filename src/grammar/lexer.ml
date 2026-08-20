@@ -46,6 +46,7 @@ let keywords =
     "calculee", CALCULEE;
     "observable", OBSERVABLE;
     "financer", FINANCER;
+    "avance", AVANCE;
     (* "section", SECTION; *)
     (* "fin", FIN; *)
   ]

@@ -229,11 +229,13 @@ type ctx_val_decl = {
 type backer_decl = {
   bac_backer : actor;
   bac_backed : holder;
+  bac_advance : Literal.t option;
 }
 
 type ctx_backer_decl = {
   ctx_bac_backer : Variable.t;
   ctx_bac_backed : contextualized_variable;
+  ctx_bac_advance : Literal.t option;
 }
 
 type _ declaration =

@@ -7,5 +7,6 @@
     surface
     dataflow
     ocamlgraph
+    zarith
   )
 )

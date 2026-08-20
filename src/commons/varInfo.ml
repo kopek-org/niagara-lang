@@ -76,6 +76,8 @@ let is_provider t =
 
 let is_event t = t.kind = Event
 
+let is_constant t = t.kind = Constant
+
 let is_original_partner t =
   match t.kind, t.origin with
   | Partner Receiver, Named s -> Some s

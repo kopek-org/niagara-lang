@@ -13,12 +13,21 @@ type init_requirements = {
      [mandatory_values] is strictly included in this set *)
 }
 
+type init_reason =
+  | Advance of Literal.t
+
+type init_valuation = {
+  init_val : Literal.t;
+  init_reason : init_reason;
+}
+
 type t = {
   var_info : VarInfo.collection;
   var_shapes : Context.shape Variable.Map.t;
   contexts : Context.world;
   compounds : Variable.Set.t Variable.Map.t;
   constants : Literal.t Variable.Map.t;
+  init_valuations : init_valuation Variable.Map.t;
   relevance_sets : relevance_set Variable.Map.t;
   init_requirements : init_requirements;
   dep_graph : Variable.Graph.t;
@@ -35,6 +44,7 @@ let dummy = {
   contexts = Context.empty_world;
   compounds = Variable.Map.empty;
   constants = Variable.Map.empty;
+  init_valuations = Variable.Map.empty;
   relevance_sets = Variable.Map.empty;
   init_requirements = dummy_init_req;
   dep_graph = Variable.Graph.empty;
