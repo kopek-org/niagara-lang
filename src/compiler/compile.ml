@@ -50,7 +50,7 @@ let compile : Ast.source Ast.program -> Equ.program * Equ.limits = fun program -
   (* Format.(fprintf (formatter_of_out_channel (open_out "graph.dot")) "%s" *)
   (*           (Dot.dot_string_of_program equ_res filter)); *)
   (* time "graph produced"; *)
-  let prog = Activation_propagation.compute equ_res.infos equ_res.aggr_eqs equ_res.event_eqs in
+  let prog = Activation_propagation.compute equ_res in
   (* let () = FormatEqu.print_program fmt prog in *)
   (* let () = *)
   (*   List.iter (Format.fprintf fmt "%a@." (FormatEqu.print_var_with_info prog.infos)) *)

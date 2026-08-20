@@ -12,11 +12,14 @@
          2000 -> distrib
          default 8000 -> rnpp
        - rnpp { 8000, 8000 }:
+         160 -> scenar
          400 -> auteur
          3200 -> sofica
          default 4800 -> prod
+       - scenar { 160, -840 }:
        - auteur { 700, 700 }:
        - prod { 4800, 4800 }:
+         - prod[rem_scenar] { 160, -840 }:
          - prod[rem_auteur] { 700, 700 }:
          
        - sofica { 3200, 3200 }:
@@ -58,5 +61,22 @@
        - rnpp { 8000, 8000 }:
          400 -> auteur
        - auteur { 700, 700 }:
+       
+     
+  $ OCAMLRUNPARAM=b niagara --test ../examples/backing.nga --for scenar <<EOF
+  > 1: rbd += 10000
+  > EOF
+  Awaiting inputs:
+  ### OUTPUTS ###
+  0: ++ no events:
+       
+     
+  1: ++ no events:
+       - rbd { 10000, 10000 }:
+         2000 -> distrib
+         default 8000 -> rnpp
+       - rnpp { 8000, 8000 }:
+         160 -> scenar
+       - scenar { 160, -840 }:
        
      

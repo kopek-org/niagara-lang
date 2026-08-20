@@ -352,11 +352,16 @@ let init_state (p : program) (l : limits) (init : Initialization.t) =
       | Cumul -> true
       | _ -> false
     in
+    let prog_init v =
+      match Variable.Map.find_opt v p.infos.init_valuations with
+      | None -> Present Value.zero
+      | Some { init_val; _ } -> Present (literal_value init_val)
+    in
     let f =
       match init with
       | Zeros -> fun v _ ->
         if must_be_valued v
-        then Some (Present Value.zero)
+        then Some (prog_init v)
         else None
       | FromValues vals ->
         fun v _ ->
@@ -369,7 +374,7 @@ let init_state (p : program) (l : limits) (init : Initialization.t) =
             | _ -> v
           in
           match Variable.Map.find_opt fv vals with
-          | None -> if must_be_valued v then Some (Present Value.zero) else None
+          | None -> if must_be_valued v then Some (prog_init v) else None
           | Some l -> Some (Present (literal_value l))
     in
     Variable.Map.filter_map f p.val_eqs
