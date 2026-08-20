@@ -111,7 +111,8 @@ let is_actor t (v : Variable.t) =
   | Some i -> VarInfo.is_partner i
 
 let is_constant t (v : Variable.t) =
-  Variable.Map.mem v t.pinfos.constants
+  let info = Variable.Map.find v t.pinfos.var_info in
+  VarInfo.is_constant info
 
 let create_cumulation t v =
   let t, cv =
@@ -308,6 +309,27 @@ let register_value t ~(act : Condition.t) ~(dest : Variable.t) (expr : expr) =
 
 let register_phantom_dest t (dest : Variable.t) =
   { t with phantom_dests = Variable.Set.add dest t.phantom_dests }
+
+let register_advance t (advanced_cumul : Variable.t) (amount : Literal.t) =
+  let offset =
+    match amount with
+    | Literal.LInteger i -> Literal.LInteger (Z.neg i)
+    | LRational r -> LRational (R.neg r)
+    | LMoney m -> LMoney (R.neg m)
+    | LDate _ | LDuration _ -> assert false
+  in
+  { t with
+    pinfos = {
+      t.pinfos with
+      init_valuations =
+        Variable.Map.add advanced_cumul
+          ProgramInfo.{
+            init_val = offset;
+            init_reason = Advance amount;
+          }
+          t.pinfos.init_valuations;
+    }
+  }
 
 let add_deficit_var t ~(act : Condition.t) ~(provider : Variable.t) (def : Variable.t) =
   { t with
@@ -1188,7 +1210,18 @@ let translate_backer acc (b : Ast.ctx_backer_decl) =
        We must stick to labels for now *)
     | ContextVar vars -> vars
   in
-  let acc = Acc.ensure_cumulation acc b.ctx_bac_backer in
+  let acc, cvar = Acc.get_cumulation_var acc b.ctx_bac_backer in
+  let acc = match b.ctx_bac_advance with
+    | None -> acc
+    | Some advance ->
+      let acc = Acc.register_advance acc cvar advance in
+      match backed_vars with
+      | [] -> Report.raise_internal_error "no backing target var found"
+      | [backed] ->
+        let acc, cbacked = Acc.get_cumulation_var acc backed in
+        Acc.register_advance acc cbacked advance
+      | _::_::_ -> Report.raise_error "Forbidden advance on multiple targets"
+  in
   List.fold_left (fun acc backed ->
       let acc = Acc.register_phantom_dest acc backed in
       Acc.register_aggregation acc ~act:Condition.always

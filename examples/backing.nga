@@ -1,6 +1,7 @@
 acteur distrib
 acteur sofica
 acteur auteur
+acteur scenar
 acteur prod
 
 entree assiette rbd
@@ -15,7 +16,10 @@ operation
 sur assiette rnpp
 quotepart 40% vers sofica
 quotepart 5% vers auteur
+quotepart 2% vers scenar
 
 defaut sur assiette rnpp vers prod
 
 financer auteur par prod[rem_auteur]
+
+financer scenar par prod[rem_scenar] avance 1000$

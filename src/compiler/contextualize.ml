@@ -964,8 +964,9 @@ let declaration acc (decl : source declaration) =
   | DHolderBacker b ->
     let acc, ctx_bac_backed = find_holder acc b.bac_backed in
     let acc, ctx_bac_backer = find_actor ~way:Provider acc b.bac_backer in
+    let ctx_bac_advance = b.bac_advance in
     let acc = Acc.add_deps_from acc ctx_bac_backer [fst ctx_bac_backed] in
-    Acc.add_program_decl acc (DVarBacker { ctx_bac_backed; ctx_bac_backer })
+    Acc.add_program_decl acc (DVarBacker { ctx_bac_backed; ctx_bac_backer; ctx_bac_advance })
 
 let program (Source prog : source program) : contextualized program =
   let acc = Acc.empty in

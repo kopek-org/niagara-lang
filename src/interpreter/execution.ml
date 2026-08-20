@@ -346,19 +346,19 @@ let init_state (p : program) (l : limits) (init : Initialization.t) =
          if Condition.is_always eq_act then Some (init_val v) else None)
       map
   in
-  let const_init vals =
-    Variable.Map.fold (fun c l vals ->
-        Variable.Map.add c (Present (literal_value l)) vals)
-      p.infos.constants vals
+  let prog_init v =
+    match Variable.Map.find_opt v p.infos.init_valuations with
+    | None -> Present Value.zero
+    | Some { init_val; _ } -> Present (literal_value init_val)
   in
   let val_init =
     let f =
       match init with
-      | Zeros -> fun _ -> Present Value.zero
+      | Zeros -> prog_init
       | FromValues vals ->
         fun v ->
           match Variable.Map.find_opt v vals with
-          | None -> Present Value.zero
+          | None -> prog_init v
           | Some l -> Present (literal_value l)
     in
     init_map p.val_eqs f
@@ -369,7 +369,7 @@ let init_state (p : program) (l : limits) (init : Initialization.t) =
          trigger at the very first step. Works because the first thing
          computed at each steps are events. *)
       events = init_map p.act_eqs (fun _ -> true);
-      valuations = const_init val_init;
+      valuations = val_init;
       queue = [Init];
     }
   in
