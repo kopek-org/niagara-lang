@@ -54,5 +54,11 @@ let test_stdin (p : Equ.program) (l : Equ.limits) (for_partner : string option) 
           }
   in
   let outputs = Interpreter.Execution.compute_input_lines p l init inputs in
+  let fmt = Format.formatter_of_out_channel stdout in
+  (* let cumul_results = *)
+  (*   Interpreter.Results.compute_temporal_cumulatives *)
+  (*     p.infos.var_info outputs *)
+  (* in *)
+  (* Interpreter.Printer.print_inputs_cumulatives p.infos fmt cumul_results; *)
   Interpreter.Printer.print_intepreter_outputs
-    p (Format.formatter_of_out_channel stdout) norm_mode outputs
+    p fmt norm_mode outputs

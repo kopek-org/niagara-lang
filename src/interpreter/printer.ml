@@ -164,3 +164,50 @@ let print_intepreter_outputs (p : Dataflow.Equ.program) fmt (norm_mode : Results
   in
   pp_print_flush fmt ()
 
+
+let print_temporal_slice_values fmt (svs : Results.temporal_slice_value list) =
+  let rec aux state tsvs =
+    match tsvs with
+    | [] -> ()
+    | h::t ->
+      let diff =
+        let diffm =
+          Variable.Map.merge (fun _ state slice ->
+              match state, slice with
+              | _, None -> None
+              | None, Some _ -> slice
+              | Some b1, Some b2 -> if b1 = b2 then None else slice)
+            state h.Results.slice_event_state
+        in
+        Variable.Map.fold (fun e p acc -> Condition.(conj acc (of_event e p)))
+          diffm Condition.always
+      in
+      let state = h.slice_event_state in
+      Format.fprintf fmt "@ @[<hov 2>{ %a }@ %a@]"
+        Condition.print diff
+        Value.human_print h.slice_value;
+      aux state t
+  in
+  aux Variable.Map.empty svs
+
+let print_var_cumulative fmt (tc : Results.var_cumulative) =
+  Format.fprintf fmt "total = %a@ slice = %a@ @[<v 2>chrono =%a@]"
+    Value.human_print tc.from_start_total
+    Value.human_print tc.slices_total
+    print_temporal_slice_values tc.slices
+
+let print_temporal_cumulatives pinfos fmt (tcs : Results.temporal_cumulatives) =
+  Variable.Map.iter (fun v vc ->
+      Format.fprintf fmt "@[<v 2>%a@;%a@]@,"
+        (ProgramInfo.print_variable pinfos) v
+        print_var_cumulative vc) tcs
+
+let print_inputs_cumulatives pinfos fmt (m : Results.temporal_cumulatives InputLineMap.t) =
+  Format.fprintf fmt "@[<v 0>=== Cumulatives values ===@;";
+  InputLineMap.iter (fun i tcs ->
+      Format.fprintf fmt "@[<v 2>%d::@,%a@]@,"
+        i
+        (print_temporal_cumulatives pinfos) tcs
+    )
+    m;
+  Format.fprintf fmt "@]@."

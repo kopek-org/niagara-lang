@@ -702,9 +702,9 @@ let compute_temporal_cumulatives vinfos (valuations : computation_outputs)
     let slices_total, slices =
       List.fold_left (fun (tot, slices) step ->
           let slice_value =
-            match Variable.Map.find v step.step_valuations with
-            | Absent -> Value.zero
-            | Present v -> v
+            match Variable.Map.find_opt v step.step_valuations with
+            | None | Some Absent -> Value.zero
+            | Some (Present v) -> v
           in
           if Value.(eq slice_value zero)
           then tot, slices (* zeroed slices add no informations *)
