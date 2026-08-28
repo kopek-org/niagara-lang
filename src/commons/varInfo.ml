@@ -57,6 +57,34 @@ type t = {
 
 type collection = t Variable.Map.t
 
+
+type classify =
+  | Flow       (* Variable having a proper step value (linear or not) *)
+  | Cumul      (* Variable representing cumulative valuation on each step *)
+  | Const      (* Variable having the same valuation at every step *)
+  | Activation (* Variable for event valuation *)
+
+let classify t =
+  let rec classify_origin = function
+    | OpposingVariant { variant; _ }
+      -> classify_origin variant
+    | Cumulative _
+      -> Cumul
+    | AnonEvent | Peeking _ | RisingEvent _
+      -> Activation
+    | Named _ | LabelOfPartner _ | ContextSpecialized _ | OperationDetail _
+    | LocalValuation _ | OperationSum _ | RepartitionSum _ | DeficitSum _
+    | StagedRepartition _ | PoolStage _ | ConditionExistential
+    | OppositionDelta _
+      -> Flow
+  in
+  match t.kind with
+  | Constant -> Const
+  | Event -> Activation
+  | Value { cumulative = true; _ } -> Cumul
+  | Partner _ | ParameterInput _ | PoolInput _
+  | Intermediary | Computed | Value _ -> classify_origin t.origin
+
 let is_input t =
   match t.kind with
   | ParameterInput { shadow  = false }

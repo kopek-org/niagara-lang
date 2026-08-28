@@ -57,6 +57,14 @@ type t = {
 
 type collection = t Variable.Map.t
 
+type classify =
+  | Flow       (** Variable having a proper step value (linear or not) *)
+  | Cumul      (** Variable representing cumulative valuation on each step *)
+  | Const      (** Variable having the same valuation at every step *)
+  | Activation (** Variable for event valuation *)
+
+val classify : t -> classify
+
 val is_input : t -> bool
 val is_partner : t -> bool
 val is_provider : t -> bool
