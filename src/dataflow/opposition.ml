@@ -352,6 +352,7 @@ let add_delta acc env =
       kind = Intermediary;
       typ = TMoney;
       origin = OppositionDelta { target = env.target };
+      phantom = true;
     }
     in
     let cdv = Variable.create () in
@@ -359,6 +360,7 @@ let add_delta acc env =
       kind = Intermediary;
       typ = TMoney;
       origin = Cumulative dv;
+      phantom = true;
     }
     in
     let dve = EAdd (EVar opp, ENeg (EVar env.target)) in

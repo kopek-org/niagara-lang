@@ -166,6 +166,7 @@ end = struct
         origin = Named name;
         typ = TMoney;
         kind = if computed then Computed else Intermediary;
+        phantom = false;
       }
     in
     let t = bind_vinfo v info t in
@@ -187,6 +188,7 @@ end = struct
         origin = Named name;
         typ;
         kind = Value { observable = obs; cumulative = not linear };
+        phantom = false;
       }
     in
     let t = bind_vinfo v info t in
@@ -202,6 +204,7 @@ end = struct
         origin = Named name;
         typ;
         kind = PoolInput { shadow = false };
+        phantom = false;
       }
       in
       let t, v = register_pool t name ~computed:false in
@@ -214,6 +217,7 @@ end = struct
         origin = Named name;
         typ;
         kind = ParameterInput { shadow = false };
+        phantom = false;
       }
       in
       let t = bind_var name (RefROInput v) t in
@@ -227,6 +231,7 @@ end = struct
         origin = Named name;
         typ = TMoney;
         kind = Partner Receiver;
+        phantom = false;
       }
     in
     let t = bind_vinfo pv info t in
@@ -240,6 +245,7 @@ end = struct
         origin = Named name;
         typ = ValueType.TEvent;
         kind = Event;
+        phantom = false;
       }
     in
     let t = bind_vinfo v info t in
@@ -252,6 +258,7 @@ end = struct
         origin = Named name;
         typ;
         kind = Constant;
+        phantom = false;
       }
     in
     let t = bind_vinfo v info t in
@@ -323,6 +330,7 @@ end = struct
           origin = LabelOfPartner { partner = base_actor; label };
           typ = ValueType.TMoney;
           kind = Partner way;
+          phantom = false;
         }
       in
       let t = bind_vinfo vl info t in
