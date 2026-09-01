@@ -53,6 +53,10 @@ type t = {
   origin : origin;
   typ : ValueType.t;
   kind : kind;
+  phantom : bool;
+  (** Phantom value means that this value should not affect other
+      parts of a program, other than value that depends on it (also
+      phantoms, I think) *)
 }
 
 type collection = t Variable.Map.t

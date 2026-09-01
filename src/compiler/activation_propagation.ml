@@ -69,6 +69,7 @@ let create_existential acc =
         typ = ValueType.TMoney;
         (* At this point the only type that makes sense *)
         kind = Intermediary;
+        phantom = true; (* Shouldn't matter, but this is what fits best *)
       }
   in
   acc, v

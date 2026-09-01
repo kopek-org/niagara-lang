@@ -156,6 +156,20 @@ let var_shape t (v : Variable.t) =
   | Some shape -> shape
   | None -> Report.raise_error "No shape for var %d" (Variable.uid v)
 
+let qualify_phantom t (v : Variable.t) =
+  let var_info =
+    Variable.Map.update v (function
+        | None -> Report.raise_internal_error "Cannot qualify as phantom unknown variable"
+        | Some i -> Some { i with VarInfo.phantom = true })
+      t.pinfos.var_info
+  in
+  { t with
+    pinfos = {
+      t.pinfos with
+      var_info
+    }
+  }
+
 let register_opposition t ~(on : Variable.t) ~(target : Variable.t)
     ~(provider : Variable.t) (subst : Opposition.user_substitution) =
   let oppositions =
@@ -204,6 +218,7 @@ let lift_event t (event, opp_evs : expr_with_opps)
              | RaiseTest v -> RisingEvent v);
           typ = ValueType.TEvent;
           kind = Event;
+          phantom = false;
         }
       in
       let t = bind_vinfo t v info in
@@ -308,6 +323,7 @@ let register_value t ~(act : Condition.t) ~(dest : Variable.t) (expr : expr) =
   { t with value_eqs; }
 
 let register_phantom_dest t (dest : Variable.t) =
+  let t = qualify_phantom t dest in
   { t with phantom_dests = Variable.Set.add dest t.phantom_dests }
 
 let register_advance t (advanced_cumul : Variable.t) (amount : Literal.t) =
@@ -479,6 +495,7 @@ let convert_repartitions t =
             register_part t src
               { nop_share with part = (nop_part, []) }
           in
+          let t = qualify_phantom t v in
           let t = register_aggregation t ~act ~dest:nop_share.dest v in
           let expr =
             if nop_provisioned

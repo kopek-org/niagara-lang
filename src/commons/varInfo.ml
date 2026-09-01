@@ -53,6 +53,7 @@ type t = {
   origin : origin;
   typ : ValueType.t;
   kind : kind;
+  phantom : bool;
 }
 
 type collection = t Variable.Map.t
