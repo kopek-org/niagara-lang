@@ -162,11 +162,14 @@ let compute_value (s : state) (cond_state : cond_state)
   | Unsat -> Absent
   | Sat -> Present (valuate s eq_expr)
 
-let compute_values (p : program) (s : state) (cond_state : cond_state) =
+let compute_values ?(initialize = false) (p : program)
+    (s : state) (cond_state : cond_state) =
   Array.fold_left (fun s var ->
       let eq = Variable.Map.find var p.val_eqs in
       let value = compute_value s cond_state eq in
-      update_value s var value)
+      if initialize && value = Absent
+      then s
+      else update_value s var value)
     s p.val_order
 
 type linear = Compiler.Limits.linear = {
@@ -299,12 +302,15 @@ let find_event_threshold (p : program) (l : limits) (s : state) (cond_state : co
     l None
 
 let compute_action (p : program) (l : limits) (s : state) (action : action) =
-  let s = compute_events p s in
   match action with
   | Init ->
-    let s = compute_values p s (Variable.Map.map (fun _ -> false) s.events) in
+    let s =
+      compute_values ~initialize:true p s
+        (Variable.Map.map (fun _ -> false) s.events)
+    in
     compute_events p s
   | PoolRep (var, value) ->
+    let s = compute_events p s in
     let cond_state = Variable.Map.add var true s.events in
     let threshold = find_event_threshold p l s cond_state in
     let s, value =
@@ -340,36 +346,41 @@ let compute_input_value (p : program) (l : limits) (s : state) (i : Variable.t)
   compute_queue p l s
 
 let init_state (p : program) (l : limits) (init : Initialization.t) =
-  let init_map map init_val =
-    Variable.Map.filter_map
-      (fun v { eq_act; _ } ->
-         if Condition.is_always eq_act then Some (init_val v) else None)
-      map
-  in
-  let const_init vals =
-    Variable.Map.fold (fun c l vals ->
-        Variable.Map.add c (Present (literal_value l)) vals)
-      p.infos.constants vals
-  in
-  let val_init =
+  let valuations =
+    let must_be_valued v =
+      match VarInfo.classify (Variable.Map.find v p.infos.var_info) with
+      | Cumul -> true
+      | _ -> false
+    in
     let f =
       match init with
-      | Zeros -> fun _ -> Present Value.zero
+      | Zeros -> fun v _ ->
+        if must_be_valued v
+        then Some (Present Value.zero)
+        else None
       | FromValues vals ->
-        fun v ->
-          match Variable.Map.find_opt v vals with
-          | None -> Present Value.zero
-          | Some l -> Present (literal_value l)
+        fun v _ ->
+          let fv =
+            (* doubling initialization for cumulative as well *)
+            match (Variable.Map.find v p.infos.var_info).origin with
+            | Cumulative fv
+            | OpposingVariant { variant = Cumulative fv; _ }
+              -> fv
+            | _ -> v
+          in
+          match Variable.Map.find_opt fv vals with
+          | None -> if must_be_valued v then Some (Present Value.zero) else None
+          | Some l -> Some (Present (literal_value l))
     in
-    init_map p.val_eqs f
+    Variable.Map.filter_map f p.val_eqs
   in
   let s =
     {
       (* Setting events to passed is a hack to avoid Raising event to
          trigger at the very first step. Works because the first thing
          computed at each steps are events. *)
-      events = init_map p.act_eqs (fun _ -> true);
-      valuations = const_init val_init;
+      events = Variable.Map.map (fun _ -> true) p.act_eqs;
+      valuations;
       queue = [Init];
     }
   in

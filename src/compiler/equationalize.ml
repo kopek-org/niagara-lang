@@ -820,6 +820,20 @@ let build_init_requirements t =
   let init_requirements =
     { raw_initr with mandatory_values }
   in
+  let cumul_to_flow v =
+    match (Variable.Map.find v t.pinfos.var_info).origin with
+    | Cumulative v'
+    | OpposingVariant { variant = Cumulative v'; _ }
+      -> v'
+    | _ -> v
+  in
+  let init_requirements =
+    { mandatory_values =
+        Variable.Set.map cumul_to_flow init_requirements.mandatory_values;
+      initializable_values =
+        Variable.Set.map cumul_to_flow init_requirements.initializable_values;
+    }
+  in
   { t with
     pinfos =
       { t.pinfos with init_requirements }

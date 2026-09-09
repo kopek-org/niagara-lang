@@ -13,6 +13,9 @@
   Awaiting inputs:
   ### OUTPUTS ###
   0: ++ no events:
+       - prod { 0, 0 }:
+         
+       - sofica { -400, -400 }:
        - palier { -100, -100 }:
        
      
@@ -60,6 +63,7 @@
   Awaiting inputs:
   ### OUTPUTS ###
   0: ++ no events:
+       - sofica @sofica { 500, 500 }:
        - palier { -100, -100 }:
        
      
