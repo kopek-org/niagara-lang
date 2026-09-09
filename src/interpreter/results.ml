@@ -674,13 +674,13 @@ let diff_step_events ev1 ev2 =
 
 let compute_temporal_cumulatives vinfos (valuations : computation_outputs)
   : temporal_cumulatives InputLineMap.t =
-  let rec relevant_var { origin; kind; _ } =
-    match kind with
-    | Constant | Event | Value { cumulative = true; _ } -> false
+  let rec relevant_var info =
+    match info.kind with
+    | Constant | Event -> false
     | _ ->
-      match origin with
+      match info.origin with
       | Named _ | LabelOfPartner _ | ContextSpecialized _ | OperationDetail _
-      | OppositionDelta _ | AnonEvent -> true
+      | OppositionDelta _ -> true
       | OpposingVariant { origin; _ } ->
         relevant_var (Variable.Map.find origin vinfos)
       | _ -> false
@@ -699,18 +699,22 @@ let compute_temporal_cumulatives vinfos (valuations : computation_outputs)
       vinfos
   in
   let one_var steps v last_vc =
+    let is_cumulative = classify (Variable.Map.find v vinfos) = Cumul in
     let slices_total, slices =
       List.fold_left (fun (tot, slices) step ->
           let slice_value =
             match Variable.Map.find_opt v step.step_valuations with
             | None | Some Absent -> Value.zero
-            | Some (Present v) -> v
+            | Some (Present v) ->
+              if is_cumulative then
+                Value.sub v (Value.add tot last_vc.from_start_total)
+              else v
           in
           if Value.(eq slice_value zero)
           then tot, slices (* zeroed slices add no informations *)
           else
-          Value.add tot slice_value,
-          { slice_value; slice_event_state = step.step_events }::slices)
+            Value.add tot slice_value,
+            { slice_value; slice_event_state = step.step_events }::slices)
         (Value.zero, []) steps
     in
     { from_start_total =
