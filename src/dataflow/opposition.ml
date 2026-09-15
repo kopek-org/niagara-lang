@@ -32,7 +32,9 @@ type acc = {
 
 type env = {
   target : Variable.t;
-  provider : Variable.t;
+  provider : Variable.t option;
+  (* Opposition provider should always be present when there is an actual delta.
+     This should be enforced syntactically *)
   user_substs : user_substitutions;
   cumulatives : Variable.t Variable.Map.t;
 }
@@ -349,11 +351,19 @@ let add_delta acc env =
   match Variable.Map.find_opt env.target acc.copies with
   | None | Some None -> acc
   | Some (Some opp) ->
+    let provider =
+      match env.provider with
+      | None ->
+        (* No provider means no actual opposition, so no copy of the
+           target, as checked above *)
+        assert false
+      | Some provider -> provider
+    in
     let dv = Variable.create () in
     let dvinfo = VarInfo.{
       kind = Intermediary;
       typ = TMoney;
-      origin = OppositionDelta { target = env.target; provider = env.provider };
+      origin = OppositionDelta { target = env.target; provider };
       phantom = true;
     }
     in
@@ -369,9 +379,9 @@ let add_delta acc env =
     let cdve = EAdd (EPre cdv, EVar dv) in
     let relevance_sets =
       (* add delta to provider relevance set *)
-      Variable.Map.update env.provider (function
+      Variable.Map.update provider (function
           | None -> Some {
-              endpoint = env.provider;
+              endpoint = provider;
               relevant_vars =
                 Variable.Set.singleton dv
                 |> Variable.Set.add cdv }
@@ -382,14 +392,16 @@ let add_delta acc env =
                      |> Variable.Set.add cdv })
         acc.relevance_sets
     in
+    let value_eqs =
+      Variable.Map.add dv (One { eq_act = Condition.always; eq_expr = dve }) acc.value_eqs
+      |> Variable.Map.add cdv (One { eq_act = Condition.always; eq_expr = cdve })
+    in
     { acc with
       relevance_sets;
       var_info =
         Variable.Map.add dv dvinfo acc.var_info
         |> Variable.Map.add cdv cdvinfo;
-      value_eqs =
-        Variable.Map.add dv (One { eq_act = Condition.always; eq_expr = dve }) acc.value_eqs
-        |> Variable.Map.add cdv (One { eq_act = Condition.always; eq_expr = cdve })
+      value_eqs;
     }
 
 let save_relevant_set ~opposable acc ~(target : Variable.t) =
@@ -437,8 +449,9 @@ let save_relevant_set ~opposable acc ~(target : Variable.t) =
             acc.relevance_sets
   }
 
-let resolve_one_target ~opposable pinfos acc ~(target : Variable.t) ~(provider : Variable.t)
-    (user_substs : user_substitutions) (cumulatives : Variable.t Variable.Map.t) =
+let resolve_one_target ~opposable pinfos acc ~(target : Variable.t)
+    ~(provider : Variable.t option) (user_substs : user_substitutions)
+    (cumulatives : Variable.t Variable.Map.t) =
   let env = { target; provider; user_substs; cumulatives } in
   let graph = graph_var acc user_substs Variable.Graph.empty target in
   let acc, has_consequent = populate_copies acc env graph in
@@ -459,13 +472,7 @@ let resolve (pinfo : ProgramInfo.t) (value_eqs : aggregate_eqs)
   in
   let acc =
     Variable.Map.fold (fun target substs acc ->
-        let provider =
-          match Variable.Map.find_opt target providers with
-          | None ->
-            Report.raise_internal_error "no provider for opposition target '%s'"
-          (VarInfo.get_any_name acc.var_info target)
-          | Some provider -> provider
-        in
+        let provider = Variable.Map.find_opt target providers in
         resolve_one_target ~opposable:true pinfo acc ~target ~provider substs cumulatives)
       oppositions acc
   in
@@ -483,7 +490,7 @@ let resolve (pinfo : ProgramInfo.t) (value_eqs : aggregate_eqs)
               pinfo
               acc
               ~target:v
-              ~provider:v (* should be useless *)
+              ~provider:None
               Variable.Map.empty
               cumulatives
       )
