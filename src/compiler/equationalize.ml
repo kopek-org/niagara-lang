@@ -15,7 +15,7 @@ type result = {
   event_eqs : Equ.expr Variable.Map.t;
 }
 
-type opposed_expr = (expr * Variable.t) Variable.Map.t
+type opposed_expr = (expr * Variable.t option) Variable.Map.t
 
 type expr_with_opps = expr * opposed_expr
 
@@ -154,7 +154,7 @@ let var_shape t (v : Variable.t) =
   | None -> Report.raise_error "No shape for var %d" (Variable.uid v)
 
 let register_opposition t ~(on : Variable.t) ~(target : Variable.t)
-    ~(provider : Variable.t) (subst : Opposition.user_substitution) =
+    ~(provider : Variable.t option) (subst : Opposition.user_substitution) =
   let oppositions =
     Variable.Map.update target (function
         | None -> Some (Variable.Map.singleton on subst)
@@ -163,16 +163,16 @@ let register_opposition t ~(on : Variable.t) ~(target : Variable.t)
   in
   let opposition_providers =
     Variable.Map.update target (function
-        | None -> Some provider
+        | None -> provider
         | Some p ->
-          if not @@ Variable.equal p provider then
+          match provider with
+          | Some provider when not @@ Variable.equal p provider ->
             Report.raise_multiple_opp_provider_error t.pinfos target
-          else Some p)
+          | _ -> Some p)
       t.opposition_providers
   in
-  ensure_cumulation
-    { t with oppositions; opposition_providers }
-    provider
+  let t = { t with oppositions; opposition_providers } in
+  Option.fold ~none:t ~some:(ensure_cumulation t) provider
 
 let register_event t (v : Variable.t) (e : expr) =
   { t with event_eqs = Variable.Map.add v e t.event_eqs }
@@ -431,7 +431,8 @@ let convert_repartitions t =
           in
           let expr = EMult (EConst (LRational opp_value), EVar src) in
           let subst = Opposition.{ expr; kind; condition } in
-          register_opposition t ~on:ov ~target:opp_target ~provider:opp_provider subst)
+          register_opposition t ~on:ov ~target:opp_target
+            ~provider:(Some opp_provider) subst)
         t opposed
     in
     let expr = EMult (EConst (LRational part), EVar src) in
@@ -923,10 +924,13 @@ let combine_fopps (cmb : expr -> expr -> expr)
         | Some (e1, p1), None -> e1, canon2, p1
         | None, Some (e2, p2) -> canon1, e2, p2
         | Some (e1, p1), Some (e2, p2) ->
-          if not @@ Variable.equal p1 p2 then
-            Report.raise_error "Several opposition provider for a same target"
-          else
-            e1, e2, p1
+          match p1, p2 with
+          | Some p1, Some p2 ->
+            if not @@ Variable.equal p1 p2 then
+              Report.raise_error "Several opposition provider for a same target"
+            else
+              e1, e2, Some p1
+          | None, p | p, None -> e1, e2, p
       in
       Some (cmb e1 e2, p))
     opps1 opps2
@@ -957,7 +961,7 @@ let rec translate_formula acc ~(ctx : Context.Group.t) ~(view : flow_view)
        || Variable.Map.mem opp_towards fopps
     then
       Report.raise_error "forbidden nested opposable formulae";
-    let fopps = Variable.Map.add opp_towards (fo, opp_provider) fopps in
+    let fopps = Variable.Map.add opp_towards (fo, Some opp_provider) fopps in
     acc, (fc, fopps)
 
 let rec translate_event acc (eexpr : Ast.contextualized Ast.event_expr) =
@@ -1003,6 +1007,12 @@ let translate_redistribution acc ~(ctx : Context.Group.t)
             match reduce_to_r value with
             | Some p -> p
             | None -> Report.raise_error "Non-constant quotepart"
+          in
+          let provider =
+            match provider with
+            | None ->
+              Report.raise_internal_error "missing provider on quotepart opposition"
+            | Some p -> p
           in
           (target, opp_part, provider)::opps)
         fopps []
