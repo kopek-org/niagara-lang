@@ -9,7 +9,7 @@ let pos (start, stop) = Pos.Text.make ~start ~stop
 %token ACTEUR POUR EVENEMENT NON ET OU AVANT APRES QUAND CONTEXTE TOUT CONSTANTE
 %token LPAR RPAR VERS ATTEINT PLUS MINUS MULT DIV EQ COLON EOF DEFICIT
 %token COMMA RETROCESSION RESTE OPPOSABLE ENVERS VALEUR CALCULEE
-%token OBSERVABLE FINANCER AVANCE // SECTION FIN
+%token OBSERVABLE FINANCER AVANCE SELON
 %token<R.t> FLOAT MONEY
 %token<Z.t> INT
 %token<string> LIDENT UIDENT
@@ -54,12 +54,14 @@ comp_pool_decl:
 }}
 
 value_decl:
-| VALEUR obs = boption(OBSERVABLE) name = LIDENT value = value_def
+| VALEUR obs = boption(OBSERVABLE) target = ioption(preceded(SELON, LIDENT))
+  name = LIDENT value = value_def
 {{
   val_loc = pos $sloc;
   val_name = name;
   val_formula = value;
   val_observable = obs;
+  val_target_view = target;
 }}
 
 value_def:
@@ -340,16 +342,6 @@ backer_decl:
   bac_advance = ioption(preceded(AVANCE, literal))
     { { bac_backed; bac_backer; bac_advance } }
 
-/* section: */
-/* | SECTION section_name = UIDENT section_context = context* */
-/*   section_guards = event_guard* section_decl = toplevel_decl* FIN */
-/*  {{ */
-/*    section_name; */
-/*    section_context; */
-/*    section_guards; */
-/*    section_decl; */
-/*  }} */
-
 toplevel_decl:
 | o = operation { DHolderOperation o }
 | e = event_decl { DHolderEvent e }
@@ -367,6 +359,5 @@ toplevel_decl:
   { let (deficit_pool, deficit_provider) = d in
     DHolderDeficit { deficit_pool; deficit_provider } }
 | b = backer_decl { DHolderBacker b }
-/* | s = section { DSection s } */
 
 program: d = toplevel_decl* EOF { Source d }
