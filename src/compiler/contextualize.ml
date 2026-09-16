@@ -914,6 +914,9 @@ let value acc (v : val_decl) =
   let { acc; formula; is_input_linear; typ } =
     formula acc ~for_:None v.val_formula ~on_proj
   in
+  let target =
+    Option.map (Acc.find_actor acc ~way:Receiver) v.val_target_view
+  in
   let acc, var =
     Acc.register_value acc v.val_name ~obs ~linear:is_input_linear ~typ
   in
@@ -923,6 +926,7 @@ let value acc (v : val_decl) =
     ctx_val_formula = formula;
     ctx_val_observable = obs;
     ctx_val_linear = is_input_linear;
+    ctx_val_target_view = target;
   }
 
 let declaration acc (decl : source declaration) =

@@ -211,7 +211,8 @@ let lift_event t (event, opp_evs : expr_with_opps)
   let t =
     Variable.Map.fold (fun target (expr, provider) t ->
         register_opposition t ~on:v ~target ~provider
-          Opposition.{ expr; kind = Other; condition = Condition.always })
+          (Opposition.Substitute
+          { expr; kind = Other; condition = Condition.always }))
       opp_evs t
   in
   t, v
@@ -430,7 +431,7 @@ let convert_repartitions t =
             Opposition.QuotePart { source = src; delta = R.(opp_value - part) }
           in
           let expr = EMult (EConst (LRational opp_value), EVar src) in
-          let subst = Opposition.{ expr; kind; condition } in
+          let subst = Opposition.Substitute { expr; kind; condition } in
           register_opposition t ~on:ov ~target:opp_target
             ~provider:(Some opp_provider) subst)
         t opposed
@@ -619,7 +620,7 @@ let convert_flats t =
     let t =
       Variable.Map.fold (fun target (expr, provider) t ->
           let kind = Opposition.Flat { source = src } in
-          let subst = Opposition.{ expr; kind; condition = flat.flat_cond } in
+          let subst = Opposition.Substitute { expr; kind; condition = flat.flat_cond } in
           register_opposition t ~on:ldest ~target ~provider subst)
         flat.flat_opposed t
     in
@@ -671,7 +672,8 @@ let convert_comp_val t =
     let t =
       Variable.Map.fold (fun target (expr, provider) t ->
           register_opposition t ~on:ldest ~target ~provider
-            Opposition.{ expr; condition = cv.cv_cond; kind = Other })
+            (Opposition.Substitute
+               { expr; condition = cv.cv_cond; kind = Other }))
         cv.cv_opposed t
     in
     register_aggregation t ~act:cv.cv_cond ~dest ldest
@@ -1167,9 +1169,19 @@ let translate_value acc (v : Ast.ctx_val_decl) =
       let acc, (f, opps) = translate_formula acc ~ctx ~view:Cumulated v.ctx_val_formula in
       Acc.register_value acc ~act:Condition.always ~dest:var f, opps
   in
+  let acc =
+    match v.ctx_val_target_view with
+    | None -> acc
+    | Some target ->
+      (* When specifying a view, adding a fake opposition version to
+         force the opposing variant to exists *)
+      Acc.register_opposition acc ~on:var ~target ~provider:None
+        Opposition.NoChange
+  in
   Variable.Map.fold (fun target (expr, provider) acc ->
       Acc.register_opposition acc ~on:var ~target ~provider
-        Opposition.{ expr; condition = Condition.always; kind = Other })
+        (Opposition.Substitute
+           { expr; condition = Condition.always; kind = Other }))
     opps acc
 
 let translate_declaration acc (decl : Ast.contextualized Ast.declaration) =
@@ -1180,7 +1192,8 @@ let translate_declaration acc (decl : Ast.contextualized Ast.declaration) =
     let acc = Acc.register_event acc e.ctx_event_var evt_expr in
     Variable.Map.fold (fun target (expr, provider) acc ->
         Acc.register_opposition acc ~on:e.ctx_event_var ~target ~provider
-          Opposition.{ expr; condition = Condition.always; kind = Other })
+          Opposition.(Substitute
+                        { expr; condition = Condition.always; kind = Other }))
       opps acc
   | DVarValue v -> translate_value acc v
   | DVarPool p -> translate_comp_pool acc p

@@ -45,6 +45,7 @@ let keywords =
     "valeur", VALEUR;
     "calculee", CALCULEE;
     "observable", OBSERVABLE;
+    "selon", SELON;
     (* "section", SECTION; *)
     (* "fin", FIN; *)
   ]

@@ -217,6 +217,7 @@ type val_decl = {
   val_name : string;
   val_formula : source formula;
   val_observable : bool;
+  val_target_view : string option;
 }
 
 type ctx_val_decl = {
@@ -224,6 +225,7 @@ type ctx_val_decl = {
   ctx_val_formula : contextualized formula;
   ctx_val_observable : bool;
   ctx_val_linear : bool;
+  ctx_val_target_view : Variable.t option;
 }
 
 type _ declaration =

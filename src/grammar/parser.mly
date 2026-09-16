@@ -9,7 +9,7 @@ let pos (start, stop) = Pos.Text.make ~start ~stop
 %token ACTEUR POUR EVENEMENT NON ET OU AVANT APRES QUAND CONTEXTE TOUT CONSTANTE
 %token LPAR RPAR VERS ATTEINT PLUS MINUS MULT DIV EQ COLON EOF DEFICIT
 %token COMMA RETROCESSION RESTE OPPOSABLE ENVERS VALEUR CALCULEE
-%token OBSERVABLE // SECTION FIN
+%token OBSERVABLE SELON // SECTION FIN
 %token<R.t> FLOAT MONEY
 %token<Z.t> INT
 %token<string> LIDENT UIDENT
@@ -55,12 +55,14 @@ comp_pool_decl:
 }}
 
 value_decl:
-| VALEUR obs = boption(OBSERVABLE) name = LIDENT value = value_def
+| VALEUR obs = boption(OBSERVABLE) target = ioption(preceded(SELON, LIDENT))
+  name = LIDENT value = value_def
 {{
   val_loc = pos $sloc;
   val_name = name;
   val_formula = value;
   val_observable = obs;
+  val_target_view = target;
 }}
 
 value_def:

@@ -235,13 +235,16 @@ let print_declaration (type a) infos fmt (decl : a declaration) =
   | DConstant c ->
     Format.fprintf fmt "constante %s : %a" c.const_name Literal.print c.const_value
   | DHolderValue v ->
-    Format.fprintf fmt "@[<hov 2>valeur%s %s :@ %a@]"
+    Format.fprintf fmt "@[<hov 2>valeur%s%s %s :@ %a@]"
       (if v.val_observable then " observable" else "")
+      (Option.fold ~none:"" ~some:(fun t -> " selon "^t) v.val_target_view)
       v.val_name
       (print_formula infos) v.val_formula
   | DVarValue v ->
-    Format.fprintf fmt "@[<hov 2>valeur%s %a :@ %a@]"
+    Format.fprintf fmt "@[<hov 2>valeur%s%a %a :@ %a@]"
       (if v.ctx_val_observable then " observable" else "")
+      (Format.pp_print_option (fun fmt t -> Format.fprintf fmt " selon %a" (ProgramInfo.print_variable infos) t))
+         v.ctx_val_target_view
       (ProgramInfo.print_ctx_variable infos) v.ctx_val_var
       (print_formula infos) v.ctx_val_formula
   | DHolderDefault d ->

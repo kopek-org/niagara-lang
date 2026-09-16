@@ -4,11 +4,13 @@ type subst_kind =
   | Flat of { source : Variable.t }
   | Other
 
-type user_substitution = {
-  expr : Equ.expr;
-  condition : Condition.t;
-  kind : subst_kind;
-}
+type user_substitution =
+  | NoChange (* Fake substitution to force inclusion of the opposing variant *)
+  | Substitute of {
+      expr : Equ.expr;
+      condition : Condition.t;
+      kind : subst_kind;
+    }
 
 type user_substitutions = user_substitution Variable.Map.t
 

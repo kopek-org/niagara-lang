@@ -5,11 +5,13 @@ type subst_kind =
   | Flat of { source : Variable.t }
   | Other
 
-type user_substitution = {
-  expr : expr;
-  condition : Condition.t;
-  kind : subst_kind;
-}
+type user_substitution =
+  | NoChange
+  | Substitute of {
+      expr : expr;
+      condition : Condition.t;
+      kind : subst_kind;
+    }
 
 type user_substitutions = user_substitution Variable.Map.t
 
@@ -106,19 +108,19 @@ and graph_condition acc user_substs g (succ : Variable.t) (cond : Condition.t) =
 
 and graph_event acc user_substs g (ev : Variable.t) =
   match Variable.Map.find_opt ev user_substs with
-  | Some { expr; condition ; _ } ->
+  | Some (Substitute { expr; condition ; _ }) ->
     let g = graph_expr acc user_substs g ev expr in
     graph_condition acc user_substs g ev condition
-  | None ->
+  | Some NoChange | None ->
     let expr = Variable.Map.find ev acc.event_eqs in
     graph_expr acc user_substs g ev expr
 
 and graph_var acc user_substs g (var : Variable.t) =
   match Variable.Map.find_opt var user_substs with
-  | Some { expr; condition ; _ } ->
+  | Some (Substitute { expr; condition ; _ }) ->
     let g = graph_expr acc user_substs g var expr in
     graph_condition acc user_substs g var condition
-  | None ->
+  | Some NoChange | None ->
     match Variable.Map.find_opt var acc.value_eqs with
     | None -> Variable.Graph.add_vertex g var
     | Some eq -> graph_eq acc user_substs g var eq
@@ -192,8 +194,9 @@ let condition_subst csq (cond : Condition.t) =
 let duplicate_event acc env ~(org : Variable.t) ~(dup : Variable.t) =
   let expr =
     match Variable.Map.find_opt org env.user_substs with
-    | Some { expr; _ } -> expr
-    | None -> Variable.Map.find org acc.event_eqs
+    | Some (Substitute { expr; _ }) -> expr
+    | Some NoChange | None ->
+      Variable.Map.find org acc.event_eqs
   in
   let dup_expr = expr_subst acc expr in
   let event_eqs = Variable.Map.add dup dup_expr acc.event_eqs in
@@ -204,8 +207,8 @@ let duplicate_value acc env ~(org : Variable.t) ~(dup : Variable.t) =
     let cond = condition_subst acc cond in
     let expr =
       match Variable.Map.find_opt org env.user_substs with
-      | None -> expr_subst acc expr
-      | Some { expr; _ } -> expr_subst acc expr
+      | None | Some NoChange -> expr_subst acc expr
+      | Some (Substitute { expr; _ }) -> expr_subst acc expr
     in
     cond, expr
   in
@@ -230,8 +233,8 @@ let duplicate_value acc env ~(org : Variable.t) ~(dup : Variable.t) =
 let origin_variant acc env (var : Variable.t) (vorigin : VarInfo.origin) =
   let convert_part p =
     match Variable.Map.find_opt var env.user_substs with
-    | None -> p
-    | Some subst ->
+    | None | Some NoChange -> p
+    | Some (Substitute subst) ->
       match subst.kind with
       | QuotePart { delta; _ } -> R.(p + delta)
       | _ -> assert false
@@ -239,10 +242,12 @@ let origin_variant acc env (var : Variable.t) (vorigin : VarInfo.origin) =
   let convert_reps (src : Variable.t) (rep : Condition.t R.Map.t) =
     let relevant_substs =
       Variable.Map.filter (fun _ subst ->
-          match subst.kind with
-          | QuotePart { source; _ } | Flat { source } ->
+          match subst with
+          | Substitute {
+              kind = (QuotePart { source; _ } | Flat { source });
+              _ } ->
             Variable.equal source src
-          | Other -> false)
+          | NoChange | Substitute { kind = Other; _ } -> false)
         env.user_substs
     in
     let add_rep c r rep =
@@ -254,16 +259,21 @@ let origin_variant acc env (var : Variable.t) (vorigin : VarInfo.origin) =
           add_rep c r rep
         else
           Variable.Map.fold (fun _ subst rep ->
+              let kind, condition =
+                match subst with
+                | NoChange -> assert false
+                | Substitute s -> s.kind, s.condition
+              in
               let delta =
-                match subst.kind with
+                match kind with
                 | QuotePart { delta; _ } -> delta
                 | _ -> assert false
               in
-              let ccond = Condition.conj c subst.condition in
+              let ccond = Condition.conj c condition in
               if Condition.is_never ccond then
                 add_rep c r rep
               else
-                let xcond = Condition.excluded c subst.condition in
+                let xcond = Condition.excluded c condition in
                 let cr = R.(r - delta) in
                 let rep = add_rep ccond cr rep in
                 if Condition.is_never xcond then rep else
@@ -431,7 +441,15 @@ let resolve_one_target ~opposable pinfos acc ~(target : Variable.t)
     ~(provider : Variable.t option) (user_substs : user_substitutions)
     (cumulatives : Variable.t Variable.Map.t) =
   let env = { target; provider; user_substs; cumulatives } in
-  let graph = graph_var acc user_substs Variable.Graph.empty target in
+  let roots =
+    Variable.Map.fold (fun v _ -> Variable.Set.add v)
+      user_substs (Variable.Set.singleton target)
+  in
+  let graph =
+    Variable.Set.fold (fun root graph ->
+        graph_var acc user_substs graph root)
+      roots Variable.Graph.empty
+  in
   let acc, has_consequent = populate_copies acc env graph in
   if not has_consequent && opposable then
     Report.raise_useless_opposition_error { pinfos with var_info = acc.var_info } target;
