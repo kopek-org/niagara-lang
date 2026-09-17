@@ -341,7 +341,7 @@ let build_result_layout (pinfos : ProgramInfo.t) =
               | None -> Some (Variable.Map.singleton origin v)
               | Some vrt -> Some (Variable.Map.add origin v vrt))
             variants
-        | OppositionDelta { target } ->
+        | OppositionDelta { target; provider = _ } ->
           update (fun l ->
               { l with
                 display_name = (VarInfo.get_any_name pinfos.var_info target)^" delta";

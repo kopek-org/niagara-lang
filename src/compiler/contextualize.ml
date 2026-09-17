@@ -714,7 +714,13 @@ and opposable acc ~(on_proj : Context.Group.t)
   let { acc; formula = opp_value; _ } =
     formula acc ~for_:None opp_value ~on_proj
   in
-  let acc, opp_provider = find_actor ~way:Provider acc opp_provider in
+  let acc, opp_provider =
+    match opp_provider.actor_desc with
+    | LabeledActor _ -> Report.raise_error "Cannot use label on opposition provider"
+    | PlainActor _ ->
+      (* Using receiver for canonical partner variable *)
+      find_actor ~way:Receiver acc opp_provider
+  in
   let opp_towards =
     match opp_towards.actor_desc with
     | LabeledActor _ -> Report.raise_error "Opposition target must be a partner without label"

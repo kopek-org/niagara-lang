@@ -35,7 +35,7 @@ type origin =
   | PoolStage of Variable.t
   | ConditionExistential
   | OpposingVariant of { target : Variable.t; origin : Variable.t; variant : origin }
-  | OppositionDelta of { target : Variable.t }
+  | OppositionDelta of { target : Variable.t; provider : Variable.t }
 
 type partner_role = Provider | Receiver
 

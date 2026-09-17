@@ -35,7 +35,7 @@ type origin =
   | PoolStage of Variable.t
   | ConditionExistential
   | OpposingVariant of { target : Variable.t; origin : Variable.t; variant : origin }
-  | OppositionDelta of { target : Variable.t }
+  | OppositionDelta of { target : Variable.t; provider : Variable.t }
 
 type partner_role = Provider | Receiver
 
@@ -163,7 +163,7 @@ let print fmt t =
     fprintf fmt "`E"
   | OpposingVariant { target; origin; variant = _ } ->
     fprintf fmt "%d<%d>" (Variable.uid origin) (Variable.uid target)
-  | OppositionDelta { target } ->
+  | OppositionDelta { target; provider = _ } ->
     fprintf fmt "\u{0394}%d" (Variable.uid target)
 
 let get_any_name coll v =

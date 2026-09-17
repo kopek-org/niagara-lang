@@ -351,7 +351,7 @@ let add_delta acc env =
     let dvinfo = VarInfo.{
       kind = Intermediary;
       typ = TMoney;
-      origin = OppositionDelta { target = env.target };
+      origin = OppositionDelta { target = env.target; provider = env.provider };
     }
     in
     let cdv = Variable.create () in
@@ -363,22 +363,29 @@ let add_delta acc env =
     in
     let dve = EAdd (EVar opp, ENeg (EVar env.target)) in
     let cdve = EAdd (EPre cdv, EVar dv) in
+    let relevance_sets =
+      (* add delta to provider relevance set *)
+      Variable.Map.update env.provider (function
+          | None -> Some {
+              endpoint = env.provider;
+              relevant_vars =
+                Variable.Set.singleton dv
+                |> Variable.Set.add cdv }
+          | Some ProgramInfo.{ endpoint; relevant_vars } ->
+            Some { endpoint;
+                   relevant_vars =
+                     Variable.Set.add dv relevant_vars
+                     |> Variable.Set.add cdv })
+        acc.relevance_sets
+    in
     { acc with
-      copies =
-        (* hack to includes delta in relevant sets *)
-        Variable.Map.add dv None acc.copies
-        |> Variable.Map.add cdv None;
+      relevance_sets;
       var_info =
         Variable.Map.add dv dvinfo acc.var_info
         |> Variable.Map.add cdv cdvinfo;
       value_eqs =
         Variable.Map.add dv (One { eq_act = Condition.always; eq_expr = dve }) acc.value_eqs
         |> Variable.Map.add cdv (One { eq_act = Condition.always; eq_expr = cdve })
-        |> Variable.Map.update env.provider (function
-            | None -> Some (More [dv, Condition.always])
-            | Some (More vars) -> Some (More ((dv, Condition.always)::vars))
-            | Some (One _) ->
-              Report.raise_internal_error "Cannot aggregate on valuation expression")
     }
 
 let save_relevant_set ~opposable acc ~(target : Variable.t) =
@@ -416,7 +423,14 @@ let save_relevant_set ~opposable acc ~(target : Variable.t) =
   { acc with
     copies = Variable.Map.empty;
     relevance_sets =
-      Variable.Map.add target pset acc.relevance_sets
+      Variable.Map.update target (function
+          | None -> Some pset
+          | Some rs ->
+            Some { pset with
+                   relevant_vars =
+                     Variable.Set.union rs.relevant_vars pset.relevant_vars
+                 })
+            acc.relevance_sets
   }
 
 let resolve_one_target ~opposable pinfos acc ~(target : Variable.t) ~(provider : Variable.t)
