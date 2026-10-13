@@ -26,6 +26,7 @@ module Acc : sig
     t ->
     string ->
     obs:bool ->
+    has_target:bool ->
     linear:bool ->
     typ:ValueType.t ->
     t * Variable.t
@@ -81,7 +82,7 @@ end = struct
   type name_ref =
     | RefActor of actor_ref (* providers or receivers, with or without labels *)
     | RefPool of Variable.t (* redistributable pools of money *)
-    | RefValue of Variable.t
+    | RefValue of { var : Variable.t ; forbidden_use : bool }
     | RefROInput of Variable.t (* Non redistributable inputs (variable parameters) *)
     | RefEvent of Variable.t
     | RefConst of Variable.t
@@ -181,7 +182,7 @@ end = struct
       bind_vinfo v { info with kind = Computed } t
     | _ -> Report.raise_internal_error "Error marking as compute non pool variable"
 
-  let register_value t (name : string) ~(obs : bool)
+  let register_value t (name : string) ~(obs : bool) ~(has_target : bool)
       ~(linear : bool) ~(typ : ValueType.t) =
     let v = Variable.create () in
     let info = VarInfo.{
@@ -192,7 +193,7 @@ end = struct
       }
     in
     let t = bind_vinfo v info t in
-    let t = bind_var name (RefValue v) t in
+    let t = bind_var name (RefValue { var = v; forbidden_use = has_target }) t in
     let t = bind_linearity v linear t in
     t, v
 
@@ -301,7 +302,10 @@ end = struct
 
   let find_misc_var t (name : string) =
     match StrMap.find_opt name t.var_table with
-    | Some (RefROInput v | RefEvent v | RefValue v | RefConst v) -> v
+    | Some (RefROInput v | RefEvent v | RefConst v
+           | RefValue { var = v; forbidden_use = false }) -> v
+    | Some (RefValue { forbidden_use = true; _ }) ->
+      Report.raise_error "Value variable %s is not allowed to be used" name
     | Some (RefActor (BaseActor a)) -> a
     | Some (RefActor (Label _)) ->
       Report.raise_internal_error "Actor name %s should not exists" name
@@ -948,11 +952,13 @@ let value acc (v : val_decl) =
   let { acc; formula; is_input_linear; typ } =
     formula acc ~for_:None v.val_formula ~on_proj
   in
-  let target =
-    Option.map (Acc.find_actor acc ~way:Receiver) v.val_target_view
+  let target, has_target =
+    match v.val_target_view with
+    | None -> None, false
+    | Some t -> Some (Acc.find_actor acc ~way:Receiver t), true
   in
   let acc, var =
-    Acc.register_value acc v.val_name ~obs ~linear:is_input_linear ~typ
+    Acc.register_value acc v.val_name ~obs ~has_target ~linear:is_input_linear ~typ
   in
   acc,
   {
