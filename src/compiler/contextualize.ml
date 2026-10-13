@@ -342,8 +342,7 @@ end = struct
       in
       t, vl
     | Some (RefActor (Label (v, lway))) ->
-      if way <> lway then
-        Report.raise_error "Cannot use same label %s on both ways" label;
+      if way <> lway then Report.raise_label_used_both_ways label;
       t, v
     | Some _ ->
       Report.raise_internal_error "'%s[%s]' should have been recognized as a \
