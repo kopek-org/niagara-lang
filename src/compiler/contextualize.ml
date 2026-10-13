@@ -462,7 +462,7 @@ end = struct
           Variable.Set.empty dests
       in
       if Variable.Set.mem src tdeps then
-        Report.raise_error "Cyclic repartition";
+        Report.raise_cyclic_repartition ();
       let deps =
         Variable.Map.update src (function
             | None -> Some tdeps
