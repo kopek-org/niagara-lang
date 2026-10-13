@@ -15,6 +15,7 @@ type error =
   | UselessOpposition of { loc : Pos.t; towards : Variable.t }
   | MultipleOppositionProvider of { locs : Pos.t list; towards : Variable.t }
   | LabelUsedBothWays of { locs : Pos.t list; label : string }
+  | CyclicRepartition of { locs : Pos.t list }
   | User of { locs : Pos.t list; msg : string }
 
 let print_error (pinfo : ProgramInfo.t) fmt (err : error) =
@@ -69,6 +70,11 @@ let print_error (pinfo : ProgramInfo.t) fmt (err : error) =
          ~pp_sep:(fun fmt () -> Format.fprintf fmt ",@ ")
          Pos.Text.pp) locs
       label
+  | CyclicRepartition { locs } ->
+    Format.fprintf fmt "Error, %a:@\nCyclic repartition"
+      (Format.pp_print_list
+         ~pp_sep:(fun fmt () -> Format.fprintf fmt ",@ ")
+         Pos.Text.pp) locs
   | User { locs = _; msg } ->
     Format.pp_print_string fmt msg
 
@@ -123,6 +129,9 @@ let raise_multiple_opp_provider_error ?(locs = []) pinfo towards =
 
 let raise_label_used_both_ways ?(locs = []) label =
   log_error "Invalid label usage" ProgramInfo.dummy (LabelUsedBothWays { locs; label })
+
+let raise_cyclic_repartition ?(locs = []) () =
+  log_error "Non-linear error" ProgramInfo.dummy (CyclicRepartition { locs })
 
 let raise_error ?(locs = []) fmt =
   let k msg = log_error "Usage error" ProgramInfo.dummy (User { locs; msg }) in
