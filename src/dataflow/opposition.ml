@@ -127,9 +127,12 @@ and graph_var acc user_substs g (var : Variable.t) =
 
 let populate_copies acc env g =
   let oppositions_reach =
-    Variable.Map.fold (fun v _ reach_set ->
-        let r = Variable.Graph.reachables g v in
-        Variable.Set.union r reach_set)
+    Variable.Map.fold (fun v subst reach_set ->
+        match subst with
+        | NoChange -> reach_set
+        | Substitute _ ->
+          let r = Variable.Graph.reachables g v in
+          Variable.Set.union r reach_set)
       env.user_substs
       Variable.Set.empty
   in
@@ -490,8 +493,11 @@ let resolve (pinfo : ProgramInfo.t) (value_eqs : aggregate_eqs)
   in
   let acc =
     Variable.Map.fold (fun target substs acc ->
+        let opposable =
+          Variable.Map.exists (fun _ -> (<>) NoChange) substs
+        in
         let provider = Variable.Map.find_opt target providers in
-        resolve_one_target ~opposable:true pinfo acc ~target ~provider substs cumulatives)
+        resolve_one_target ~opposable pinfo acc ~target ~provider substs cumulatives)
       oppositions acc
   in
   (* Now adding non opposable varinfos *)
