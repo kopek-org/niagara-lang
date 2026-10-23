@@ -17,6 +17,10 @@ module Graph = struct
   include G
   module Topology = Graph.Components.Make(G)
 
+  module Op = Graph.Oper.P(G)
+
+  let union = Op.union
+
   let reachables (g : G.t) (start : G.V.t) : Set.t =
     let rec aux acc v =
       if Set.mem v acc || not (G.mem_vertex g v) then acc else

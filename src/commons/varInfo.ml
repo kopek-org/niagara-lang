@@ -1,4 +1,23 @@
 
+module OppositionTarget = struct
+  module M0 = struct
+    type t =
+      | Partner of Variable.t
+      | Group of string
+
+    let compare t1 t2 =
+      match t1, t2 with
+      | Partner _, Group _ -> -1
+      | Group _, Partner _ -> 1
+      | Partner p1, Partner p2 -> Variable.compare p1 p2
+      | Group g1, Group g2 -> String.compare g1 g2
+  end
+
+  include M0
+  module Map = Map.Make(M0)
+
+end
+
 type op_kind =
   | Quotepart of R.t
   | Bonus of Variable.Set.t
@@ -35,8 +54,8 @@ type origin =
   | PoolStage of Variable.t
   | TemporalConstraint of event_loc
   | ConditionExistential
-  | OpposingVariant of { target : Variable.t; origin : Variable.t; variant : origin }
-  | OppositionDelta of { target : Variable.t; provider : Variable.t }
+  | OpposingVariant of { target : OppositionTarget.t; origin : Variable.t; variant : origin }
+  | OppositionDelta of { target : OppositionTarget.t; provider : Variable.t }
 
 type partner_role = Provider | Receiver
 
@@ -172,11 +191,25 @@ let print fmt t =
      | After e -> fprintf fmt "|>e%d" (Variable.uid e)
      | When e -> fprintf fmt "=|%d" (Variable.uid e))
   | OpposingVariant { target; origin; variant = _ } ->
-    fprintf fmt "%d<%d>" (Variable.uid origin) (Variable.uid target)
+    fprintf fmt "%d<%s>" (Variable.uid origin)
+      (match target with
+       | Partner p -> string_of_int (Variable.uid p)
+       | Group g -> g)
   | OppositionDelta { target; provider = _ } ->
-    fprintf fmt "\u{0394}%d" (Variable.uid target)
+    fprintf fmt "\u{0394}%s"
+      (match target with
+       | Partner p -> string_of_int (Variable.uid p)
+       | Group g -> g)
 
 let get_any_name coll v =
   match get_name coll v with
   | Some n -> n
   | None -> Format.asprintf "%a" print (Variable.Map.find v coll)
+
+let opposition_target_name infos (target : OppositionTarget.t) =
+  match target with
+  | Group g -> g
+  | Partner p ->
+    match get_name infos p with
+    | None -> assert false (* Partners always have a name *)
+    | Some n -> n

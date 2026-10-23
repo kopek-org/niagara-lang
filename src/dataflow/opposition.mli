@@ -1,4 +1,6 @@
 
+module Target = VarInfo.OppositionTarget
+
 type subst_kind =
   | QuotePart of { source : Variable.t; delta : R.t }
   | Flat of { source : Variable.t }
@@ -25,9 +27,9 @@ val resolve
   : ProgramInfo.t
   -> Equ.aggregate_eqs
   -> Equ.expr Variable.Map.t
-  -> user_substitutions Variable.Map.t
+  -> user_substitutions VarInfo.OppositionTarget.Map.t
   -> cumulatives:Variable.t Variable.Map.t
-  -> providers:Variable.t Variable.Map.t
+  -> providers:Variable.t VarInfo.OppositionTarget.Map.t
   -> result
 (** [resolve pinfo val_eqs evt_eqs user_substs ~cumulatives ~providers] returns
     the updated [var_infos], [val_eqs] and [evt_eqs] with the

@@ -45,7 +45,7 @@ let init_of_raw (pinfos : ProgramInfo.t) (r : raw) : Variable.t * Literal.t =
             { r with for_opp = None }
             (Variable.Map.find origin pinfos.var_info)
         in
-        c && String.equal p (VarInfo.get_any_name pinfos.var_info target))
+        c && String.equal p (VarInfo.opposition_target_name pinfos.var_info target))
     | Cumulative v when r.for_opp = None ->
       matching_spec r (Variable.Map.find v pinfos.var_info)
     | Named n when r.for_opp = None && r.spec = Bare -> String.equal n r.name
@@ -129,7 +129,7 @@ let init_to_raw (pinfos : ProgramInfo.t) (v : Variable.t) (l : Literal.t) : raw 
     | Named n -> n, spec, for_opp
     | Cumulative v -> v_def spec for_opp v
     | OpposingVariant { target; origin; _ } ->
-      v_def spec (Some (VarInfo.get_any_name pinfos.var_info target)) origin
+      v_def spec (Some (VarInfo.opposition_target_name pinfos.var_info target)) origin
     | LabelOfPartner { partner; label } -> v_def (Label label) for_opp partner
     | ContextSpecialized { origin; context } ->
       let context = Input.shortest_desc pinfos.contexts context in

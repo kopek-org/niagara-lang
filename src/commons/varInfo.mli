@@ -1,4 +1,15 @@
 
+module OppositionTarget : sig
+  type t =
+  | Partner of Variable.t
+  | Group of string
+
+  val compare : t -> t -> int
+
+  module Map : Map.S with type key = t
+
+end
+
 type op_kind =
   | Quotepart of R.t
   | Bonus of Variable.Set.t
@@ -35,8 +46,8 @@ type origin =
   | PoolStage of Variable.t
   | TemporalConstraint of event_loc
   | ConditionExistential
-  | OpposingVariant of { target : Variable.t; origin : Variable.t; variant : origin }
-  | OppositionDelta of { target : Variable.t; provider : Variable.t }
+  | OpposingVariant of { target : OppositionTarget.t; origin : Variable.t; variant : origin }
+  | OppositionDelta of { target : OppositionTarget.t; provider : Variable.t }
 
 type partner_role = Provider | Receiver
 
@@ -82,5 +93,7 @@ val is_original_partner : t -> string option
 
 val get_name : collection -> Variable.t -> string option
 val get_any_name : collection -> Variable.t -> string
+val opposition_target_name : collection -> OppositionTarget.t -> string
+
 
 val print : Format.formatter -> t -> unit

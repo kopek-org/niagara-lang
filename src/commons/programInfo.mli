@@ -30,6 +30,7 @@ type t = {
   init_valuations : init_valuation Variable.Map.t;
   relevance_sets : relevance_set Variable.Map.t;
   init_requirements : init_requirements;
+  opposition_groups : Variable.Set.t StrMap.t;
   dep_graph : Variable.Graph.t;
 }
 
@@ -41,3 +42,6 @@ val print_ctx_variable : t -> Format.formatter -> Variable.t * Context.Group.t -
 
 val print_var_contexts : t -> Format.formatter -> unit -> unit
 
+val partners_of_opposition_target : t -> VarInfo.OppositionTarget.t -> Variable.Set.t
+
+val opposition_target_includes : t -> VarInfo.OppositionTarget.t -> Variable.t -> bool

@@ -30,6 +30,7 @@ type t = {
   init_valuations : init_valuation Variable.Map.t;
   relevance_sets : relevance_set Variable.Map.t;
   init_requirements : init_requirements;
+  opposition_groups : Variable.Set.t StrMap.t;
   dep_graph : Variable.Graph.t;
 }
 
@@ -47,6 +48,7 @@ let dummy = {
   init_valuations = Variable.Map.empty;
   relevance_sets = Variable.Map.empty;
   init_requirements = dummy_init_req;
+  opposition_groups = StrMap.empty;
   dep_graph = Variable.Graph.empty;
 }
 
@@ -68,3 +70,16 @@ let print_var_contexts infos fmt () =
         (Context.print_shape infos.contexts) shape
     )
     infos.var_shapes
+
+let partners_of_opposition_target infos (target : VarInfo.OppositionTarget.t) =
+  match target with
+  | Partner p -> Variable.Set.singleton p
+  | Group g ->
+    match StrMap.find_opt g infos.opposition_groups with
+    | None -> Variable.Set.empty
+    | Some ps -> ps
+
+let opposition_target_includes infos (target : VarInfo.OppositionTarget.t)
+    (p : Variable.t) =
+  Variable.Set.mem p (partners_of_opposition_target infos target)
+

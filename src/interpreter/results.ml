@@ -341,14 +341,17 @@ let build_result_layout (pinfos : ProgramInfo.t) =
             layout, variants
         | OpposingVariant { target; origin; variant = _ } ->
           layout,
-          Variable.Map.update target (function
-              | None -> Some (Variable.Map.singleton origin v)
-              | Some vrt -> Some (Variable.Map.add origin v vrt))
+          Variable.Set.fold (fun target ->
+              Variable.Map.update target (function
+                  | None -> Some (Variable.Map.singleton origin v)
+                  | Some vrt -> Some (Variable.Map.add origin v vrt)))
+            (ProgramInfo.partners_of_opposition_target pinfos target)
             variants
         | OppositionDelta { target; provider = _ } ->
           update (fun l ->
               { l with
-                display_name = (VarInfo.get_any_name pinfos.var_info target)^" delta";
+                display_name =
+                  (VarInfo.opposition_target_name pinfos.var_info target)^" delta";
               }),
           variants
         | RepartitionSum _ | DeficitSum _ | PoolStage _
@@ -403,13 +406,16 @@ let filter_of_norm_mode (info : ProgramInfo.t) (mode : norm_mode) =
       Variable.Map.fold (fun v vinfos partners ->
           match vinfos.origin, vinfos.kind with
           | OpposingVariant { origin; target; _ }, _ ->
+            let target_partners =
+              ProgramInfo.partners_of_opposition_target info target
+            in
             let org_info = Variable.Map.find origin info.var_info in
             let rec own_partner org vinfo =
               match vinfo.origin with
               | LabelOfPartner { partner; label = _ } ->
-                Variable.equal target partner
+                Variable.Set.mem partner target_partners
               | Cumulative s -> own_partner s (Variable.Map.find s info.var_info)
-              | _ -> Variable.equal org target
+              | _ -> Variable.Set.mem org target_partners
             in
             if own_partner origin org_info then
               Variable.Set.add v (Variable.Set.remove origin partners)

@@ -20,6 +20,8 @@ module Acc : sig
 
   val register_pool : t -> string -> computed:bool -> t * Variable.t
 
+  val register_opp_group : t -> string -> Variable.Set.t -> t
+
   val mark_pool_as_computed : t -> string -> t
 
   val register_value :
@@ -51,6 +53,8 @@ module Acc : sig
   val find_pool_opt : t -> string -> Variable.t option
 
   val find_actor : way:VarInfo.partner_role -> t -> string -> Variable.t
+
+  val find_opposition_target : t -> string -> opposition_target
 
   val find_event : t -> string -> Variable.t
 
@@ -86,6 +90,7 @@ end = struct
     | RefROInput of Variable.t (* Non redistributable inputs (variable parameters) *)
     | RefEvent of Variable.t
     | RefConst of Variable.t
+    | RefGroup               (* Opposition group *)
 
   type t = {
     program_decls : contextualized declaration list; (* the program in reverse order *)
@@ -96,6 +101,7 @@ end = struct
     constants : Literal.t Variable.Map.t;
     constraints : context_constraint Variable.Map.t;
     linearity : bool Variable.Map.t;
+    opposition_groups : Variable.Set.t StrMap.t;
     deps : Variable.Set.t Variable.Map.t; (* maps src -> dests, for cycle detections *)
   }
 
@@ -108,6 +114,7 @@ end = struct
     constants = Variable.Map.empty;
     constraints = Variable.Map.empty;
     linearity = Variable.Map.empty;
+    opposition_groups = StrMap.empty;
     deps = Variable.Map.empty;
   }
 
@@ -181,6 +188,25 @@ end = struct
       let info = Variable.Map.find v t.var_info in
       bind_vinfo v { info with kind = Computed } t
     | _ -> Report.raise_internal_error "Error marking as compute non pool variable"
+
+  let register_opp_group t (name : string) (partners : Variable.Set.t) =
+    let () =
+      StrMap.iter (fun gname gps ->
+          let d = Variable.Set.inter partners gps in
+          if Variable.Set.is_empty d then () else
+            Report.raise_error "Group %s contains a partner already in group %s"
+              name gname)
+        t.opposition_groups
+    in
+    let t = bind_var name RefGroup t in
+    let opposition_groups =
+      StrMap.update name (function
+          | None -> Some partners
+          | Some _ ->
+            Report.raise_error "Opposition group %s already exists" name)
+        t.opposition_groups
+    in
+    { t with opposition_groups }
 
   let register_value t (name : string) ~(obs : bool) ~(has_target : bool)
       ~(linear : bool) ~(typ : ValueType.t) =
@@ -294,6 +320,25 @@ end = struct
     | Some _ -> Report.raise_error "Identifier %s is not an actor" name
     | None -> Report.(raise_unknown_id_error name Partner)
 
+  let find_opposition_target t (name : string) =
+    match StrMap.find_opt name t.var_table with
+    | Some (RefActor (BaseActor p)) ->
+      let () =
+        StrMap.iter (fun gname gps ->
+            if Variable.Set.mem p gps then
+              Report.raise_error
+                "Opposition target partner %s is in opposition group \
+                 %s. It cannot be used on its own."
+                name gname)
+          t.opposition_groups
+      in
+      Partner p
+    | Some RefGroup -> Group name
+    | Some (RefActor (Label _)) ->
+      Report.raise_error "Cannot use labels on opposition target"
+    | Some _ -> Report.raise_error "Opposition target must be partner or opposition group"
+    | None -> Report.(raise_unknown_id_error name Any)
+
   let find_event t (name : string) =
     match StrMap.find_opt name t.var_table with
     | Some (RefEvent v) -> v
@@ -311,6 +356,11 @@ end = struct
       Report.raise_internal_error "Actor name %s should not exists" name
     | Some (RefPool _) ->
       Report.raise_error "Variable %s should be identified as pool" name
+    | Some RefGroup ->
+      Report.raise_error
+        "%s is a group variable, it cannot appear outside of \
+         opposition targets"
+        name
     | None -> Report.(raise_unknown_id_error name Any)
 
   let register_context_domain t (domain_name : string) (cases_names : string list) =
@@ -483,6 +533,7 @@ end = struct
       contexts = t.contexts;
       compounds = t.compounds;
       constants = t.constants;
+      opposition_groups = t.opposition_groups;
     }
     in
     Contextualized (infos, List.rev t.program_decls)
@@ -754,8 +805,10 @@ and opposable acc ~(on_proj : Context.Group.t)
   in
   let opp_towards =
     match opp_towards.actor_desc with
-    | LabeledActor _ -> Report.raise_error "Opposition target must be a partner without label"
-    | PlainActor s -> Acc.find_actor acc ~way:Receiver s
+    | LabeledActor _ ->
+      Report.raise_error "Opposition target must be a partner without \
+                          label or an opposition group"
+    | PlainActor s -> Acc.find_opposition_target acc s
   in
   acc, VarOpp { opp_value; opp_provider; opp_towards }
 
@@ -955,7 +1008,7 @@ let value acc (v : val_decl) =
   let target, has_target =
     match v.val_target_view with
     | None -> None, false
-    | Some t -> Some (Acc.find_actor acc ~way:Receiver t), true
+    | Some t -> Some (Acc.find_opposition_target acc t), true
   in
   let acc, var =
     Acc.register_value acc v.val_name ~obs ~has_target ~linear:is_input_linear ~typ
@@ -968,6 +1021,16 @@ let value acc (v : val_decl) =
     ctx_val_linear = is_input_linear;
     ctx_val_target_view = target;
   }
+
+let opposition_group acc (g : opp_group_decl) =
+  let partners =
+    List.fold_left (fun ps p ->
+        Variable.Set.add
+          (Acc.find_actor acc ~way:Receiver p) ps)
+      Variable.Set.empty
+      g.og_partners
+  in
+  Acc.register_opp_group acc g.og_name partners
 
 let declaration acc (decl : source declaration) =
   match decl with
@@ -1011,6 +1074,7 @@ let declaration acc (decl : source declaration) =
     let ctx_bac_advance = b.bac_advance in
     let acc = Acc.add_deps_from acc ctx_bac_backer [fst ctx_bac_backed] in
     Acc.add_program_decl acc (DVarBacker { ctx_bac_backed; ctx_bac_backer; ctx_bac_advance })
+  | DOppGroup g -> opposition_group acc g
 
 let program (Source prog : source program) : contextualized program =
   let acc = Acc.empty in

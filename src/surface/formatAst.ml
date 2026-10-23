@@ -75,6 +75,11 @@ let print_named fmt (named : named) =
   | Name (name, ctx) -> Format.fprintf fmt "%s%a" name print_context_refinement ctx
   | Holder h -> print_holder fmt h
 
+let print_opposable_target infos fmt (t : opposition_target) =
+  match t with
+  | Partner v -> ProgramInfo.print_variable infos fmt v
+  | Group g -> Format.pp_print_string fmt g
+
 let print_binop fmt (op : binop) =
   Format.pp_print_string fmt
     (match op with
@@ -122,7 +127,7 @@ and print_opposable : type a. ProgramInfo.t -> Format.formatter -> a opposable -
   | VarOpp opposable ->
     Format.fprintf fmt "opposable %a @[<hv>envers %a@ par %a@]"
       (print_formula infos) opposable.opp_value
-      (ProgramInfo.print_variable infos) opposable.opp_towards
+      (print_opposable_target infos) opposable.opp_towards
       (ProgramInfo.print_variable infos) opposable.opp_provider
 
 and print_event_expr :
@@ -143,7 +148,6 @@ and print_event_expr :
     Format.fprintf fmt "@[<hov>(%a@ ou %a)@]"
       (print_event_expr infos) e1
       (print_event_expr infos) e2
-
 
 let print_redist (type a) infos fmt (redist : a redistribution) ~dest =
   match redist.redistribution_desc with
@@ -257,7 +261,8 @@ let print_declaration (type a) infos fmt (decl : a declaration) =
   | DVarValue v ->
     Format.fprintf fmt "@[<hov 2>valeur%s%a %a :@ %a@]"
       (if v.ctx_val_observable then " observable" else "")
-      (Format.pp_print_option (fun fmt t -> Format.fprintf fmt " selon %a" (ProgramInfo.print_variable infos) t))
+      (Format.pp_print_option (fun fmt t ->
+           Format.fprintf fmt " selon %a" (print_opposable_target infos) t))
          v.ctx_val_target_view
       (ProgramInfo.print_ctx_variable infos) v.ctx_val_var
       (print_formula infos) v.ctx_val_formula
@@ -288,6 +293,11 @@ let print_declaration (type a) infos fmt (decl : a declaration) =
     Option.iter (Format.fprintf fmt "@ avance %a" Literal.print)
       b.ctx_bac_advance;
     Format.pp_close_box fmt ()
+  | DOppGroup g ->
+    Format.fprintf fmt "groupe opposable %s :@;@[<v>%a@,@]"
+      g.og_name
+      (Format.pp_print_list (fun fmt c -> Format.fprintf fmt"- %s" c))
+      g.og_partners
 
 let print_constants infos fmt () =
   Variable.Map.iter (fun v value ->

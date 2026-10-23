@@ -58,6 +58,10 @@ and named_desc =
 
 type contextualized_variable = Variable.t * Context.Group.t
 
+type opposition_target = VarInfo.OppositionTarget.t =
+  | Partner of Variable.t
+  | Group of string
+
 type 'a formula = {
   formula_loc : Pos.t;
   formula_desc : 'a formula_desc;
@@ -90,7 +94,7 @@ and _ opposable =
       opp_value : source formula;
     } -> source opposable
   | VarOpp : {
-      opp_towards : Variable.t;
+      opp_towards : opposition_target;
       opp_provider : Variable.t;
       opp_value : contextualized formula;
     } -> contextualized opposable
@@ -236,7 +240,7 @@ type ctx_val_decl = {
   ctx_val_formula : contextualized formula;
   ctx_val_observable : bool;
   ctx_val_linear : bool;
-  ctx_val_target_view : Variable.t option;
+  ctx_val_target_view : VarInfo.OppositionTarget.t option;
 }
 
 type backer_decl = {
@@ -249,6 +253,11 @@ type ctx_backer_decl = {
   ctx_bac_backer : Variable.t;
   ctx_bac_backed : contextualized_variable;
   ctx_bac_advance : Literal.t option;
+}
+
+type opp_group_decl = {
+  og_name : string;
+  og_partners : string list;
 }
 
 type _ declaration =
@@ -270,6 +279,7 @@ type _ declaration =
   | DVarDeficit : ctx_deficit_decl -> contextualized declaration
   | DHolderBacker : backer_decl -> source declaration
   | DVarBacker : ctx_backer_decl -> contextualized declaration
+  | DOppGroup : opp_group_decl -> source declaration
 
 type _ program =
   | Source : source declaration list -> source program

@@ -13,7 +13,8 @@ type error =
   | Typing of { loc : Pos.t }
   | ForbiddenNonLinear of { loc : Pos.t }
   | UselessOpposition of { loc : Pos.t; towards : Variable.t }
-  | MultipleOppositionProvider of { locs : Pos.t list; towards : Variable.t }
+  | MultipleOppositionProvider of
+      { locs : Pos.t list; towards : VarInfo.OppositionTarget.t }
   | LabelUsedBothWays of { locs : Pos.t list; label : string }
   | CyclicRepartition of { locs : Pos.t list }
   | User of { locs : Pos.t list; msg : string }
@@ -61,7 +62,7 @@ let print_error (pinfo : ProgramInfo.t) fmt (err : error) =
       (Format.pp_print_list
          ~pp_sep:(fun fmt () -> Format.fprintf fmt ",@ ")
          Pos.Text.pp) locs
-      (VarInfo.get_any_name pinfo.var_info towards)
+      (VarInfo.opposition_target_name pinfo.var_info towards)
   | LabelUsedBothWays { locs; label } ->
     Format.fprintf
       fmt

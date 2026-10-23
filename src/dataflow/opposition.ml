@@ -1,5 +1,11 @@
 open Equ
 
+module Target = VarInfo.OppositionTarget
+
+type opposition_target = Target.t =
+  | Partner of Variable.t
+  | Group of string
+
 type subst_kind =
   | QuotePart of { source : Variable.t; delta : R.t }
   | Flat of { source : Variable.t }
@@ -33,7 +39,7 @@ type acc = {
 }
 
 type env = {
-  target : Variable.t;
+  target : Target.t;
   provider : Variable.t option;
   (* Opposition provider should always be present when there is an actual delta.
      This should be enforced syntactically *)
@@ -125,7 +131,11 @@ and graph_var acc user_substs g (var : Variable.t) =
     | None -> Variable.Graph.add_vertex g var
     | Some eq -> graph_eq acc user_substs g var eq
 
-let populate_copies acc env g =
+let populate_copies acc env gs =
+  let g =
+    Variable.Map.fold (fun _ -> Variable.Graph.union)
+      gs Variable.Graph.empty
+  in
   let oppositions_reach =
     Variable.Map.fold (fun v subst reach_set ->
         match subst with
@@ -136,15 +146,11 @@ let populate_copies acc env g =
       env.user_substs
       Variable.Set.empty
   in
-  let acc =
-    Variable.Graph.fold_vertex (fun v acc ->
-        register_consequence acc env v
-          (Variable.Set.mem v oppositions_reach))
-      g
-      acc
-  in
-  acc,
-  (not @@ Variable.Set.is_empty oppositions_reach)
+  Variable.Graph.fold_vertex (fun v acc ->
+      register_consequence acc env v
+        (Variable.Set.mem v oppositions_reach))
+    g
+    acc
 
 let var_subst csq (var : Variable.t) =
   match Variable.Map.find_opt var csq.copies with
@@ -360,36 +366,48 @@ let duplication acc env =
         else duplicate_value acc env ~org ~dup)
     acc.copies acc
 
-let add_delta acc env =
-  match Variable.Map.find_opt env.target acc.copies with
-  | None | Some None -> acc
-  | Some (Some opp) ->
-    let provider =
-      match env.provider with
-      | None ->
-        (* No provider means no actual opposition, so no copy of the
-           target, as checked above *)
-        assert false
-      | Some provider -> provider
-    in
+let add_delta acc env ~target_partners =
+  match env.provider with
+  | None -> acc
+  | Some provider ->
     let dv = Variable.create () in
     let dvinfo = VarInfo.{
-      kind = Intermediary;
-      typ = TMoney;
-      origin = OppositionDelta { target = env.target; provider };
-      phantom = true;
-    }
+        kind = Intermediary;
+        typ = TMoney;
+        origin = OppositionDelta { target = env.target; provider };
+        phantom = true;
+      }
     in
     let cdv = Variable.create () in
     let cdvinfo = VarInfo.{
-      kind = Intermediary;
-      typ = TMoney;
-      origin = Cumulative dv;
-      phantom = true;
-    }
+        kind = Intermediary;
+        typ = TMoney;
+        origin = Cumulative dv;
+        phantom = true;
+      }
     in
-    let dve = EAdd (EVar opp, ENeg (EVar env.target)) in
+    let org_sum, opp_sum =
+      let ps = Variable.Set.elements target_partners in
+      match ps with
+      | [] -> assert false
+      | h::ps ->
+        let opp_var v =
+          match Variable.Map.find_opt v acc.copies with
+          | None | Some None ->
+            EVar v (* should not happen, but this would be the right semantics *)
+          | Some (Some opp) -> EVar opp
+        in
+        List.fold_left (fun (og, op) p ->
+            EAdd (og, EVar p), EAdd (op, opp_var p))
+          (EVar h, opp_var h)
+          ps
+    in
+    let dve = EAdd (opp_sum, ENeg org_sum) in
     let cdve = EAdd (EPre cdv, EVar dv) in
+    let value_eqs =
+      Variable.Map.add dv (One { eq_act = Condition.always; eq_expr = dve }) acc.value_eqs
+      |> Variable.Map.add cdv (One { eq_act = Condition.always; eq_expr = cdve })
+    in
     let relevance_sets =
       (* add delta to provider relevance set *)
       Variable.Map.update provider (function
@@ -405,10 +423,6 @@ let add_delta acc env =
                      |> Variable.Set.add cdv })
         acc.relevance_sets
     in
-    let value_eqs =
-      Variable.Map.add dv (One { eq_act = Condition.always; eq_expr = dve }) acc.value_eqs
-      |> Variable.Map.add cdv (One { eq_act = Condition.always; eq_expr = cdve })
-    in
     { acc with
       relevance_sets;
       var_info =
@@ -417,74 +431,105 @@ let add_delta acc env =
       value_eqs;
     }
 
-let save_relevant_set ~opposable acc ~(target : Variable.t) =
-  (* acc.copies should contain every explored variables during
-     consequent discoveries. We just go and use that. *)
-  let pset = ProgramInfo.{
-    endpoint =
-      (match Variable.Map.find_opt target acc.copies with
-       | None | Some None ->
-         if opposable then
-           Report.raise_internal_error "No opposing variant for opposability target"
-         else
-           target
-      | Some (Some var) -> var);
-    relevant_vars =
-      Variable.Map.fold (fun org dup set ->
-          let pv =
-            match dup with
-            | None -> org
-            | Some dup -> dup
-          in
-          Variable.Set.add pv set)
-        acc.copies Variable.Set.empty
-      (* ensure upstream labels are included *)
-      |> Variable.Map.fold (fun v (info : VarInfo.t) pset ->
-          match info.origin with
-          | LabelOfPartner { partner; _ } ->
-            if Variable.equal target partner then
-              Variable.Set.add v pset
-            else pset
-          | _ -> pset)
-        acc.var_info
-  }
+let save_relevant_sets ~opposable acc
+    ~(targets_reachables : Variable.Graph.t Variable.Map.t) =
+  (* Using constructed graphs to find relevant vars for each target partner *)
+  let one_target target graph acc =
+    let pset = ProgramInfo.{
+        endpoint =
+          (match Variable.Map.find_opt target acc.copies with
+           | None | Some None ->
+             if opposable then
+               Report.raise_internal_error "No opposing variant for opposability target"
+             else
+               target
+           | Some (Some var) -> var);
+        relevant_vars =
+          Variable.Graph.fold_vertex (fun org set ->
+              match Variable.Map.find_opt org acc.copies with
+              | None ->
+                Report.raise_internal_error
+                  "Reachable var %d not found in copies for target %s"
+                  (Variable.uid org)
+                  (VarInfo.get_any_name acc.var_info target)
+              | Some dup ->
+                let pv =
+                  match dup with
+                  | None -> org
+                  | Some dup -> dup
+                in
+                Variable.Set.add pv set)
+            graph Variable.Set.empty
+          (* ensure upstream labels are included *)
+          |> Variable.Map.fold (fun v (info : VarInfo.t) pset ->
+              match info.origin with
+              | LabelOfPartner { partner; _ } ->
+                if Variable.equal target partner then
+                  Variable.Set.add v pset
+                else pset
+              | _ -> pset)
+            acc.var_info
+      }
+    in
+    { acc with
+      relevance_sets =
+        Variable.Map.update target (function
+            | None -> Some pset
+            | Some rs ->
+              Some { pset with
+                     relevant_vars =
+                       Variable.Set.union rs.relevant_vars pset.relevant_vars
+                   })
+          acc.relevance_sets
+    }
   in
-  { acc with
-    copies = Variable.Map.empty;
-    relevance_sets =
-      Variable.Map.update target (function
-          | None -> Some pset
-          | Some rs ->
-            Some { pset with
-                   relevant_vars =
-                     Variable.Set.union rs.relevant_vars pset.relevant_vars
-                 })
-            acc.relevance_sets
-  }
+  Variable.Map.fold one_target targets_reachables acc
 
-let resolve_one_target ~opposable pinfos acc ~(target : Variable.t)
+let resolve_one_target ~opposable pinfos acc ~(target : opposition_target)
     ~(provider : Variable.t option) (user_substs : user_substitutions)
     (cumulatives : Variable.t Variable.Map.t) =
   let env = { target; provider; user_substs; cumulatives } in
-  let roots =
-    Variable.Map.fold (fun v _ -> Variable.Set.add v)
-      user_substs (Variable.Set.singleton target)
+  let target_partners =
+    ProgramInfo.partners_of_opposition_target pinfos target
   in
-  let graph =
-    Variable.Set.fold (fun root graph ->
-        graph_var acc user_substs graph root)
-      roots Variable.Graph.empty
+  let targets_reachables =
+    Variable.Set.fold (fun target gs ->
+        let roots =
+          Variable.Map.fold (fun v _ -> Variable.Set.add v)
+            user_substs (Variable.Set.singleton target)
+        in
+        let graph =
+          Variable.Set.fold (fun root graph ->
+              graph_var acc user_substs graph root)
+            roots Variable.Graph.empty
+        in
+        Variable.Map.add target graph gs)
+      target_partners
+      Variable.Map.empty
   in
-  let acc, has_consequent = populate_copies acc env graph in
-  if not has_consequent && opposable then
-    Report.raise_useless_opposition_error { pinfos with var_info = acc.var_info } target;
+  let acc = populate_copies acc env targets_reachables in
+  let _usless_opp_error =
+    let useless_ps =
+      Variable.Set.filter (fun p ->
+          match Variable.Map.find_opt p acc.copies with
+          | None | Some None -> true
+        | Some (Some _) -> false)
+        target_partners
+    in
+    match Variable.Set.choose_opt useless_ps with
+    | Some p when opposable ->
+      Report.raise_useless_opposition_error
+        { pinfos with var_info = acc.var_info } p
+    | _ -> ()
+  in
   let acc = duplication acc env in
-  let acc = add_delta acc env in
-  save_relevant_set ~opposable acc ~target
+  let acc = add_delta acc env ~target_partners in
+  let acc = save_relevant_sets ~opposable acc ~targets_reachables in
+  { acc with copies = Variable.Map.empty }
 
 let resolve (pinfo : ProgramInfo.t) (value_eqs : aggregate_eqs)
-    (event_eqs : expr Variable.Map.t) (oppositions : user_substitutions Variable.Map.t)
-    ~(cumulatives : Variable.t Variable.Map.t) ~(providers : Variable.t Variable.Map.t) =
+    (event_eqs : expr Variable.Map.t) (oppositions : user_substitutions Target.Map.t)
+    ~(cumulatives : Variable.t Variable.Map.t) ~(providers : Variable.t Target.Map.t) =
   let acc = {
     var_info = pinfo.var_info; value_eqs; event_eqs;
     copies = Variable.Map.empty;
@@ -492,13 +537,22 @@ let resolve (pinfo : ProgramInfo.t) (value_eqs : aggregate_eqs)
   }
   in
   let acc =
-    Variable.Map.fold (fun target substs acc ->
+    Target.Map.fold (fun target substs acc ->
         let opposable =
           Variable.Map.exists (fun _ -> (<>) NoChange) substs
         in
-        let provider = Variable.Map.find_opt target providers in
+        let provider = Target.Map.find_opt target providers in
+        let _missing_provider_err =
+          if Option.is_none provider && opposable then
+            Report.raise_internal_error "Missing provider for opposable target"
+        in
         resolve_one_target ~opposable pinfo acc ~target ~provider substs cumulatives)
       oppositions acc
+  in
+  let oppos_partners =
+    Target.Map.fold (fun t _ s ->
+      Variable.Set.union s (ProgramInfo.partners_of_opposition_target pinfo t))
+      oppositions Variable.Set.empty
   in
   (* Now adding non opposable varinfos *)
   let acc =
@@ -506,14 +560,14 @@ let resolve (pinfo : ProgramInfo.t) (value_eqs : aggregate_eqs)
         match VarInfo.is_original_partner t with
         | None -> acc
         | Some _ ->
-          if Variable.Map.mem v oppositions
+          if Variable.Set.mem v oppos_partners
           then acc
           else
             resolve_one_target
               ~opposable:false
               pinfo
               acc
-              ~target:v
+              ~target:(Partner v)
               ~provider:None
               Variable.Map.empty
               cumulatives

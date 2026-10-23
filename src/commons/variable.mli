@@ -33,6 +33,8 @@ module Graph : sig
   (** set of vertexes reachable from given start vertex *)
   val reachables : t -> V.t -> Set.t
 
+  val union : t -> t -> t
+
   module DAG : sig
     (** transitive closure keeping as edges all events on the paths
         between two nodes *)

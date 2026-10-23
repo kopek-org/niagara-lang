@@ -1,7 +1,7 @@
 
 type opposed_part = {
   opp_value : R.t;
-  opp_target : Variable.t;
+  opp_target : Opposition.Target.t;
   opp_provider : Variable.t
 }
 
