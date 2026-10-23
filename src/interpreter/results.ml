@@ -126,9 +126,9 @@ let context_display (world : Context.world) (c : Context.Group.t) =
     (Context.group_desc world c)
 
 let variant_copy (pinfos : ProgramInfo.t) layout
-    (targeted_variants : Variable.t Variable.Map.t Variable.Map.t) =
-  Variable.Map.fold (fun target variants (layout : results_layout) ->
-      let target_name = VarInfo.get_any_name pinfos.var_info target in
+    (targeted_variants : Variable.t Variable.Map.t OppositionTarget.Map.t) =
+  OppositionTarget.Map.fold (fun target variants (layout : results_layout) ->
+      let target_name = VarInfo.opposition_target_name pinfos.var_info target in
       let variant_opt v = Variable.Map.find_opt v variants in
       let variant_if_exists v = Option.value ~default:v (variant_opt v) in
       let reps_update reps base =
@@ -341,11 +341,9 @@ let build_result_layout (pinfos : ProgramInfo.t) =
             layout, variants
         | OpposingVariant { target; origin; variant = _ } ->
           layout,
-          Variable.Set.fold (fun target ->
-              Variable.Map.update target (function
-                  | None -> Some (Variable.Map.singleton origin v)
-                  | Some vrt -> Some (Variable.Map.add origin v vrt)))
-            (ProgramInfo.partners_of_opposition_target pinfos target)
+          OppositionTarget.Map.update target (function
+              | None -> Some (Variable.Map.singleton origin v)
+              | Some vrt -> Some (Variable.Map.add origin v vrt))
             variants
         | OppositionDelta { target; provider = _ } ->
           update (fun l ->
@@ -358,7 +356,7 @@ let build_result_layout (pinfos : ProgramInfo.t) =
         | ConditionExistential | AnonEvent | Peeking _ | RisingEvent _
         | TemporalConstraint _ ->
           layout, variants)
-      pinfos.var_info (Variable.Map.empty, Variable.Map.empty)
+      pinfos.var_info (Variable.Map.empty, OppositionTarget.Map.empty)
   in
   variant_copy pinfos layout variants
 

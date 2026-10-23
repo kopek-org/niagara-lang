@@ -48,8 +48,7 @@ let keywords =
     "financer", FINANCER;
     "avance", AVANCE;
     "selon", SELON;
-    (* "section", SECTION; *)
-    (* "fin", FIN; *)
+    "groupe", GROUPE;
   ]
 
 let digit = [%sedlex.regexp? '0' .. '9']

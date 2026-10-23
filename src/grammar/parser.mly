@@ -9,7 +9,7 @@ let pos (start, stop) = Pos.Text.make ~start ~stop
 %token ACTEUR POUR EVENEMENT NON ET OU AVANT APRES QUAND CONTEXTE TOUT CONSTANTE
 %token LPAR RPAR VERS ATTEINT PLUS MINUS MULT DIV EQ COLON EOF DEFICIT
 %token COMMA RETROCESSION RESTE OPPOSABLE ENVERS VALEUR CALCULEE
-%token OBSERVABLE FINANCER AVANCE SELON
+%token OBSERVABLE FINANCER AVANCE SELON GROUPE
 %token<R.t> FLOAT MONEY
 %token<Z.t> INT
 %token<string> LIDENT UIDENT
@@ -342,6 +342,13 @@ backer_decl:
   bac_advance = ioption(preceded(AVANCE, literal))
     { { bac_backed; bac_backer; bac_advance } }
 
+group_member:
+| MINUS m = LIDENT { m }
+
+opposition_group_decl:
+| GROUPE OPPOSABLE og_name = LIDENT COLON og_partners = group_member+
+  {{ og_name; og_partners }}
+
 toplevel_decl:
 | o = operation { DHolderOperation o }
 | e = event_decl { DHolderEvent e }
@@ -359,5 +366,6 @@ toplevel_decl:
   { let (deficit_pool, deficit_provider) = d in
     DHolderDeficit { deficit_pool; deficit_provider } }
 | b = backer_decl { DHolderBacker b }
+| g = opposition_group_decl { DOppGroup g }
 
 program: d = toplevel_decl* EOF { Source d }
