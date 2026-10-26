@@ -5,10 +5,7 @@ type id_kind =
 
 type error =
   | Internal of string
-  | Parsing of {
-    loc : Pos.t option;
-    msg : string
-  }
+  | Parsing of { loc : Pos.t option; msg : string }
   | Repartition of { pool : Variable.t; rep : R.t }
   | MissingDestination
   | UnknownIdentifier of { loc : Pos.t; id : string; kind : id_kind }
@@ -24,7 +21,7 @@ type error =
 let print_error (pinfo : ProgramInfo.t) fmt (err : error) =
   match err with
   | Internal msg -> Format.fprintf fmt "Internal error: %s" msg
-  | Parsing { loc;msg;_ } ->
+  | Parsing { loc; msg } ->
     Format.fprintf fmt "Parsing error%a:@\n%s"
       Fmt.(option (any ", " ++ Pos.Text.pp)) loc
       msg
