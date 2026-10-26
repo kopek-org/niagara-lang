@@ -8,23 +8,13 @@ let dummy : t = Dummy
 module Text = struct
 
 (* This is a simple implementation that will do the job for the time being. *)
-type text = {
-  start_line : int;
-  start_column : int;
-  stop_line : int;
-  stop_column : int;
-}
+type text = Lexing.position * Lexing.position
 
 type t += TextLoc of text
 
 let make : start:Lexing.position -> stop:Lexing.position -> t =
   fun ~start ~stop ->
-    TextLoc {
-      start_line = start.pos_lnum;
-      start_column = start.pos_cnum - start.pos_bol;
-      stop_line = stop.pos_lnum;
-      stop_column = stop.pos_cnum - stop.pos_bol;
-    }
+    TextLoc (start, stop)
 
 let from_lexbuf : Sedlexing.lexbuf -> t =
   fun lexbuf ->
@@ -40,7 +30,11 @@ let gnu_style, set_gnu_style =
 let pp : t Fmt.t = fun ppf pos ->
   match pos with
   | Dummy -> ()
-  | TextLoc { start_line; start_column; stop_line; stop_column } ->
+  | TextLoc (start, stop) ->
+      let start_line = start.pos_lnum in
+      let start_column = start.pos_cnum - start.pos_bol in
+      let stop_line = stop.pos_lnum in
+      let stop_column = stop.pos_cnum - stop.pos_bol in
     begin match gnu_style () with
     | true ->
       Fmt.text_loc ppf ((start_line, start_column), (stop_line, stop_column))
@@ -54,4 +48,8 @@ let pp : t Fmt.t = fun ppf pos ->
     end
   | _ -> Fmt.pf ppf "unknown loc"
 
+let to_lexing_positions t = match t with
+  | TextLoc (start, stop) ->
+    Some (start, stop)
+  | _ -> None
 end

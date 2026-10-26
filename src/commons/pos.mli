@@ -13,14 +13,6 @@ val dummy : t
 
 module Text : sig
 
-  (** Source code location *)
-  type text = {
-    start_line : int;
-    start_column : int;
-    stop_line : int;
-    stop_column : int;
-  }
-
   (** [make ~start ~stop] creates a new position according to
       [start] and [stop] {!Lexing.position}s. *)
   val make : start:Lexing.position -> stop:Lexing.position -> t
@@ -34,5 +26,7 @@ module Text : sig
 
   (** Position pretty-printer. *)
   val pp : t Fmt.t
+
+  val to_lexing_positions: t -> (Lexing.position * Lexing.position) option
 
 end
