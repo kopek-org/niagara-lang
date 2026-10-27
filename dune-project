@@ -59,6 +59,7 @@
   dune
   niagara-lang-lib))
 
+(formatting disabled)
 (generate_opam_files true)
 
 (cram enable)
