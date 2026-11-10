@@ -19,6 +19,9 @@ type error = private
   | LabelUsedBothWays of { locs : Pos.t list; label : string }
   | CyclicRepartition of { locs : Pos.t list }
   | GroupIntersection of { locs : Pos.t list; new_g : string; existing : string }
+  | MissingBacking of { loc : Pos.t; dest : Variable.t }
+  | MultipleBacking of { locs : Pos.t list; dest : Variable.t }
+  | NonLinearBase of { loc : Pos.t; value : Variable.t }
   | User of { locs : Pos.t list; msg : string }
 
 val print_error : ProgramInfo.t -> Format.formatter -> error -> unit
@@ -69,6 +72,15 @@ val raise_label_used_both_ways : ?locs: Pos.t list -> string -> 'a
 val raise_cyclic_repartition : ?locs: Pos.t list -> unit -> 'a
 
 val raise_group_intersection_error : ?locs: Pos.t list -> string -> string -> 'a
+
+val raise_missing_backing_error :
+  ?loc:Pos.t -> ProgramInfo.t -> Variable.t -> 'a
+
+val raise_multiple_backing_error :
+  ?locs:Pos.t list -> ProgramInfo.t -> Variable.t -> 'a
+
+val raise_nonlinear_base_error :
+  ?loc:Pos.t -> ProgramInfo.t -> Variable.t -> 'a
 
 (** Initializes logs. Reporter uses
     standard output/error. For CLI use. *)

@@ -368,8 +368,7 @@ let register_dest_backing t (dest : Variable.t) =
       Variable.Map.update dest (function
           | None | Some BackingRequired -> Some Backed
           | Some Backed ->
-            Report.raise_error "Destination %s backed twice"
-              (VarInfo.get_any_name t.pinfos.var_info dest))
+            Report.raise_multiple_backing_error t.pinfos dest)
         t.phantom_dests
   }
 
@@ -962,8 +961,7 @@ let check_backing_requirement t =
       match backing_state with
       | Backed -> ()
       | BackingRequired ->
-        Report.raise_error "Destination %s must be backed"
-          (VarInfo.get_any_name t.pinfos.var_info dest))
+        Report.raise_missing_backing_error t.pinfos dest)
     t.phantom_dests
 
 let produce_aggregated_eqs t =

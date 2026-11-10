@@ -19,6 +19,9 @@ type error =
   | LabelUsedBothWays of { locs : Pos.t list; label : string }
   | CyclicRepartition of { locs : Pos.t list }
   | GroupIntersection of { locs : Pos.t list; new_g : string; existing : string }
+  | MissingBacking of { loc : Pos.t; dest : Variable.t }
+  | MultipleBacking of { locs : Pos.t list; dest : Variable.t }
+  | NonLinearBase of { loc : Pos.t; value : Variable.t }
   | User of { locs : Pos.t list; msg : string }
 
 let print_error (pinfo : ProgramInfo.t) fmt (err : error) =
@@ -90,6 +93,20 @@ let print_error (pinfo : ProgramInfo.t) fmt (err : error) =
          ~pp_sep:(fun fmt () -> Format.fprintf fmt ",@ ")
          Pos.Text.pp) locs
       new_g existing
+  | MissingBacking { loc; dest } ->
+    Format.fprintf fmt "Error, %a:@\nMissing mandatory backing of destination '%s'"
+      Pos.Text.pp loc
+      (VarInfo.get_any_name pinfo.var_info dest)
+  | MultipleBacking { locs; dest } ->
+    Format.fprintf fmt "Error, %a:@\nSeveral backing of destination '%s'"
+      (Format.pp_print_list
+         ~pp_sep:(fun fmt () -> Format.fprintf fmt ",@ ")
+         Pos.Text.pp) locs
+      (VarInfo.get_any_name pinfo.var_info dest)
+  | NonLinearBase { loc; value } ->
+    Format.fprintf fmt "Error, %a:@\nCannot use non-linear value '%s' as base"
+      Pos.Text.pp loc
+      (VarInfo.get_any_name pinfo.var_info value)
   | User { locs = _; msg } ->
     Format.pp_print_string fmt msg
 
@@ -143,7 +160,7 @@ let raise_useless_opposition_error ?(loc = Pos.dummy) pinfo towards =
   log_error "Useless opposition" pinfo (UselessOpposition { loc; towards })
 
 let raise_multiple_opp_provider_error ?(locs = []) pinfo towards =
-  log_error "Useless opposition" pinfo (MultipleOppositionProvider { locs; towards })
+  log_error "Multiple opp providers" pinfo (MultipleOppositionProvider { locs; towards })
 
 let raise_label_used_both_ways ?(locs = []) label =
   log_error "Invalid label usage" ProgramInfo.dummy (LabelUsedBothWays { locs; label })
@@ -153,6 +170,15 @@ let raise_cyclic_repartition ?(locs = []) () =
 
 let raise_group_intersection_error ?(locs = []) new_g existing =
   log_error "Group intersection" ProgramInfo.dummy (GroupIntersection { locs; new_g; existing })
+
+let raise_missing_backing_error ?(loc = Pos.dummy) pinfo dest =
+  log_error "Missing backing" pinfo (MissingBacking { loc; dest })
+
+let raise_multiple_backing_error ?(locs = []) pinfo dest =
+  log_error "Multiple backing" pinfo (MultipleBacking { locs; dest })
+
+let raise_nonlinear_base_error ?(loc = Pos.dummy) pinfo value =
+  log_error "Non-linear base" pinfo (NonLinearBase { loc; value })
 
 let raise_error ?(locs = []) fmt =
   let k msg = log_error "Usage error" ProgramInfo.dummy (User { locs; msg }) in

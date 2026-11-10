@@ -66,6 +66,8 @@ module Acc : sig
 
   val add_deps_from : t -> Variable.t -> Variable.t list -> t
 
+  val to_program_infos : t -> ProgramInfo.t
+
   val to_contextualized_program : t -> contextualized program
 
 end = struct
@@ -941,7 +943,7 @@ let operation acc (op : operation_decl) =
       let base = Acc.find_misc_var acc base in
       let _base_linearity_error =
         if Acc.is_linear base acc then () else
-          Report.raise_error "Cannot use non-linear values as base"
+          Report.raise_nonlinear_base_error (Acc.to_program_infos acc) base
       in
       acc, base, true
   in
