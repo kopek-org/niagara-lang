@@ -1,0 +1,29 @@
+acteur i
+acteur j
+
+entree assiette x
+
+operation
+sur assiette x
+ quotepart 20% vers j[x]
+
+defaut sur assiette x vers i[x]
+
+valeur x2 : assiette x * 2
+
+operation
+sur base x2
+  quotepart 20% vers j[x2]
+  quotepart reste vers i[x2]
+
+financer j[x2] par i[j]
+financer i[x2] par j[i]
+
+
+valeur x3 : assiette x * 3
+
+operation
+sur base x3
+  quotepart 10% vers j[x3]
+
+financer j[x3] par i[j]

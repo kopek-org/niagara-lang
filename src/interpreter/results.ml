@@ -231,7 +231,7 @@ let build_result_layout (pinfos : ProgramInfo.t) =
         match infos.origin with
         | Named name ->
           (match infos.kind with
-           | Event | Constant | Value { observable = false; _ } -> layout, variants
+           | Event | Constant -> layout, variants
            | Value { cumulative; _ } ->
              update (fun l ->
                  { l with

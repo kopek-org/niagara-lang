@@ -1,3 +1,9 @@
+
+
+
+
+
+
 named_start: VERS
 ##
 ## Ends in an error in state: 0.
@@ -108,7 +114,7 @@ raw_pool_start: LIDENT UIDENT
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-named_start: LIDENT UIDENT
+named_start: LIDENT VERS
 ##
 ## Ends in an error in state: 22.
 ##
@@ -528,7 +534,7 @@ program: ACTEUR VERS
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-program: ACTEUR LIDENT VERS
+program: ACTEUR LIDENT MOIS
 ##
 ## Ends in an error in state: 96.
 ##
@@ -626,7 +632,7 @@ program: VALEUR LIDENT COLON LPAR VERS
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-program: VALEUR LIDENT COLON LPAR DATE GROUPE
+program: VALEUR LIDENT COLON LPAR DATE MOIS
 ##
 ## Ends in an error in state: 118.
 ##
@@ -663,7 +669,7 @@ program: VALEUR LIDENT COLON DATE PLUS VERS
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-program: VALEUR LIDENT COLON DATE PLUS DATE GROUPE
+program: VALEUR LIDENT COLON DATE PLUS DATE MOIS
 ##
 ## Ends in an error in state: 122.
 ##
@@ -694,7 +700,7 @@ program: VALEUR LIDENT COLON DATE OPPOSABLE VERS
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-program: VALEUR LIDENT COLON DATE OPPOSABLE DATE GROUPE
+program: VALEUR LIDENT COLON DATE OPPOSABLE DATE MOIS
 ##
 ## Ends in an error in state: 124.
 ##
@@ -725,7 +731,7 @@ program: VALEUR LIDENT COLON DATE MULT VERS
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-program: VALEUR LIDENT COLON DATE MULT DATE GROUPE
+program: VALEUR LIDENT COLON DATE MULT DATE MOIS
 ##
 ## Ends in an error in state: 126.
 ##
@@ -756,7 +762,7 @@ program: VALEUR LIDENT COLON DATE MINUS VERS
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-program: VALEUR LIDENT COLON DATE MINUS DATE GROUPE
+program: VALEUR LIDENT COLON DATE MINUS DATE MOIS
 ##
 ## Ends in an error in state: 130.
 ##
@@ -787,7 +793,7 @@ program: VALEUR LIDENT COLON DATE DIV VERS
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-program: VALEUR LIDENT COLON DATE DIV DATE GROUPE
+program: VALEUR LIDENT COLON DATE DIV DATE MOIS
 ##
 ## Ends in an error in state: 132.
 ##
@@ -886,7 +892,7 @@ program: OPERATION PAR LIDENT APRES EVENEMENT VERS
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-program: OPERATION PAR LIDENT APRES DATE GROUPE
+program: OPERATION PAR LIDENT APRES DATE MOIS
 ##
 ## Ends in an error in state: 143.
 ##
@@ -917,7 +923,7 @@ program: OPERATION PAR LIDENT APRES DATE EQ VERS
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-program: OPERATION PAR LIDENT APRES DATE EQ DATE GROUPE
+program: OPERATION PAR LIDENT APRES DATE EQ DATE MOIS
 ##
 ## Ends in an error in state: 145.
 ##
@@ -936,7 +942,7 @@ program: OPERATION PAR LIDENT APRES DATE EQ DATE GROUPE
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-program: VALEUR LIDENT COLON LPAR DATE AVANT EVENEMENT LIDENT VERS
+program: VALEUR LIDENT COLON LPAR DATE AVANT EVENEMENT LIDENT VALEUR
 ##
 ## Ends in an error in state: 147.
 ##
@@ -1000,7 +1006,7 @@ program: VALEUR LIDENT COLON LPAR DATE APRES VERS
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-program: VALEUR LIDENT COLON LPAR DATE APRES EVENEMENT LIDENT VERS
+program: VALEUR LIDENT COLON LPAR DATE APRES EVENEMENT LIDENT VALEUR
 ##
 ## Ends in an error in state: 153.
 ##
@@ -1014,7 +1020,7 @@ program: VALEUR LIDENT COLON LPAR DATE APRES EVENEMENT LIDENT VERS
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-program: VALEUR LIDENT COLON DATE GROUPE
+program: VALEUR LIDENT COLON DATE MOIS
 ##
 ## Ends in an error in state: 155.
 ##
@@ -1086,7 +1092,7 @@ program: OPERATION VERS LIDENT VERS
 ## In state 136, spurious reduction of production actor -> actor_desc
 ## In state 163, spurious reduction of production holder -> actor
 ## In state 162, spurious reduction of production destinataire -> VERS holder
-## In state 180, spurious reduction of production option(destinataire) -> destinataire
+## In state 182, spurious reduction of production option(destinataire) -> destinataire
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
@@ -1139,6 +1145,7 @@ program: OPERATION SUR VERS
 ## Ends in an error in state: 170.
 ##
 ## source -> SUR . pool [ RETROCESSION QUOTEPART QUAND BONUS AVANT APRES ]
+## source -> SUR . BASE LIDENT [ RETROCESSION QUOTEPART QUAND BONUS AVANT APRES ]
 ##
 ## The known suffix of the stack is as follows:
 ## SUR
@@ -1146,9 +1153,21 @@ program: OPERATION SUR VERS
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
+program: OPERATION SUR BASE VERS
+##
+## Ends in an error in state: 171.
+##
+## source -> SUR BASE . LIDENT [ RETROCESSION QUOTEPART QUAND BONUS AVANT APRES ]
+##
+## The known suffix of the stack is as follows:
+## SUR BASE
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
 program: OPERATION PAR VERS
 ##
-## Ends in an error in state: 172.
+## Ends in an error in state: 174.
 ##
 ## source -> PAR . actor [ RETROCESSION QUOTEPART QUAND BONUS AVANT APRES ]
 ##
@@ -1158,9 +1177,9 @@ program: OPERATION PAR VERS
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-program: OPERATION PAR LIDENT LPAR
+program: OPERATION PAR LIDENT VERS
 ##
-## Ends in an error in state: 174.
+## Ends in an error in state: 176.
 ##
 ## operation -> OPERATION option(destinataire) list(op_context) source . expression(simple_exprs) [ VALEUR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ##
@@ -1173,14 +1192,14 @@ program: OPERATION PAR LIDENT LPAR
 ## may provide an INCOMPLETE view of the future (what was expected next).
 ## In state 134, spurious reduction of production actor_desc -> LIDENT
 ## In state 136, spurious reduction of production actor -> actor_desc
-## In state 173, spurious reduction of production source -> PAR actor
+## In state 175, spurious reduction of production source -> PAR actor
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
 program: OPERATION PAR LIDENT RETROCESSION VERS
 ##
-## Ends in an error in state: 175.
+## Ends in an error in state: 177.
 ##
 ## simple_expr -> RETROCESSION . formula SUR holder option(destinataire) [ VALEUR RPAR RETROCESSION QUOTEPART QUAND OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT BONUS AVANT ASSIETTE APRES ]
 ##
@@ -1190,9 +1209,9 @@ program: OPERATION PAR LIDENT RETROCESSION VERS
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-program: OPERATION PAR LIDENT RETROCESSION DATE GROUPE
+program: OPERATION PAR LIDENT RETROCESSION DATE MOIS
 ##
-## Ends in an error in state: 176.
+## Ends in an error in state: 178.
 ##
 ## formula_desc -> formula . PLUS formula [ TOTAL SUR PLUS OPPOSABLE MULT MINUS DIV COURANT ]
 ## formula_desc -> formula . MINUS formula [ TOTAL SUR PLUS OPPOSABLE MULT MINUS DIV COURANT ]
@@ -1211,7 +1230,7 @@ program: OPERATION PAR LIDENT RETROCESSION DATE GROUPE
 
 program: OPERATION PAR LIDENT RETROCESSION DATE SUR VERS
 ##
-## Ends in an error in state: 177.
+## Ends in an error in state: 179.
 ##
 ## simple_expr -> RETROCESSION formula SUR . holder option(destinataire) [ VALEUR RPAR RETROCESSION QUOTEPART QUAND OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT BONUS AVANT ASSIETTE APRES ]
 ##
@@ -1221,9 +1240,9 @@ program: OPERATION PAR LIDENT RETROCESSION DATE SUR VERS
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-program: OPERATION PAR LIDENT RETROCESSION DATE SUR LIDENT LPAR
+program: OPERATION PAR LIDENT RETROCESSION DATE SUR LIDENT TOTAL
 ##
-## Ends in an error in state: 178.
+## Ends in an error in state: 180.
 ##
 ## simple_expr -> RETROCESSION formula SUR holder . option(destinataire) [ VALEUR RPAR RETROCESSION QUOTEPART QUAND OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT BONUS AVANT ASSIETTE APRES ]
 ##
@@ -1243,7 +1262,7 @@ program: OPERATION PAR LIDENT RETROCESSION DATE SUR LIDENT LPAR
 
 program: OPERATION PAR LIDENT QUOTEPART VERS
 ##
-## Ends in an error in state: 181.
+## Ends in an error in state: 183.
 ##
 ## simple_expr -> QUOTEPART . formula boption(pair(NON,OPPOSABLE)) option(destinataire) [ VALEUR RPAR RETROCESSION QUOTEPART QUAND OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT BONUS AVANT ASSIETTE APRES ]
 ## simple_expr -> QUOTEPART . RESTE option(destinataire) [ VALEUR RPAR RETROCESSION QUOTEPART QUAND OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT BONUS AVANT ASSIETTE APRES ]
@@ -1256,7 +1275,7 @@ program: OPERATION PAR LIDENT QUOTEPART VERS
 
 program: OPERATION PAR LIDENT QUOTEPART RESTE UIDENT
 ##
-## Ends in an error in state: 182.
+## Ends in an error in state: 184.
 ##
 ## simple_expr -> QUOTEPART RESTE . option(destinataire) [ VALEUR RPAR RETROCESSION QUOTEPART QUAND OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT BONUS AVANT ASSIETTE APRES ]
 ##
@@ -1266,9 +1285,9 @@ program: OPERATION PAR LIDENT QUOTEPART RESTE UIDENT
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-program: OPERATION PAR LIDENT QUOTEPART DATE GROUPE
+program: OPERATION PAR LIDENT QUOTEPART DATE MOIS
 ##
-## Ends in an error in state: 184.
+## Ends in an error in state: 186.
 ##
 ## formula_desc -> formula . PLUS formula [ VERS VALEUR TOTAL RPAR RETROCESSION QUOTEPART QUAND PLUS OPPOSABLE OPERATION NON MULT MINUS FINANCER EVENEMENT EOF DIV DEFICIT DEFAUT COURANT BONUS AVANT ASSIETTE APRES ]
 ## formula_desc -> formula . MINUS formula [ VERS VALEUR TOTAL RPAR RETROCESSION QUOTEPART QUAND PLUS OPPOSABLE OPERATION NON MULT MINUS FINANCER EVENEMENT EOF DIV DEFICIT DEFAUT COURANT BONUS AVANT ASSIETTE APRES ]
@@ -1287,7 +1306,7 @@ program: OPERATION PAR LIDENT QUOTEPART DATE GROUPE
 
 program: OPERATION PAR LIDENT QUOTEPART DATE NON VERS
 ##
-## Ends in an error in state: 185.
+## Ends in an error in state: 187.
 ##
 ## boption(pair(NON,OPPOSABLE)) -> NON . OPPOSABLE [ VERS VALEUR RPAR RETROCESSION QUOTEPART QUAND OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT BONUS AVANT ASSIETTE APRES ]
 ##
@@ -1299,7 +1318,7 @@ program: OPERATION PAR LIDENT QUOTEPART DATE NON VERS
 
 program: OPERATION PAR LIDENT QUOTEPART DATE NON OPPOSABLE UIDENT
 ##
-## Ends in an error in state: 187.
+## Ends in an error in state: 189.
 ##
 ## simple_expr -> QUOTEPART formula boption(pair(NON,OPPOSABLE)) . option(destinataire) [ VALEUR RPAR RETROCESSION QUOTEPART QUAND OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT BONUS AVANT ASSIETTE APRES ]
 ##
@@ -1311,7 +1330,7 @@ program: OPERATION PAR LIDENT QUOTEPART DATE NON OPPOSABLE UIDENT
 
 program: OPERATION PAR LIDENT QUAND VERS
 ##
-## Ends in an error in state: 189.
+## Ends in an error in state: 191.
 ##
 ## when_expr(simple_exprs) -> QUAND . event_expr sub_expression(simple_exprs) [ VALEUR RPAR QUAND OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ##
@@ -1321,9 +1340,9 @@ program: OPERATION PAR LIDENT QUAND VERS
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-program: OPERATION PAR LIDENT QUAND EVENEMENT LIDENT VERS
+program: OPERATION PAR LIDENT QUAND EVENEMENT LIDENT VALEUR
 ##
-## Ends in an error in state: 190.
+## Ends in an error in state: 192.
 ##
 ## event_expr_desc -> event_expr . ET event_expr [ RETROCESSION QUOTEPART OU LPAR ET BONUS ]
 ## event_expr_desc -> event_expr . OU event_expr [ RETROCESSION QUOTEPART OU LPAR ET BONUS ]
@@ -1337,7 +1356,7 @@ program: OPERATION PAR LIDENT QUAND EVENEMENT LIDENT VERS
 
 program: OPERATION PAR LIDENT APRES EVENEMENT LIDENT LPAR VERS
 ##
-## Ends in an error in state: 191.
+## Ends in an error in state: 193.
 ##
 ## sub_expression(simple_exprs) -> LPAR . expression(simple_exprs) RPAR [ VALEUR RPAR QUAND OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT AVANT ASSIETTE APRES ]
 ##
@@ -1349,7 +1368,7 @@ program: OPERATION PAR LIDENT APRES EVENEMENT LIDENT LPAR VERS
 
 program: OPERATION PAR LIDENT BONUS VERS
 ##
-## Ends in an error in state: 192.
+## Ends in an error in state: 194.
 ##
 ## simple_expr -> BONUS . formula option(destinataire) [ VALEUR RPAR RETROCESSION QUOTEPART QUAND OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT BONUS AVANT ASSIETTE APRES ]
 ##
@@ -1359,9 +1378,9 @@ program: OPERATION PAR LIDENT BONUS VERS
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-program: OPERATION PAR LIDENT BONUS DATE GROUPE
+program: OPERATION PAR LIDENT BONUS DATE MOIS
 ##
-## Ends in an error in state: 193.
+## Ends in an error in state: 195.
 ##
 ## formula_desc -> formula . PLUS formula [ VERS VALEUR TOTAL RPAR RETROCESSION QUOTEPART QUAND PLUS OPPOSABLE OPERATION MULT MINUS FINANCER EVENEMENT EOF DIV DEFICIT DEFAUT COURANT BONUS AVANT ASSIETTE APRES ]
 ## formula_desc -> formula . MINUS formula [ VERS VALEUR TOTAL RPAR RETROCESSION QUOTEPART QUAND PLUS OPPOSABLE OPERATION MULT MINUS FINANCER EVENEMENT EOF DIV DEFICIT DEFAUT COURANT BONUS AVANT ASSIETTE APRES ]
@@ -1380,7 +1399,7 @@ program: OPERATION PAR LIDENT BONUS DATE GROUPE
 
 program: OPERATION PAR LIDENT AVANT VERS
 ##
-## Ends in an error in state: 195.
+## Ends in an error in state: 197.
 ##
 ## before_expr(simple_exprs) -> AVANT . event_expr sub_expression(simple_exprs) [ VALEUR RPAR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT AVANT ASSIETTE APRES ]
 ##
@@ -1390,9 +1409,9 @@ program: OPERATION PAR LIDENT AVANT VERS
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-program: OPERATION PAR LIDENT AVANT EVENEMENT LIDENT VERS
+program: OPERATION PAR LIDENT AVANT EVENEMENT LIDENT VALEUR
 ##
-## Ends in an error in state: 196.
+## Ends in an error in state: 198.
 ##
 ## before_expr(simple_exprs) -> AVANT event_expr . sub_expression(simple_exprs) [ VALEUR RPAR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT AVANT ASSIETTE APRES ]
 ## event_expr_desc -> event_expr . ET event_expr [ RETROCESSION QUOTEPART OU LPAR ET BONUS ]
@@ -1406,7 +1425,7 @@ program: OPERATION PAR LIDENT AVANT EVENEMENT LIDENT VERS
 
 program: OPERATION PAR LIDENT BONUS DATE VERS LIDENT LPAR
 ##
-## Ends in an error in state: 199.
+## Ends in an error in state: 201.
 ##
 ## nonempty_list(simple_expr) -> simple_expr . [ VALEUR RPAR QUAND OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT AVANT ASSIETTE APRES ]
 ## nonempty_list(simple_expr) -> simple_expr . nonempty_list(simple_expr) [ VALEUR RPAR QUAND OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT AVANT ASSIETTE APRES ]
@@ -1422,15 +1441,15 @@ program: OPERATION PAR LIDENT BONUS DATE VERS LIDENT LPAR
 ## In state 136, spurious reduction of production actor -> actor_desc
 ## In state 163, spurious reduction of production holder -> actor
 ## In state 162, spurious reduction of production destinataire -> VERS holder
-## In state 180, spurious reduction of production option(destinataire) -> destinataire
-## In state 194, spurious reduction of production simple_expr -> BONUS formula option(destinataire)
+## In state 182, spurious reduction of production option(destinataire) -> destinataire
+## In state 196, spurious reduction of production simple_expr -> BONUS formula option(destinataire)
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
 program: OPERATION PAR LIDENT APRES VERS
 ##
-## Ends in an error in state: 202.
+## Ends in an error in state: 204.
 ##
 ## after_expr(simple_exprs) -> APRES . event_expr sub_expression(simple_exprs) [ VALEUR RPAR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE APRES ]
 ##
@@ -1440,9 +1459,9 @@ program: OPERATION PAR LIDENT APRES VERS
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-program: OPERATION PAR LIDENT APRES EVENEMENT LIDENT VERS
+program: OPERATION PAR LIDENT APRES EVENEMENT LIDENT VALEUR
 ##
-## Ends in an error in state: 203.
+## Ends in an error in state: 205.
 ##
 ## after_expr(simple_exprs) -> APRES event_expr . sub_expression(simple_exprs) [ VALEUR RPAR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE APRES ]
 ## event_expr_desc -> event_expr . ET event_expr [ RETROCESSION QUOTEPART OU LPAR ET BONUS ]
@@ -1456,7 +1475,7 @@ program: OPERATION PAR LIDENT APRES EVENEMENT LIDENT VERS
 
 program: OPERATION PAR LIDENT QUAND EVENEMENT LIDENT BONUS DATE AVANT
 ##
-## Ends in an error in state: 205.
+## Ends in an error in state: 207.
 ##
 ## nonempty_list(when_expr(simple_exprs)) -> when_expr(simple_exprs) . [ VALEUR RPAR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ## nonempty_list(when_expr(simple_exprs)) -> when_expr(simple_exprs) . nonempty_list(when_expr(simple_exprs)) [ VALEUR RPAR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
@@ -1468,19 +1487,19 @@ program: OPERATION PAR LIDENT QUAND EVENEMENT LIDENT BONUS DATE AVANT
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 193, spurious reduction of production option(destinataire) ->
-## In state 194, spurious reduction of production simple_expr -> BONUS formula option(destinataire)
-## In state 199, spurious reduction of production nonempty_list(simple_expr) -> simple_expr
-## In state 201, spurious reduction of production simple_exprs -> nonempty_list(simple_expr)
-## In state 198, spurious reduction of production sub_expression(simple_exprs) -> simple_exprs
-## In state 221, spurious reduction of production when_expr(simple_exprs) -> QUAND event_expr sub_expression(simple_exprs)
+## In state 195, spurious reduction of production option(destinataire) ->
+## In state 196, spurious reduction of production simple_expr -> BONUS formula option(destinataire)
+## In state 201, spurious reduction of production nonempty_list(simple_expr) -> simple_expr
+## In state 203, spurious reduction of production simple_exprs -> nonempty_list(simple_expr)
+## In state 200, spurious reduction of production sub_expression(simple_exprs) -> simple_exprs
+## In state 223, spurious reduction of production when_expr(simple_exprs) -> QUAND event_expr sub_expression(simple_exprs)
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
 program: OPERATION PAR LIDENT AVANT EVENEMENT LIDENT BONUS DATE APRES EVENEMENT LIDENT BONUS DATE QUAND
 ##
-## Ends in an error in state: 211.
+## Ends in an error in state: 213.
 ##
 ## list(after_expr(simple_exprs)) -> after_expr(simple_exprs) . list(after_expr(simple_exprs)) [ VALEUR RPAR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ##
@@ -1491,19 +1510,19 @@ program: OPERATION PAR LIDENT AVANT EVENEMENT LIDENT BONUS DATE APRES EVENEMENT 
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 193, spurious reduction of production option(destinataire) ->
-## In state 194, spurious reduction of production simple_expr -> BONUS formula option(destinataire)
-## In state 199, spurious reduction of production nonempty_list(simple_expr) -> simple_expr
-## In state 201, spurious reduction of production simple_exprs -> nonempty_list(simple_expr)
-## In state 198, spurious reduction of production sub_expression(simple_exprs) -> simple_exprs
-## In state 204, spurious reduction of production after_expr(simple_exprs) -> APRES event_expr sub_expression(simple_exprs)
+## In state 195, spurious reduction of production option(destinataire) ->
+## In state 196, spurious reduction of production simple_expr -> BONUS formula option(destinataire)
+## In state 201, spurious reduction of production nonempty_list(simple_expr) -> simple_expr
+## In state 203, spurious reduction of production simple_exprs -> nonempty_list(simple_expr)
+## In state 200, spurious reduction of production sub_expression(simple_exprs) -> simple_exprs
+## In state 206, spurious reduction of production after_expr(simple_exprs) -> APRES event_expr sub_expression(simple_exprs)
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-program: OPERATION PAR LIDENT APRES EVENEMENT LIDENT LPAR BONUS DATE QUAND
+program: OPERATION PAR LIDENT APRES EVENEMENT LIDENT LPAR BONUS DATE VALEUR
 ##
-## Ends in an error in state: 214.
+## Ends in an error in state: 216.
 ##
 ## sub_expression(simple_exprs) -> LPAR expression(simple_exprs) . RPAR [ VALEUR RPAR QUAND OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT AVANT ASSIETTE APRES ]
 ##
@@ -1514,18 +1533,18 @@ program: OPERATION PAR LIDENT APRES EVENEMENT LIDENT LPAR BONUS DATE QUAND
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 193, spurious reduction of production option(destinataire) ->
-## In state 194, spurious reduction of production simple_expr -> BONUS formula option(destinataire)
-## In state 199, spurious reduction of production nonempty_list(simple_expr) -> simple_expr
-## In state 201, spurious reduction of production simple_exprs -> nonempty_list(simple_expr)
-## In state 207, spurious reduction of production expression(simple_exprs) -> simple_exprs
+## In state 195, spurious reduction of production option(destinataire) ->
+## In state 196, spurious reduction of production simple_expr -> BONUS formula option(destinataire)
+## In state 201, spurious reduction of production nonempty_list(simple_expr) -> simple_expr
+## In state 203, spurious reduction of production simple_exprs -> nonempty_list(simple_expr)
+## In state 209, spurious reduction of production expression(simple_exprs) -> simple_exprs
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
 program: OPERATION PAR LIDENT AVANT EVENEMENT LIDENT BONUS DATE QUAND
 ##
-## Ends in an error in state: 217.
+## Ends in an error in state: 219.
 ##
 ## nonempty_list(before_expr(simple_exprs)) -> before_expr(simple_exprs) . [ VALEUR RPAR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE APRES ]
 ## nonempty_list(before_expr(simple_exprs)) -> before_expr(simple_exprs) . nonempty_list(before_expr(simple_exprs)) [ VALEUR RPAR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE APRES ]
@@ -1537,19 +1556,19 @@ program: OPERATION PAR LIDENT AVANT EVENEMENT LIDENT BONUS DATE QUAND
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 193, spurious reduction of production option(destinataire) ->
-## In state 194, spurious reduction of production simple_expr -> BONUS formula option(destinataire)
-## In state 199, spurious reduction of production nonempty_list(simple_expr) -> simple_expr
-## In state 201, spurious reduction of production simple_exprs -> nonempty_list(simple_expr)
-## In state 198, spurious reduction of production sub_expression(simple_exprs) -> simple_exprs
-## In state 197, spurious reduction of production before_expr(simple_exprs) -> AVANT event_expr sub_expression(simple_exprs)
+## In state 195, spurious reduction of production option(destinataire) ->
+## In state 196, spurious reduction of production simple_expr -> BONUS formula option(destinataire)
+## In state 201, spurious reduction of production nonempty_list(simple_expr) -> simple_expr
+## In state 203, spurious reduction of production simple_exprs -> nonempty_list(simple_expr)
+## In state 200, spurious reduction of production sub_expression(simple_exprs) -> simple_exprs
+## In state 199, spurious reduction of production before_expr(simple_exprs) -> AVANT event_expr sub_expression(simple_exprs)
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
 program: OPERATION PAR LIDENT APRES EVENEMENT LIDENT BONUS DATE QUAND
 ##
-## Ends in an error in state: 219.
+## Ends in an error in state: 221.
 ##
 ## nonempty_list(after_expr(simple_exprs)) -> after_expr(simple_exprs) . [ VALEUR RPAR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ## nonempty_list(after_expr(simple_exprs)) -> after_expr(simple_exprs) . nonempty_list(after_expr(simple_exprs)) [ VALEUR RPAR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
@@ -1561,19 +1580,19 @@ program: OPERATION PAR LIDENT APRES EVENEMENT LIDENT BONUS DATE QUAND
 ## This implies that, although the LR(1) items shown above provide an
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
-## In state 193, spurious reduction of production option(destinataire) ->
-## In state 194, spurious reduction of production simple_expr -> BONUS formula option(destinataire)
-## In state 199, spurious reduction of production nonempty_list(simple_expr) -> simple_expr
-## In state 201, spurious reduction of production simple_exprs -> nonempty_list(simple_expr)
-## In state 198, spurious reduction of production sub_expression(simple_exprs) -> simple_exprs
-## In state 204, spurious reduction of production after_expr(simple_exprs) -> APRES event_expr sub_expression(simple_exprs)
+## In state 195, spurious reduction of production option(destinataire) ->
+## In state 196, spurious reduction of production simple_expr -> BONUS formula option(destinataire)
+## In state 201, spurious reduction of production nonempty_list(simple_expr) -> simple_expr
+## In state 203, spurious reduction of production simple_exprs -> nonempty_list(simple_expr)
+## In state 200, spurious reduction of production sub_expression(simple_exprs) -> simple_exprs
+## In state 206, spurious reduction of production after_expr(simple_exprs) -> APRES event_expr sub_expression(simple_exprs)
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
 program: FINANCER VERS
 ##
-## Ends in an error in state: 223.
+## Ends in an error in state: 225.
 ##
 ## backer_decl -> FINANCER . holder PAR actor [ VALEUR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ## backer_decl -> FINANCER . holder PAR actor AVANCE literal [ VALEUR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
@@ -1584,9 +1603,9 @@ program: FINANCER VERS
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-program: FINANCER LIDENT LPAR
+program: FINANCER LIDENT VERS
 ##
-## Ends in an error in state: 224.
+## Ends in an error in state: 226.
 ##
 ## backer_decl -> FINANCER holder . PAR actor [ VALEUR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ## backer_decl -> FINANCER holder . PAR actor AVANCE literal [ VALEUR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
@@ -1607,7 +1626,7 @@ program: FINANCER LIDENT LPAR
 
 program: FINANCER LIDENT PAR VERS
 ##
-## Ends in an error in state: 225.
+## Ends in an error in state: 227.
 ##
 ## backer_decl -> FINANCER holder PAR . actor [ VALEUR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ## backer_decl -> FINANCER holder PAR . actor AVANCE literal [ VALEUR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
@@ -1620,7 +1639,7 @@ program: FINANCER LIDENT PAR VERS
 
 program: FINANCER LIDENT PAR LIDENT VERS
 ##
-## Ends in an error in state: 226.
+## Ends in an error in state: 228.
 ##
 ## backer_decl -> FINANCER holder PAR actor . [ VALEUR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ## backer_decl -> FINANCER holder PAR actor . AVANCE literal [ VALEUR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
@@ -1640,7 +1659,7 @@ program: FINANCER LIDENT PAR LIDENT VERS
 
 program: FINANCER LIDENT PAR LIDENT AVANCE VERS
 ##
-## Ends in an error in state: 227.
+## Ends in an error in state: 229.
 ##
 ## backer_decl -> FINANCER holder PAR actor AVANCE . literal [ VALEUR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ##
@@ -1652,7 +1671,7 @@ program: FINANCER LIDENT PAR LIDENT AVANCE VERS
 
 program: EVENEMENT VERS
 ##
-## Ends in an error in state: 229.
+## Ends in an error in state: 231.
 ##
 ## event_decl -> EVENEMENT . LIDENT ATTEINT QUAND event_expr [ VALEUR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ##
@@ -1664,7 +1683,7 @@ program: EVENEMENT VERS
 
 program: EVENEMENT LIDENT VERS
 ##
-## Ends in an error in state: 230.
+## Ends in an error in state: 232.
 ##
 ## event_decl -> EVENEMENT LIDENT . ATTEINT QUAND event_expr [ VALEUR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ##
@@ -1676,7 +1695,7 @@ program: EVENEMENT LIDENT VERS
 
 program: EVENEMENT LIDENT ATTEINT VERS
 ##
-## Ends in an error in state: 231.
+## Ends in an error in state: 233.
 ##
 ## event_decl -> EVENEMENT LIDENT ATTEINT . QUAND event_expr [ VALEUR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ##
@@ -1688,7 +1707,7 @@ program: EVENEMENT LIDENT ATTEINT VERS
 
 program: EVENEMENT LIDENT ATTEINT QUAND VERS
 ##
-## Ends in an error in state: 232.
+## Ends in an error in state: 234.
 ##
 ## event_decl -> EVENEMENT LIDENT ATTEINT QUAND . event_expr [ VALEUR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ##
@@ -1698,9 +1717,9 @@ program: EVENEMENT LIDENT ATTEINT QUAND VERS
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-program: EVENEMENT LIDENT ATTEINT QUAND EVENEMENT LIDENT VERS
+program: EVENEMENT LIDENT ATTEINT QUAND EVENEMENT LIDENT RPAR
 ##
-## Ends in an error in state: 233.
+## Ends in an error in state: 235.
 ##
 ## event_decl -> EVENEMENT LIDENT ATTEINT QUAND event_expr . [ VALEUR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ## event_expr_desc -> event_expr . ET event_expr [ VALEUR OU OPERATION FINANCER EVENEMENT ET EOF DEFICIT DEFAUT ASSIETTE ]
@@ -1714,7 +1733,7 @@ program: EVENEMENT LIDENT ATTEINT QUAND EVENEMENT LIDENT VERS
 
 program: DEFICIT VERS
 ##
-## Ends in an error in state: 234.
+## Ends in an error in state: 236.
 ##
 ## deficit_decl -> DEFICIT . SUR pool PAR holder [ VALEUR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ##
@@ -1726,7 +1745,7 @@ program: DEFICIT VERS
 
 program: DEFICIT SUR VERS
 ##
-## Ends in an error in state: 235.
+## Ends in an error in state: 237.
 ##
 ## deficit_decl -> DEFICIT SUR . pool PAR holder [ VALEUR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ##
@@ -1738,7 +1757,7 @@ program: DEFICIT SUR VERS
 
 program: DEFICIT SUR ASSIETTE LIDENT VERS
 ##
-## Ends in an error in state: 236.
+## Ends in an error in state: 238.
 ##
 ## deficit_decl -> DEFICIT SUR pool . PAR holder [ VALEUR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ##
@@ -1757,7 +1776,7 @@ program: DEFICIT SUR ASSIETTE LIDENT VERS
 
 program: DEFICIT SUR ASSIETTE LIDENT PAR VERS
 ##
-## Ends in an error in state: 237.
+## Ends in an error in state: 239.
 ##
 ## deficit_decl -> DEFICIT SUR pool PAR . holder [ VALEUR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ##
@@ -1769,7 +1788,7 @@ program: DEFICIT SUR ASSIETTE LIDENT PAR VERS
 
 program: DEFAUT VERS
 ##
-## Ends in an error in state: 239.
+## Ends in an error in state: 241.
 ##
 ## default_decl -> DEFAUT . SUR pool VERS holder [ VALEUR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ##
@@ -1781,7 +1800,7 @@ program: DEFAUT VERS
 
 program: DEFAUT SUR VERS
 ##
-## Ends in an error in state: 240.
+## Ends in an error in state: 242.
 ##
 ## default_decl -> DEFAUT SUR . pool VERS holder [ VALEUR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ##
@@ -1793,7 +1812,7 @@ program: DEFAUT SUR VERS
 
 program: DEFAUT SUR ASSIETTE LIDENT VALEUR
 ##
-## Ends in an error in state: 241.
+## Ends in an error in state: 243.
 ##
 ## default_decl -> DEFAUT SUR pool . VERS holder [ VALEUR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ##
@@ -1812,7 +1831,7 @@ program: DEFAUT SUR ASSIETTE LIDENT VALEUR
 
 program: DEFAUT SUR ASSIETTE LIDENT VERS VERS
 ##
-## Ends in an error in state: 242.
+## Ends in an error in state: 244.
 ##
 ## default_decl -> DEFAUT SUR pool VERS . holder [ VALEUR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ##
@@ -1824,7 +1843,7 @@ program: DEFAUT SUR ASSIETTE LIDENT VERS VERS
 
 program: ASSIETTE VERS
 ##
-## Ends in an error in state: 244.
+## Ends in an error in state: 246.
 ##
 ## comp_pool_decl -> ASSIETTE . CALCULEE LIDENT list(op_context) expression(value_def) [ VALEUR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ##
@@ -1836,7 +1855,7 @@ program: ASSIETTE VERS
 
 program: ASSIETTE CALCULEE VERS
 ##
-## Ends in an error in state: 245.
+## Ends in an error in state: 247.
 ##
 ## comp_pool_decl -> ASSIETTE CALCULEE . LIDENT list(op_context) expression(value_def) [ VALEUR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ##
@@ -1848,7 +1867,7 @@ program: ASSIETTE CALCULEE VERS
 
 program: ASSIETTE CALCULEE LIDENT VERS
 ##
-## Ends in an error in state: 246.
+## Ends in an error in state: 248.
 ##
 ## comp_pool_decl -> ASSIETTE CALCULEE LIDENT . list(op_context) expression(value_def) [ VALEUR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ##
@@ -1860,7 +1879,7 @@ program: ASSIETTE CALCULEE LIDENT VERS
 
 program: ASSIETTE CALCULEE LIDENT POUR TOUT UIDENT SUR
 ##
-## Ends in an error in state: 247.
+## Ends in an error in state: 249.
 ##
 ## comp_pool_decl -> ASSIETTE CALCULEE LIDENT list(op_context) . expression(value_def) [ VALEUR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ##
@@ -1879,7 +1898,7 @@ program: ASSIETTE CALCULEE LIDENT POUR TOUT UIDENT SUR
 
 program: ASSIETTE CALCULEE LIDENT QUAND VERS
 ##
-## Ends in an error in state: 248.
+## Ends in an error in state: 250.
 ##
 ## when_expr(value_def) -> QUAND . event_expr sub_expression(value_def) [ VALEUR RPAR QUAND OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ##
@@ -1889,9 +1908,9 @@ program: ASSIETTE CALCULEE LIDENT QUAND VERS
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-program: ASSIETTE CALCULEE LIDENT QUAND EVENEMENT LIDENT VERS
+program: ASSIETTE CALCULEE LIDENT QUAND EVENEMENT LIDENT VALEUR
 ##
-## Ends in an error in state: 249.
+## Ends in an error in state: 251.
 ##
 ## event_expr_desc -> event_expr . ET event_expr [ OU LPAR ET COLON ]
 ## event_expr_desc -> event_expr . OU event_expr [ OU LPAR ET COLON ]
@@ -1905,7 +1924,7 @@ program: ASSIETTE CALCULEE LIDENT QUAND EVENEMENT LIDENT VERS
 
 program: ASSIETTE CALCULEE LIDENT APRES EVENEMENT LIDENT LPAR VERS
 ##
-## Ends in an error in state: 250.
+## Ends in an error in state: 252.
 ##
 ## sub_expression(value_def) -> LPAR . expression(value_def) RPAR [ VALEUR RPAR QUAND OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT AVANT ASSIETTE APRES ]
 ##
@@ -1917,7 +1936,7 @@ program: ASSIETTE CALCULEE LIDENT APRES EVENEMENT LIDENT LPAR VERS
 
 program: ASSIETTE CALCULEE LIDENT AVANT VERS
 ##
-## Ends in an error in state: 251.
+## Ends in an error in state: 253.
 ##
 ## before_expr(value_def) -> AVANT . event_expr sub_expression(value_def) [ VALEUR RPAR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT AVANT ASSIETTE APRES ]
 ##
@@ -1927,9 +1946,9 @@ program: ASSIETTE CALCULEE LIDENT AVANT VERS
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-program: ASSIETTE CALCULEE LIDENT AVANT EVENEMENT LIDENT VERS
+program: ASSIETTE CALCULEE LIDENT AVANT EVENEMENT LIDENT VALEUR
 ##
-## Ends in an error in state: 252.
+## Ends in an error in state: 254.
 ##
 ## before_expr(value_def) -> AVANT event_expr . sub_expression(value_def) [ VALEUR RPAR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT AVANT ASSIETTE APRES ]
 ## event_expr_desc -> event_expr . ET event_expr [ OU LPAR ET COLON ]
@@ -1943,7 +1962,7 @@ program: ASSIETTE CALCULEE LIDENT AVANT EVENEMENT LIDENT VERS
 
 program: ASSIETTE CALCULEE LIDENT APRES VERS
 ##
-## Ends in an error in state: 255.
+## Ends in an error in state: 257.
 ##
 ## after_expr(value_def) -> APRES . event_expr sub_expression(value_def) [ VALEUR RPAR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE APRES ]
 ##
@@ -1953,9 +1972,9 @@ program: ASSIETTE CALCULEE LIDENT APRES VERS
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-program: ASSIETTE CALCULEE LIDENT APRES EVENEMENT LIDENT VERS
+program: ASSIETTE CALCULEE LIDENT APRES EVENEMENT LIDENT VALEUR
 ##
-## Ends in an error in state: 256.
+## Ends in an error in state: 258.
 ##
 ## after_expr(value_def) -> APRES event_expr . sub_expression(value_def) [ VALEUR RPAR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE APRES ]
 ## event_expr_desc -> event_expr . ET event_expr [ OU LPAR ET COLON ]
@@ -1969,7 +1988,7 @@ program: ASSIETTE CALCULEE LIDENT APRES EVENEMENT LIDENT VERS
 
 program: ASSIETTE CALCULEE LIDENT QUAND EVENEMENT LIDENT COLON DATE AVANT
 ##
-## Ends in an error in state: 258.
+## Ends in an error in state: 260.
 ##
 ## nonempty_list(when_expr(value_def)) -> when_expr(value_def) . [ VALEUR RPAR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ## nonempty_list(when_expr(value_def)) -> when_expr(value_def) . nonempty_list(when_expr(value_def)) [ VALEUR RPAR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
@@ -1982,15 +2001,15 @@ program: ASSIETTE CALCULEE LIDENT QUAND EVENEMENT LIDENT COLON DATE AVANT
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
 ## In state 155, spurious reduction of production value_def -> COLON formula
-## In state 253, spurious reduction of production sub_expression(value_def) -> value_def
-## In state 274, spurious reduction of production when_expr(value_def) -> QUAND event_expr sub_expression(value_def)
+## In state 255, spurious reduction of production sub_expression(value_def) -> value_def
+## In state 276, spurious reduction of production when_expr(value_def) -> QUAND event_expr sub_expression(value_def)
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
 program: ASSIETTE CALCULEE LIDENT AVANT EVENEMENT LIDENT COLON DATE APRES EVENEMENT LIDENT COLON DATE QUAND
 ##
-## Ends in an error in state: 264.
+## Ends in an error in state: 266.
 ##
 ## list(after_expr(value_def)) -> after_expr(value_def) . list(after_expr(value_def)) [ VALEUR RPAR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ##
@@ -2002,15 +2021,15 @@ program: ASSIETTE CALCULEE LIDENT AVANT EVENEMENT LIDENT COLON DATE APRES EVENEM
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
 ## In state 155, spurious reduction of production value_def -> COLON formula
-## In state 253, spurious reduction of production sub_expression(value_def) -> value_def
-## In state 257, spurious reduction of production after_expr(value_def) -> APRES event_expr sub_expression(value_def)
+## In state 255, spurious reduction of production sub_expression(value_def) -> value_def
+## In state 259, spurious reduction of production after_expr(value_def) -> APRES event_expr sub_expression(value_def)
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-program: ASSIETTE CALCULEE LIDENT APRES EVENEMENT LIDENT LPAR COLON DATE QUAND
+program: ASSIETTE CALCULEE LIDENT APRES EVENEMENT LIDENT LPAR COLON DATE VALEUR
 ##
-## Ends in an error in state: 267.
+## Ends in an error in state: 269.
 ##
 ## sub_expression(value_def) -> LPAR expression(value_def) . RPAR [ VALEUR RPAR QUAND OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT AVANT ASSIETTE APRES ]
 ##
@@ -2022,14 +2041,14 @@ program: ASSIETTE CALCULEE LIDENT APRES EVENEMENT LIDENT LPAR COLON DATE QUAND
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
 ## In state 155, spurious reduction of production value_def -> COLON formula
-## In state 260, spurious reduction of production expression(value_def) -> value_def
+## In state 262, spurious reduction of production expression(value_def) -> value_def
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
 program: ASSIETTE CALCULEE LIDENT AVANT EVENEMENT LIDENT COLON DATE QUAND
 ##
-## Ends in an error in state: 270.
+## Ends in an error in state: 272.
 ##
 ## nonempty_list(before_expr(value_def)) -> before_expr(value_def) . [ VALEUR RPAR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE APRES ]
 ## nonempty_list(before_expr(value_def)) -> before_expr(value_def) . nonempty_list(before_expr(value_def)) [ VALEUR RPAR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE APRES ]
@@ -2042,15 +2061,15 @@ program: ASSIETTE CALCULEE LIDENT AVANT EVENEMENT LIDENT COLON DATE QUAND
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
 ## In state 155, spurious reduction of production value_def -> COLON formula
-## In state 253, spurious reduction of production sub_expression(value_def) -> value_def
-## In state 254, spurious reduction of production before_expr(value_def) -> AVANT event_expr sub_expression(value_def)
+## In state 255, spurious reduction of production sub_expression(value_def) -> value_def
+## In state 256, spurious reduction of production before_expr(value_def) -> AVANT event_expr sub_expression(value_def)
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
 program: ASSIETTE CALCULEE LIDENT APRES EVENEMENT LIDENT COLON DATE QUAND
 ##
-## Ends in an error in state: 272.
+## Ends in an error in state: 274.
 ##
 ## nonempty_list(after_expr(value_def)) -> after_expr(value_def) . [ VALEUR RPAR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
 ## nonempty_list(after_expr(value_def)) -> after_expr(value_def) . nonempty_list(after_expr(value_def)) [ VALEUR RPAR OPERATION FINANCER EVENEMENT EOF DEFICIT DEFAUT ASSIETTE ]
@@ -2063,15 +2082,15 @@ program: ASSIETTE CALCULEE LIDENT APRES EVENEMENT LIDENT COLON DATE QUAND
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
 ## In state 155, spurious reduction of production value_def -> COLON formula
-## In state 253, spurious reduction of production sub_expression(value_def) -> value_def
-## In state 257, spurious reduction of production after_expr(value_def) -> APRES event_expr sub_expression(value_def)
+## In state 255, spurious reduction of production sub_expression(value_def) -> value_def
+## In state 259, spurious reduction of production after_expr(value_def) -> APRES event_expr sub_expression(value_def)
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
 program: VALEUR LIDENT COLON DATE QUAND
 ##
-## Ends in an error in state: 277.
+## Ends in an error in state: 279.
 ##
 ## list(toplevel_decl) -> toplevel_decl . list(toplevel_decl) [ EOF ]
 ##
@@ -2084,14 +2103,14 @@ program: VALEUR LIDENT COLON DATE QUAND
 ## may provide an INCOMPLETE view of the future (what was expected next).
 ## In state 155, spurious reduction of production value_def -> COLON formula
 ## In state 158, spurious reduction of production value_decl -> VALEUR boption(OBSERVABLE) LIDENT value_def
-## In state 276, spurious reduction of production toplevel_decl -> value_decl
+## In state 278, spurious reduction of production toplevel_decl -> value_decl
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
 raw_pool_start: VERS
 ##
-## Ends in an error in state: 287.
+## Ends in an error in state: 289.
 ##
 ## raw_pool_start' -> . raw_pool_start [ # ]
 ##
@@ -2103,7 +2122,7 @@ raw_pool_start: VERS
 
 raw_pool_start: LIDENT VERS
 ##
-## Ends in an error in state: 289.
+## Ends in an error in state: 291.
 ##
 ## raw_pool_start -> raw_pool . EOF [ # ]
 ##

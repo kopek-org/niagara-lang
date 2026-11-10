@@ -9,7 +9,7 @@ let pos (start, stop) = Pos.Text.make ~start ~stop
 %token ACTEUR POUR EVENEMENT NON ET OU AVANT APRES QUAND CONTEXTE TOUT CONSTANTE
 %token LPAR RPAR VERS ATTEINT PLUS MINUS MULT DIV EQ COLON EOF DEFICIT
 %token COMMA RETROCESSION RESTE OPPOSABLE ENVERS VALEUR CALCULEE
-%token OBSERVABLE FINANCER AVANCE SELON GROUPE
+%token OBSERVABLE FINANCER AVANCE SELON GROUPE BASE
 %token<R.t> FLOAT MONEY
 %token<Z.t> INT
 %token<string> LIDENT UIDENT
@@ -124,6 +124,7 @@ when_expr(atom):
 source:
 | SUR p = pool { AsHolder p }
 | PAR a = actor { AsHolder (holder ~loc:(pos $sloc) (Actor a)) }
+| SUR BASE b = LIDENT { AsBase b }
 
 // Formula
 
