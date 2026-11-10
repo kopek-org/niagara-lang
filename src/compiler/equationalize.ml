@@ -35,12 +35,20 @@ type comp_val = {
   cv_opposed : opposed_expr;
 }
 
+type repartition_cluster = {
+  shares : Repartition.part_or_def Repartition.t;
+  enforce_fullness : bool;
+  phantom_opposition : bool;
+}
+
+type backing_state = Backed | BackingRequired
+
 type t = {
   pinfos : ProgramInfo.t;
   used_variables : Variable.Set.t;
   ctx_derivations : Variable.t Context.Group.Map.t Variable.Map.t;
   event_eqs : expr Variable.Map.t;
-  repartitions : Repartition.eqs; (* src key *)
+  repartitions : repartition_cluster Variable.Map.t; (* src key *)
   flat_eqs : flat_op list Variable.Map.t; (* dest key *)
   comp_val_eqs : comp_val list Variable.Map.t; (* dest key *)
   value_eqs : aggregate_eqs; (* dest key *)
@@ -49,7 +57,7 @@ type t = {
   oppositions : Opposition.user_substitutions Opposition.Target.Map.t;
     (* target -> og variable -> subst expr *)
   opposition_providers : Variable.t Opposition.Target.Map.t; (* target -> provider *)
-  phantom_dests : Variable.Set.t;
+  phantom_dests : backing_state Variable.Map.t;
 }
 
 let make (pinfos : ProgramInfo.t) = {
@@ -65,7 +73,7 @@ let make (pinfos : ProgramInfo.t) = {
   deficits_vars = Variable.Map.empty;
   oppositions = Opposition.Target.Map.empty;
   opposition_providers = Opposition.Target.Map.empty;
-  phantom_dests = Variable.Set.empty;
+  phantom_dests = Variable.Map.empty;
 }
 
 let find_vinfo t (v : Variable.t) =
@@ -236,14 +244,35 @@ let lift_event t (event, opp_evs : expr_with_opps)
   in
   t, v
 
+let mark_source_as_base t (src : Variable.t) =
+  let repartitions =
+    Variable.Map.update src (function
+        | None -> Some {
+            shares = [];
+            enforce_fullness = false;
+            phantom_opposition = true
+          }
+        | Some r -> Some {
+            r with
+            enforce_fullness = false;
+            phantom_opposition = true
+          })
+      t.repartitions
+  in
+  { t with repartitions }
+
 let register_part t ~(act : Condition.t) ~(src : Variable.t)
     ~(dest : Variable.t) ~(event_path : VarInfo.event_loc list)
     (part : Repartition.part_or_def) =
   let share = Repartition.{ dest; part; condition = act; event_path } in
   let repartitions =
     Variable.Map.update src (function
-        | None -> Some [ share ]
-        | Some rs -> Some (share::rs))
+        | None -> Some {
+            shares = [ share ];
+            enforce_fullness = true;
+            phantom_opposition = false;
+          }
+        | Some rs -> Some { rs with shares = share::rs.shares })
       t.repartitions
   in
   { t with repartitions }
@@ -324,9 +353,25 @@ let register_value t ~(act : Condition.t) ~(dest : Variable.t) (expr : expr) =
   in
   { t with value_eqs; }
 
-let register_phantom_dest t (dest : Variable.t) =
+let request_dest_backing t (dest : Variable.t) =
+  { t with
+    phantom_dests =
+      Variable.Map.update dest
+        (function None -> Some BackingRequired | x -> x)
+        t.phantom_dests
+  }
+
+let register_dest_backing t (dest : Variable.t) =
   let t = qualify_phantom t dest in
-  { t with phantom_dests = Variable.Set.add dest t.phantom_dests }
+  { t with
+    phantom_dests =
+      Variable.Map.update dest (function
+          | None | Some BackingRequired -> Some Backed
+          | Some Backed ->
+            Report.raise_error "Destination %s backed twice"
+              (VarInfo.get_any_name t.pinfos.var_info dest))
+        t.phantom_dests
+  }
 
 let register_advance t (advanced_cumul : Variable.t) (amount : Literal.t) =
   let offset =
@@ -598,7 +643,7 @@ let convert_repartitions t =
     let t = register_value t ~act:Condition.always ~dest:stage_var stage_expr in
     t, stage_var, rem_directs
   in
-  Variable.Map.fold (fun src reps t ->
+  Variable.Map.fold (fun src { shares = reps; enforce_fullness; phantom_opposition } t ->
       let reps =
         (* resolve phantom dests *)
         let open Repartition in
@@ -606,13 +651,13 @@ let convert_repartitions t =
             match rep.part with
             | Default | Deficit -> rep
             | Part { part; kind = _ } ->
-              if Variable.Set.mem rep.dest t.phantom_dests
+              if Variable.Map.mem rep.dest t.phantom_dests && not phantom_opposition
               then { rep with part = Part { part; kind = Phantom }}
               else rep)
           reps
       in
       let fullrep =
-        match Repartition.resolve_fullness reps with
+        match Repartition.resolve_fullness ~enforce_fullness reps with
         | Ok fr -> fr
         | Error (ImperfectSum p) ->
           Report.raise_repartition_error t.pinfos src p
@@ -912,7 +957,17 @@ let build_init_requirements t =
       { t.pinfos with init_requirements }
   }
 
+let check_backing_requirement t =
+  Variable.Map.iter (fun dest backing_state ->
+      match backing_state with
+      | Backed -> ()
+      | BackingRequired ->
+        Report.raise_error "Destination %s must be backed"
+          (VarInfo.get_any_name t.pinfos.var_info dest))
+    t.phantom_dests
+
 let produce_aggregated_eqs t =
+  let _missing_backing_error = check_backing_requirement t in
   let t = convert_constants t in
   let t = convert_repartitions t in
   let t = convert_flats t in
@@ -1134,7 +1189,7 @@ let translate_redistribution acc ~(ctx : Context.Group.t)
 
 let translate_redist_w_dest acc
     ~(ctx : Context.Group.t) ~(act : Condition.t)
-    ~(src : Variable.t)
+    ~(src : Variable.t) ~(dest_must_be_backed : bool)
     ~(def_dest : Ast.contextualized_variable option)
     (WithVar (redist, dest) : Ast.contextualized Ast.redistrib_with_dest)
   =
@@ -1144,6 +1199,11 @@ let translate_redist_w_dest acc
     | None, Some dest -> dest
     | Some default, None -> default
     | None, None -> Report.raise_missing_dest_error ()
+  in
+  let acc =
+    if dest_must_be_backed then
+      Acc.request_dest_backing acc (fst dest)
+    else acc
   in
   translate_redistribution ~ctx ~act ~src ~dest acc redist
 
@@ -1168,11 +1228,13 @@ let conds_of_event ~act (evt : Variable.t) =
 let translate_redists acc
     ~(ctx : Context.Group.t)
     ~(act : Condition.t) ~(src : Variable.t)
+    ~(dest_must_be_backed : bool)
     ~(def_dest : Ast.contextualized_variable option)
     ~(event_path : VarInfo.event_loc list)
     (rs : Ast.contextualized Ast.redistrib_with_dest list) =
   List.fold_left
-    (translate_redist_w_dest ~ctx ~act ~src ~def_dest ~event_path)
+    (translate_redist_w_dest ~ctx ~act ~src
+       ~dest_must_be_backed ~def_dest ~event_path)
     acc rs
 
 let rec translate_guarded_obj : type obj. Acc.t
@@ -1216,9 +1278,17 @@ let translate_operation acc (o : Ast.ctx_operation_decl) =
   let source_local_shape = shape_of_ctx_var acc o.ctx_op_source in
   Context.shape_fold (fun acc ctx ->
       let acc, src = Acc.get_derivative_var acc (fst o.ctx_op_source) ctx in
+      let acc, dest_must_be_backed =
+        if o.ctx_op_source_is_base then
+          (* Caution: this is only correct because we reject pool
+             sources from falling in this case in the syntax and in
+             the first pass *)
+          Acc.mark_source_as_base acc src, true
+        else acc, false
+      in
       let redist_process =
-        translate_redists
-          ~src ~def_dest:o.ctx_op_default_dest
+        translate_redists ~src ~def_dest:o.ctx_op_default_dest
+          ~dest_must_be_backed
       in
       translate_guarded_obj acc redist_process
         ~ctx ~act:Condition.always ~event_path:[] o.ctx_op_guarded_redistrib)
@@ -1316,7 +1386,7 @@ let translate_backer acc (b : Ast.ctx_backer_decl) =
       | _::_::_ -> Report.raise_error "Forbidden advance on multiple targets"
   in
   List.fold_left (fun acc backed ->
-      let acc = Acc.register_phantom_dest acc backed in
+      let acc = Acc.register_dest_backing acc backed in
       Acc.register_aggregation acc ~act:Condition.always
         ~dest:b.ctx_bac_backer backed)
     acc backed_vars

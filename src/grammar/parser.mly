@@ -122,8 +122,8 @@ when_expr(atom):
 | QUAND g = event_expr se = sub_expression(atom) { (g, se) }
 
 source:
-| SUR p = pool { p }
-| PAR a = actor { holder ~loc:(pos $sloc) (Actor a) }
+| SUR p = pool { AsHolder p }
+| PAR a = actor { AsHolder (holder ~loc:(pos $sloc) (Actor a)) }
 
 // Formula
 

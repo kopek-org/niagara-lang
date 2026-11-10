@@ -33,8 +33,6 @@ type 'a share = {
 
 type 'a t = 'a share list
 
-type eqs = part_or_def t Variable.Map.t
-
 type unified_parts = Condition.t R.Map.t
 
 type fullness_result = {
@@ -48,4 +46,7 @@ type err =
   | ImperfectSum of R.t
   | MultipleDefRep
 
-val resolve_fullness : part_or_def t -> (fullness_result, err) Result.t
+val resolve_fullness :
+  enforce_fullness:bool
+  -> part_or_def t
+  -> (fullness_result, err) Result.t

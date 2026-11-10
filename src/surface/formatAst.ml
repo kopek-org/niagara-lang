@@ -60,12 +60,15 @@ let print_holder fmt (holder : holder) =
       print_context_refinement ctx
   | Actor a -> print_actor fmt a
 
-let print_op_source fmt (src : holder) =
-  Format.fprintf fmt "%s %a@;"
-    (match src.holder_desc with
-     | Pool (_, _) -> "sur"
-     | Actor _ -> "par")
-    print_holder src
+let print_op_source fmt (src : operation_base) =
+  match src with
+  | AsBase base -> Format.fprintf fmt "sur %s" base
+  | AsHolder h ->
+    Format.fprintf fmt "%s %a@;"
+      (match h.holder_desc with
+       | Pool (_, _) -> "sur"
+       | Actor _ -> "par")
+      print_holder h
 
 let print_destination fmt (dest : holder) =
   Format.fprintf fmt "vers %a" print_holder dest

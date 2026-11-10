@@ -930,9 +930,21 @@ let rec guarded_obj :
     acc, Whens redists
 
 let operation acc (op : operation_decl) =
-  let acc, (src, src_proj) = find_holder_as_source acc op.op_source in
-  if not @@ Context.is_any_projection (Acc.contexts acc) src_proj then
-    Report.raise_error "Forbidden refinment on source of operation";
+  let acc, src, ctx_op_source_is_base =
+    match op.op_source with
+    | AsHolder source ->
+      let acc, (src, src_proj) = find_holder_as_source acc source in
+      if not @@ Context.is_any_projection (Acc.contexts acc) src_proj then
+        Report.raise_error "Forbidden refinment on source of operation";
+      acc, src, false
+    | AsBase base ->
+      let base = Acc.find_misc_var acc base in
+      let _base_linearity_error =
+        if Acc.is_linear base acc then () else
+          Report.raise_error "Cannot use non-linear values as base"
+      in
+      acc, base, true
+  in
   let on_proj =
     projection_of_context_selector acc op.op_context
   in
@@ -960,6 +972,7 @@ let operation acc (op : operation_decl) =
   in
   acc,
   {
+    ctx_op_source_is_base;
     ctx_op_default_dest = default_dest;
     ctx_op_source = source;
     ctx_op_guarded_redistrib = g_redist;

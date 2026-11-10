@@ -143,11 +143,15 @@ type context =
   | Forall of string
   | Cases of string * string list
 
+type operation_base =
+  | AsHolder of holder
+  | AsBase of string
+
 type operation_decl = {
   op_loc : Pos.t;
   op_default_dest : holder option;
   op_context : context list;
-  op_source : holder;
+  op_source : operation_base;
   op_guarded_redistrib :
     (source, source redistrib_with_dest list) guarded_redistrib;
 }
@@ -155,6 +159,7 @@ type operation_decl = {
 type ctx_operation_decl = {
   ctx_op_default_dest : contextualized_variable option;
   ctx_op_source : contextualized_variable;
+  ctx_op_source_is_base : bool;
   ctx_op_guarded_redistrib :
     (contextualized, contextualized redistrib_with_dest list) guarded_redistrib;
 }

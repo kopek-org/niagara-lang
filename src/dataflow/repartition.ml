@@ -31,8 +31,6 @@ type 'a share = {
 
 type 'a t = 'a share list
 
-type eqs = part_or_def t Variable.Map.t
-
 type unified_parts = Condition.t R.Map.t
 
 type err =
@@ -193,7 +191,7 @@ type fullness_result = {
   deficits : unified_parts share option;
 }
 
-let resolve_fullness_exn (rep : part_or_def t) =
+let resolve_fullness_exn ~enforce_fullness (rep : part_or_def t) =
   let parts, defs = sort_shares rep in
   let parts, local_defaults =
     List.fold_left (fun (parts, defs) def_share ->
@@ -230,9 +228,12 @@ let resolve_fullness_exn (rep : part_or_def t) =
   let parts, deficit =
     match defs.deficit with
     | None ->
-      R.Map.iter (fun p _ ->
-          if R.(p <> zero) then raise (Stop (ImperfectSum R.(p + one))))
-        (fst defs.non_opp_parts);
+      let _fullness_error =
+        if enforce_fullness then
+          R.Map.iter (fun p _ ->
+              if R.(p <> zero) then raise (Stop (ImperfectSum R.(p + one))))
+            (fst defs.non_opp_parts)
+      in
       parts, None
     | Some share ->
       let ds, parts = deficit_parts parts share.condition in
@@ -251,7 +252,7 @@ let resolve_fullness_exn (rep : part_or_def t) =
       } in
       parts, Some deficit_share
   in
-  check_fullness parts;
+  if enforce_fullness then check_fullness parts;
   {
     parts =
       List.filter_map (fun {part; dest; condition; event_path } ->
@@ -265,6 +266,6 @@ let resolve_fullness_exn (rep : part_or_def t) =
     non_opp_parts = snd defs.non_opp_parts;
   }
 
-let resolve_fullness (rep : part_or_def t) =
-  try Ok (resolve_fullness_exn rep) with
+let resolve_fullness ~enforce_fullness (rep : part_or_def t) =
+  try Ok (resolve_fullness_exn ~enforce_fullness rep) with
   | Stop err -> Error err
