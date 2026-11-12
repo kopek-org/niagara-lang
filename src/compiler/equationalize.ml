@@ -986,10 +986,10 @@ let translate_binop (op : Ast.binop) (e1 : expr) (e2 : expr) =
   | Mult -> EMult (e1, e2)
   | Div -> EMult (e1, EInv e2)
 
-let combine_fopps (cmb : expr -> expr -> expr)
+let combine_fopps acc (cmb : expr -> expr -> expr)
     (canon1, opps1 : expr_with_opps) (canon2, opps2 : expr_with_opps) =
   cmb canon1 canon2,
-  Opposition.Target.Map.merge (fun _ o1 o2 ->
+  Opposition.Target.Map.merge (fun tgt o1 o2 ->
       let e1, e2, p =
         match o1, o2 with
         | None, None -> assert false
@@ -999,7 +999,7 @@ let combine_fopps (cmb : expr -> expr -> expr)
           match p1, p2 with
           | Some p1, Some p2 ->
             if not @@ Variable.equal p1 p2 then
-              Report.raise_error "Several opposition provider for a same target"
+              Report.raise_multiple_opp_provider_error acc.Acc.pinfos tgt
             else
               e1, e2, Some p1
           | None, p | p, None -> e1, e2, p
@@ -1054,7 +1054,7 @@ and translate_formula acc ~(ctx : Context.Group.t) ~(view : flow_view)
   | Binop (op, f1, f2) ->
     let acc, e1 = translate_formula ~ctx acc ~view f1 in
     let acc, e2 = translate_formula ~ctx acc ~view f2 in
-    acc, (combine_fopps (translate_binop op) e1 e2)
+    acc, (combine_fopps acc (translate_binop op) e1 e2)
   | Total f -> translate_formula ~ctx acc ~view:Cumulated f
   | Instant f -> translate_formula ~ctx acc ~view:AtInstant f
   | Opposed (f, VarOpp { opp_towards; opp_value; opp_provider }) ->
@@ -1080,12 +1080,12 @@ and translate_event acc (eexpr : Ast.contextualized Ast.event_expr) =
     let ctx = Context.any_projection (Acc.contexts acc) in
     let acc, e1 = translate_formula ~ctx ~view:Cumulated acc f1 in
     let acc, e2 = translate_formula ~ctx ~view:Cumulated acc f2 in
-    let e = combine_fopps (fun e1 e2 -> EGe (e1, e2)) e1 e2 in
+    let e = combine_fopps acc (fun e1 e2 -> EGe (e1, e2)) e1 e2 in
     acc, e
   | EventConj (e1, e2) ->
     let acc, e1 = translate_event acc e1 in
     let acc, e2 = translate_event acc e2 in
-    let e = combine_fopps (fun e1 e2 -> EAnd (e1, e2)) e1 e2 in
+    let e = combine_fopps acc (fun e1 e2 -> EAnd (e1, e2)) e1 e2 in
     acc, e
   | EventDisj _ -> assert false
 

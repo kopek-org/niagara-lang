@@ -13,10 +13,12 @@ type error =
   | Typing of { loc : Pos.t }
   | ForbiddenNonLinear of { loc : Pos.t }
   | UselessOpposition of { loc : Pos.t; towards : Variable.t }
+  | ForbiddenValueUse of { loc : Pos.t; value : Variable.t }
   | MultipleOppositionProvider of
       { locs : Pos.t list; towards : VarInfo.OppositionTarget.t }
   | LabelUsedBothWays of { locs : Pos.t list; label : string }
   | CyclicRepartition of { locs : Pos.t list }
+  | GroupIntersection of { locs : Pos.t list; new_g : string; existing : string }
   | User of { locs : Pos.t list; msg : string }
 
 let print_error (pinfo : ProgramInfo.t) fmt (err : error) =
@@ -57,6 +59,10 @@ let print_error (pinfo : ProgramInfo.t) fmt (err : error) =
     Format.fprintf fmt "Error, %a:@\nUseless opposed value towards '%s'"
       Pos.Text.pp loc
       (VarInfo.get_any_name pinfo.var_info towards)
+  | ForbiddenValueUse { loc; value } ->
+    Format.fprintf fmt "Error, %a:@\nValue variable %s is not allowed to be used"
+      Pos.Text.pp loc
+      (VarInfo.get_any_name pinfo.var_info value)
   | MultipleOppositionProvider { locs; towards } ->
     Format.fprintf fmt "Error, %a:@\nSeveral opposition provider towards '%s'"
       (Format.pp_print_list
@@ -76,6 +82,14 @@ let print_error (pinfo : ProgramInfo.t) fmt (err : error) =
       (Format.pp_print_list
          ~pp_sep:(fun fmt () -> Format.fprintf fmt ",@ ")
          Pos.Text.pp) locs
+  | GroupIntersection { locs; new_g; existing } ->
+    Format.fprintf
+      fmt
+      "Error, %a:@\nGroup %s contains a partner already in group %s"
+      (Format.pp_print_list
+         ~pp_sep:(fun fmt () -> Format.fprintf fmt ",@ ")
+         Pos.Text.pp) locs
+      new_g existing
   | User { locs = _; msg } ->
     Format.pp_print_string fmt msg
 
@@ -122,6 +136,9 @@ let raise_typing_error ?(loc = Pos.dummy) () =
 let raise_nonlinear_error ?(loc = Pos.dummy) () =
   log_error "Non-linear error" ProgramInfo.dummy (ForbiddenNonLinear { loc })
 
+let raise_forbidden_value_use_error ?(loc = Pos.dummy) pinfo value =
+  log_error "Forbidden value use" pinfo (ForbiddenValueUse { loc; value })
+
 let raise_useless_opposition_error ?(loc = Pos.dummy) pinfo towards =
   log_error "Useless opposition" pinfo (UselessOpposition { loc; towards })
 
@@ -133,6 +150,9 @@ let raise_label_used_both_ways ?(locs = []) label =
 
 let raise_cyclic_repartition ?(locs = []) () =
   log_error "Non-linear error" ProgramInfo.dummy (CyclicRepartition { locs })
+
+let raise_group_intersection_error ?(locs = []) new_g existing =
+  log_error "Group intersection" ProgramInfo.dummy (GroupIntersection { locs; new_g; existing })
 
 let raise_error ?(locs = []) fmt =
   let k msg = log_error "Usage error" ProgramInfo.dummy (User { locs; msg }) in

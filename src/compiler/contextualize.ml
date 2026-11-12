@@ -118,6 +118,76 @@ end = struct
     deps = Variable.Map.empty;
   }
 
+  let resolve_constraints t =
+    let rec resolve_var v shapes =
+      (* Recursive memoized calls to process in topological order. Vulnerable to
+         cyclicity *)
+      match Variable.Map.find_opt v shapes with
+      | Some shape -> shapes, shape
+      | None ->
+        match Variable.Map.find_opt v t.constraints with
+        | None ->
+          let everything = Context.shape_of_everything t.contexts in
+          Variable.Map.add v everything shapes,
+          everything
+        | Some { from_vars; projections } ->
+          (* Core of the inference algorithm
+
+             Propagating shapes upward means having the minimum distinction of
+             groups that can properly pour downstream (each group pours in one
+             and only one group of the downstream variable).
+
+             The first part is to aggregate all the groups of each constraining
+             variables, restricted to the associated projections. Then, merge
+             them together keeping all the distinctions made for each (group
+             clipping).
+
+             The second is to filter out any part of the result that does not
+             exists in one of downstream variables but is included in the
+             projections. This is to avoid a result with groups that can be
+             poured in some cases. *)
+          let shapes, (pshapes, forbidden) =
+            Variable.Map.fold (fun v projs (shapes, (pshapes, forbidden)) ->
+                let shapes, var_shape = resolve_var v shapes in
+                let vperi = Context.shape_perimeter var_shape in
+                shapes, Context.Group.Set.fold (fun proj (pshapes, forbidden) ->
+                    Context.shape_cut_out var_shape proj :: pshapes,
+                    Context.Group.union (Context.Group.inter forbidden vperi)
+                      (Context.Group.diff forbidden proj)
+                  )
+                  projs (pshapes, forbidden))
+              from_vars (shapes, ([], Context.any_projection t.contexts))
+          in
+          let shape_from_vars =
+            match pshapes with
+            | [] -> Context.shape_of_everything t.contexts
+            | s::ss -> List.fold_left Context.shape_clip s ss
+          in
+          let filtered_shape = Context.shape_cut_out shape_from_vars forbidden in
+          (* Additionally, for simple projection constraints, we just need to
+             add distinction of what exists in the projection from what exists
+             ouside *)
+          let shape_with_projs =
+            Context.Group.Set.fold (fun p s -> Context.shape_imprint_projection s p)
+            projections filtered_shape
+          in
+          Variable.Map.add v shape_with_projs shapes,
+          shape_with_projs
+    in
+    Variable.Map.fold (fun v _ shapes ->
+        fst @@ resolve_var v shapes)
+      t.var_info Variable.Map.empty
+
+  let to_program_infos t = {
+      ProgramInfo.dummy with
+      var_info = t.var_info;
+      var_shapes = resolve_constraints t;
+      contexts = t.contexts;
+      compounds = t.compounds;
+      constants = t.constants;
+      opposition_groups = t.opposition_groups;
+    }
+
   let contexts t = t.contexts
 
   let is_partner v t =
@@ -194,8 +264,7 @@ end = struct
       StrMap.iter (fun gname gps ->
           let d = Variable.Set.inter partners gps in
           if Variable.Set.is_empty d then () else
-            Report.raise_error "Group %s contains a partner already in group %s"
-              name gname)
+            Report.raise_group_intersection_error name gname)
         t.opposition_groups
     in
     let t = bind_var name RefGroup t in
@@ -349,8 +418,8 @@ end = struct
     match StrMap.find_opt name t.var_table with
     | Some (RefROInput v | RefEvent v | RefConst v
            | RefValue { var = v; forbidden_use = false }) -> v
-    | Some (RefValue { forbidden_use = true; _ }) ->
-      Report.raise_error "Value variable %s is not allowed to be used" name
+    | Some (RefValue { forbidden_use = true; var }) ->
+      Report.raise_forbidden_value_use_error (to_program_infos t) var
     | Some (RefActor (BaseActor a)) -> a
     | Some (RefActor (Label _)) ->
       Report.raise_internal_error "Actor name %s should not exists" name
@@ -442,66 +511,6 @@ end = struct
                 })
             t.constraints
       }
-
-  let resolve_constraints t =
-    let rec resolve_var v shapes =
-      (* Recursive memoized calls to process in topological order. Vulnerable to
-         cyclicity *)
-      match Variable.Map.find_opt v shapes with
-      | Some shape -> shapes, shape
-      | None ->
-        match Variable.Map.find_opt v t.constraints with
-        | None ->
-          let everything = Context.shape_of_everything t.contexts in
-          Variable.Map.add v everything shapes,
-          everything
-        | Some { from_vars; projections } ->
-          (* Core of the inference algorithm
-
-             Propagating shapes upward means having the minimum distinction of
-             groups that can properly pour downstream (each group pours in one
-             and only one group of the downstream variable).
-
-             The first part is to aggregate all the groups of each constraining
-             variables, restricted to the associated projections. Then, merge
-             them together keeping all the distinctions made for each (group
-             clipping).
-
-             The second is to filter out any part of the result that does not
-             exists in one of downstream variables but is included in the
-             projections. This is to avoid a result with groups that can be
-             poured in some cases. *)
-          let shapes, (pshapes, forbidden) =
-            Variable.Map.fold (fun v projs (shapes, (pshapes, forbidden)) ->
-                let shapes, var_shape = resolve_var v shapes in
-                let vperi = Context.shape_perimeter var_shape in
-                shapes, Context.Group.Set.fold (fun proj (pshapes, forbidden) ->
-                    Context.shape_cut_out var_shape proj :: pshapes,
-                    Context.Group.union (Context.Group.inter forbidden vperi)
-                      (Context.Group.diff forbidden proj)
-                  )
-                  projs (pshapes, forbidden))
-              from_vars (shapes, ([], Context.any_projection t.contexts))
-          in
-          let shape_from_vars =
-            match pshapes with
-            | [] -> Context.shape_of_everything t.contexts
-            | s::ss -> List.fold_left Context.shape_clip s ss
-          in
-          let filtered_shape = Context.shape_cut_out shape_from_vars forbidden in
-          (* Additionally, for simple projection constraints, we just need to
-             add distinction of what exists in the projection from what exists
-             ouside *)
-          let shape_with_projs =
-            Context.Group.Set.fold (fun p s -> Context.shape_imprint_projection s p)
-            projections filtered_shape
-          in
-          Variable.Map.add v shape_with_projs shapes,
-          shape_with_projs
-    in
-    Variable.Map.fold (fun v _ shapes ->
-        fst @@ resolve_var v shapes)
-      t.var_info Variable.Map.empty
 
   let add_deps_from t (src : Variable.t) (dests : Variable.t list) =
     if VarInfo.is_partner (Variable.Map.find src t.var_info) then
