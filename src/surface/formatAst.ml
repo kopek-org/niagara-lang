@@ -203,7 +203,7 @@ let rec print_guarded_obj :
 let print_local_valuation (type a) infos fmt (f : a formula) =
   Format.fprintf fmt ": %a" (print_formula infos) f
 
-let print_declaration (type a) infos fmt (decl : a declaration) =
+let print_prelude_declaration fmt (decl : prelude_declaration) =
   match decl with
   | DContext ctx ->
     Format.fprintf fmt "contexte %s :@;@[<v>%a@]"
@@ -214,15 +214,25 @@ let print_declaration (type a) infos fmt (decl : a declaration) =
     Format.fprintf fmt "acteur %s" a.actor_decl_desc
   | DInput input ->
     (match input.input_kind with
-    | ReadOnly ->
-      Format.fprintf fmt "entree %s type %a %a"
-        input.input_name
-        print_type input.input_type
-        print_input_context input.input_context
-    | Attributable ->
-      Format.fprintf fmt "entree assiette %s %a"
-        input.input_name
-        print_input_context input.input_context)
+     | ReadOnly ->
+       Format.fprintf fmt "entree %s type %a %a"
+         input.input_name
+         print_type input.input_type
+         print_input_context input.input_context
+     | Attributable ->
+       Format.fprintf fmt "entree assiette %s %a"
+         input.input_name
+         print_input_context input.input_context)
+  | DConstant c ->
+    Format.fprintf fmt "constante %s : %a" c.const_name Literal.print c.const_value
+  | DOppGroup g ->
+    Format.fprintf fmt "groupe opposable %s :@;@[<v>%a@,@]"
+      g.og_name
+      (Format.pp_print_list (fun fmt c -> Format.fprintf fmt"- %s" c))
+      g.og_partners
+
+let print_declaration (type a) infos fmt (decl : a declaration) =
+  match decl with
   | DHolderOperation op ->
     Format.fprintf fmt "@[<hv 2>operation %a@,%a%a%a@]"
       (Format.pp_print_option print_destination) op.op_default_dest
@@ -250,8 +260,6 @@ let print_declaration (type a) infos fmt (decl : a declaration) =
     Format.fprintf fmt "@[<hv 2>assiette calculee %a@,%a@]"
       (ProgramInfo.print_ctx_variable infos) p.ctx_comp_pool_var
       (print_guarded_obj infos print_local_valuation) p.ctx_comp_pool_guarded_value
-  | DConstant c ->
-    Format.fprintf fmt "constante %s : %a" c.const_name Literal.print c.const_value
   | DHolderValue v ->
     Format.fprintf fmt "@[<hov 2>valeur%s%s %s :@ %a@]"
       (if v.val_observable then " observable" else "")
@@ -293,11 +301,6 @@ let print_declaration (type a) infos fmt (decl : a declaration) =
     Option.iter (Format.fprintf fmt "@ avance %a" Literal.print)
       b.ctx_bac_advance;
     Format.pp_close_box fmt ()
-  | DOppGroup g ->
-    Format.fprintf fmt "groupe opposable %s :@;@[<v>%a@,@]"
-      g.og_name
-      (Format.pp_print_list (fun fmt c -> Format.fprintf fmt"- %s" c))
-      g.og_partners
 
 let print_constants infos fmt () =
   Variable.Map.iter (fun v value ->
@@ -310,8 +313,9 @@ let print_constants infos fmt () =
 let print_program (type a) fmt (p : a program) =
   Format.pp_open_vbox fmt 0;
   begin match p with
-    | Source decls ->
-      Format.pp_print_list (print_declaration ProgramInfo.dummy) fmt decls
+    | Source { prelude; prog } ->
+      Format.pp_print_list print_prelude_declaration fmt prelude;
+      Format.pp_print_list (print_declaration ProgramInfo.dummy) fmt prog
     | Contextualized (infos, decls) ->
       ProgramInfo.print_var_contexts infos fmt ();
       print_constants infos fmt ();

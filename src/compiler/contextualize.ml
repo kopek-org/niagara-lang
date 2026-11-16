@@ -1041,12 +1041,17 @@ let opposition_group acc (g : opp_group_decl) =
   in
   Acc.register_opp_group acc g.og_name partners
 
-let declaration acc (decl : source declaration) =
+let prelude_declaration acc (decl : prelude_declaration) =
   match decl with
   | DInput i -> register_input acc i
   | DActor a -> Acc.register_actor acc a.actor_decl_desc
   | DContext c ->
     Acc.register_context_domain acc c.context_type_name c.context_type_cases
+  | DConstant c -> constant acc c
+  | DOppGroup g -> opposition_group acc g
+
+let declaration acc (decl : source declaration) =
+  match decl with
   | DHolderOperation o ->
     let acc, op = operation acc o in
     Acc.add_program_decl acc (DVarOperation op)
@@ -1056,7 +1061,6 @@ let declaration acc (decl : source declaration) =
   | DHolderPool p ->
     let acc, p = comp_pool acc p in
     Acc.add_program_decl acc (DVarPool p)
-  | DConstant c -> constant acc c
   | DHolderValue v ->
     let acc, v = value acc v in
     Acc.add_program_decl acc (DVarValue v)
@@ -1083,9 +1087,8 @@ let declaration acc (decl : source declaration) =
     let ctx_bac_advance = b.bac_advance in
     let acc = Acc.add_deps_from acc ctx_bac_backer [fst ctx_bac_backed] in
     Acc.add_program_decl acc (DVarBacker { ctx_bac_backed; ctx_bac_backer; ctx_bac_advance })
-  | DOppGroup g -> opposition_group acc g
 
-let program (Source prog : source program) : contextualized program =
-  let acc = Acc.empty in
+let program (Source { prelude; prog } : source program) : contextualized program =
+  let acc = List.fold_left prelude_declaration Acc.empty prelude in
   let acc = List.fold_left declaration acc prog in
   Acc.to_contextualized_program acc

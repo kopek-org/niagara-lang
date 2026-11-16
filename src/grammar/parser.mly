@@ -349,15 +349,18 @@ opposition_group_decl:
 | GROUPE OPPOSABLE og_name = LIDENT COLON og_partners = group_member+
   {{ og_name; og_partners }}
 
+prelude_decl:
+| c = constant_decl { DConstant c }
+| c = context_decl { DContext c }
+| i = input_decl { DInput i }
+| o = actor_decl { DActor o }
+| g = opposition_group_decl { DOppGroup g }
+
 toplevel_decl:
 | o = operation { DHolderOperation o }
 | e = event_decl { DHolderEvent e }
 | p = comp_pool_decl { DHolderPool p }
-| c = constant_decl { DConstant c }
 | v = value_decl { DHolderValue v }
-| c = context_decl { DContext c }
-| i = input_decl { DInput i }
-| o = actor_decl { DActor o }
 | d = default_decl
   { let (default_source, default_dest) = d in
     DHolderDefault { default_source; default_dest }
@@ -366,6 +369,5 @@ toplevel_decl:
   { let (deficit_pool, deficit_provider) = d in
     DHolderDeficit { deficit_pool; deficit_provider } }
 | b = backer_decl { DHolderBacker b }
-| g = opposition_group_decl { DOppGroup g }
 
-program: d = toplevel_decl* EOF { Source d }
+program: prelude = prelude_decl* prog = toplevel_decl* EOF { Source { prelude; prog } }

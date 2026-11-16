@@ -260,6 +260,13 @@ type opp_group_decl = {
   og_partners : string list;
 }
 
+type prelude_declaration =
+  | DConstant of const_decl
+  | DContext of context_decl
+  | DInput of input_decl
+  | DActor of actor_decl
+  | DOppGroup of opp_group_decl
+
 type _ declaration =
   | DHolderOperation : operation_decl -> source declaration
   | DVarOperation : ctx_operation_decl -> contextualized declaration
@@ -267,22 +274,17 @@ type _ declaration =
   | DVarEvent : ctx_event_decl -> contextualized declaration
   | DHolderPool : comp_pool_decl -> source declaration
   | DVarPool : ctx_comp_pool_decl -> contextualized declaration
-  | DConstant : const_decl -> source declaration
   | DHolderValue : val_decl -> source declaration
   | DVarValue : ctx_val_decl -> contextualized declaration
-  | DContext : context_decl -> source declaration
-  | DInput : input_decl -> source declaration
-  | DActor : actor_decl -> source declaration
   | DHolderDefault : default_decl -> source declaration
   | DHolderDeficit : deficit_decl -> source declaration
   | DVarDefault : ctx_default_decl -> contextualized declaration
   | DVarDeficit : ctx_deficit_decl -> contextualized declaration
   | DHolderBacker : backer_decl -> source declaration
   | DVarBacker : ctx_backer_decl -> contextualized declaration
-  | DOppGroup : opp_group_decl -> source declaration
 
 type _ program =
-  | Source : source declaration list -> source program
+  | Source : { prelude : prelude_declaration list; prog : source declaration list } -> source program
   | Contextualized : ProgramInfo.t * contextualized declaration list -> contextualized program
 
 
