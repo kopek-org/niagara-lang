@@ -386,10 +386,10 @@ let add_delta acc env ~target_partners =
         phantom = true;
       }
     in
-    let org_sum, opp_sum =
+    let dve =
       let ps = Variable.Set.elements target_partners in
       match ps with
-      | [] -> assert false
+      | [] -> EConst (Literal.LMoney R.zero)
       | h::ps ->
         let opp_var v =
           match Variable.Map.find_opt v acc.copies with
@@ -397,12 +397,13 @@ let add_delta acc env ~target_partners =
             EVar v (* should not happen, but this would be the right semantics *)
           | Some (Some opp) -> EVar opp
         in
-        List.fold_left (fun (og, op) p ->
-            EAdd (og, EVar p), EAdd (op, opp_var p))
-          (EVar h, opp_var h)
-          ps
-    in
-    let dve = EAdd (opp_sum, ENeg org_sum) in
+        let org_sum, opp_sum =
+          List.fold_left (fun (og, op) p ->
+              EAdd (og, EVar p), EAdd (op, opp_var p))
+            (EVar h, opp_var h)
+            ps
+        in
+        EAdd (opp_sum, ENeg org_sum) in
     let cdve = EAdd (EPre cdv, EVar dv) in
     let value_eqs =
       Variable.Map.add dv (One { eq_act = Condition.always; eq_expr = dve }) acc.value_eqs
